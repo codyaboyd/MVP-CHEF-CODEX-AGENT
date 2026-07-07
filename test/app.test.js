@@ -500,3 +500,77 @@ test('GitManager enforces a clean tree, branches, summarizes, commits, pushes, p
   fs.rmSync(originPath, { recursive: true, force: true });
   fs.rmSync(repoPath, { recursive: true, force: true });
 });
+
+test('GitHubManager verifies gh, creates PRs, waits for checks, squash merges, and records merge SHA', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { GitHubManager } = require('../src/services/githubManagerService');
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'github-manager-repo-'));
+  const ghPath = path.join(repoPath, 'fake-gh.js');
+  const callsPath = path.join(repoPath, 'calls.log');
+
+  fs.writeFileSync(ghPath, `#!/usr/bin/env node
+const fs = require('node:fs');
+const path = require('node:path');
+const callsPath = path.join(process.cwd(), 'calls.log');
+const args = process.argv.slice(2);
+fs.appendFileSync(callsPath, args.join(' ') + '\\n');
+if (args[0] === '--version') {
+  console.log('gh version 2.0.0');
+  process.exit(0);
+}
+if (args[0] === 'auth' && args[1] === 'status') process.exit(0);
+if (args[0] === 'pr' && args[1] === 'create') {
+  console.log('https://github.com/example/repo/pull/12');
+  process.exit(0);
+}
+if (args[0] === 'pr' && args[1] === 'checks') process.exit(0);
+if (args[0] === 'pr' && args[1] === 'merge') process.exit(0);
+if (args[0] === 'pr' && args[1] === 'view') {
+  console.log(JSON.stringify({ mergeCommit: { oid: 'abc123merge' } }));
+  process.exit(0);
+}
+console.error('unexpected gh args: ' + args.join(' '));
+process.exit(1);
+`);
+  fs.chmodSync(ghPath, 0o755);
+
+  const manager = new GitHubManager({ repoPath, mainBranch: 'main', ghCommand: process.execPath, checkPollIntervalMs: 1, checkTimeoutMs: 1000 });
+  manager.ghCommand = process.execPath;
+  manager.run = (args, options) => require('../src/services/githubManagerService').runGh(repoPath, [ghPath, ...args], { ...options, ghCommand: process.execPath });
+
+  const verification = await manager.verifyCli();
+  assert.equal(verification.authenticated, true);
+  const result = await manager.createMergeAfterChecks({
+    branchName: 'mvp-chef/run-1/step-2-test',
+    title: 'Step PR',
+    body: 'Body',
+    squash: true
+  });
+
+  assert.deepEqual(result, { prUrl: 'https://github.com/example/repo/pull/12', mergeCommitSha: 'abc123merge' });
+  const calls = fs.readFileSync(callsPath, 'utf8');
+  assert.match(calls, /pr create --base main --head mvp-chef\/run-1\/step-2-test/);
+  assert.match(calls, /pr checks https:\/\/github.com\/example\/repo\/pull\/12 --watch --fail-fast/);
+  assert.match(calls, /pr merge https:\/\/github.com\/example\/repo\/pull\/12 --delete-branch --squash/);
+
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});
+
+test('GitHubManager fails gracefully when gh is missing', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { GitHubManager } = require('../src/services/githubManagerService');
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'github-manager-missing-'));
+  const manager = new GitHubManager({ repoPath, ghCommand: path.join(repoPath, 'missing-gh') });
+
+  await assert.rejects(() => manager.verifyCli(), (error) => {
+    assert.equal(error.code, 'GH_CLI_MISSING');
+    assert.match(error.message, /GitHub CLI \(gh\) is not installed/);
+    return true;
+  });
+
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});

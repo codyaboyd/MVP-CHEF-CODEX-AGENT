@@ -4,6 +4,7 @@ const recipeService = require('./recipeService');
 const runStateManager = require('./runStateManager');
 const qualityGateService = require('./qualityGateService');
 const { GitManager } = require('./gitManagerService');
+const { GitHubManager } = require('./githubManagerService');
 
 const { STATUSES } = runStateManager;
 
@@ -70,7 +71,20 @@ async function executeRun(runId, options = {}) {
   runStateManager.updateRun(runId, STATUSES.RUNNING, { started_at: run.started_at || nowSql(), completed_at: null, error_message: null });
 
   const gitManager = options.gitEnabled ? new GitManager({ repoPath: project.repo_path, mainBranch: project.default_branch }) : null;
-  if (gitManager) await gitManager.assertCleanWorkingTree();
+  const githubManager = gitManager && options.githubAutomation !== false
+    ? new GitHubManager({
+      repoPath: project.repo_path,
+      mainBranch: project.default_branch,
+      ghCommand: options.ghCommand,
+      checkPollIntervalMs: options.githubCheckPollIntervalMs,
+      checkTimeoutMs: options.githubCheckTimeoutMs
+    })
+    : null;
+  if (gitManager) {
+    await gitManager.assertCleanWorkingTree();
+    if (githubManager) await githubManager.verifyCli();
+    await gitManager.pullLatestMain();
+  }
 
   while (nextStep) {
     const latestRun = runStateManager.getRun(runId);
@@ -115,18 +129,34 @@ async function executeRun(runId, options = {}) {
       const gitResult = gitManager
         ? await gitManager.commitStep({ runId, stepId: nextStep.id, stepTitle: recipeStep.title })
         : null;
+      let githubResult = null;
       if (gitManager && gitResult.committed && options.gitPush !== false) {
         await gitManager.pushBranch(branchName);
+        if (githubManager) {
+          githubResult = await githubManager.createMergeAfterChecks({
+            branchName,
+            title: `MVP Chef run ${runId}: ${recipeStep.title || `step ${nextStep.id}`}`,
+            body: `Run ID: ${runId}
+Step ID: ${nextStep.id}
+
+${gitResult.diffSummary || 'Automated MVP Chef step changes.'}`,
+            squash: options.githubSquashMerge !== false
+          });
+          await gitManager.pullLatestMain();
+        }
       }
       runStateManager.updateRunStep(nextStep.id, STATUSES.SUCCEEDED, {
         completed_at: nowSql(),
         error_message: null,
-        commit_sha: gitResult?.commitSha || nextStep.commit_sha || null
+        commit_sha: gitResult?.commitSha || nextStep.commit_sha || null,
+        pr_url: githubResult?.prUrl || nextStep.pr_url || null,
+        merge_commit_sha: githubResult?.mergeCommitSha || nextStep.merge_commit_sha || null
       });
       runStateManager.updateRun(runId, STATUSES.RUNNING, {
         completed_at: null,
         error_message: null,
-        commit_sha: gitResult?.commitSha || latestRun.commit_sha || null
+        commit_sha: githubResult?.mergeCommitSha || gitResult?.commitSha || latestRun.commit_sha || null,
+        pr_url: githubResult?.prUrl || latestRun.pr_url || null
       });
     } catch (error) {
       if (gitManager && checkpointSha) {
@@ -149,7 +179,7 @@ Rollback failed: ${rollbackError.message}`;
     nextStep = findResumeStep(runSteps);
   }
 
-  if (gitManager) await gitManager.pullLatestMain();
+  if (gitManager && !githubManager) await gitManager.pullLatestMain();
 
   return runStateManager.updateRun(runId, STATUSES.SUCCEEDED, { completed_at: nowSql(), error_message: null });
 }
