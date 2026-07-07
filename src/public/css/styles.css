@@ -1,0 +1,101 @@
+:root {
+  --chef-ink: #392b24;
+  --chef-cream: #fff5d9;
+  --chef-peach: #ffbd8a;
+  --chef-red: #ee6352;
+  --chef-blue: #4d96ff;
+  --chef-green: #6bcb77;
+}
+
+body {
+  background: radial-gradient(circle at top left, #fff2b8, transparent 28rem), linear-gradient(135deg, #fff8e8 0%, #ffe4c7 100%);
+  color: var(--chef-ink);
+  font-family: "Trebuchet MS", "Comic Sans MS", system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+.fw-black {
+  font-weight: 900;
+}
+
+.chef-navbar {
+  background: linear-gradient(90deg, var(--chef-red), #ff8c42);
+  border-bottom: 5px solid #f9d64a;
+}
+
+.hero {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.15));
+}
+
+.mascot-card,
+.paper-panel,
+.recipe-page,
+.recipe-card {
+  background: var(--chef-cream);
+  border: 4px solid var(--chef-ink) !important;
+  border-radius: 2rem;
+  box-shadow: 8px 8px 0 rgba(57, 43, 36, 0.18) !important;
+}
+
+.mascot-card {
+  max-width: 22rem;
+  padding: 2rem;
+  transform: rotate(2deg);
+}
+
+.mascot {
+  font-size: 8rem;
+  line-height: 1;
+}
+
+.speech-bubble {
+  background: #fff;
+  border: 3px solid var(--chef-ink);
+  border-radius: 1.5rem;
+  display: inline-block;
+  font-weight: 800;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.recipe-card {
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.recipe-card:hover {
+  box-shadow: 12px 12px 0 rgba(57, 43, 36, 0.24) !important;
+  transform: translate(-3px, -3px) rotate(-1deg);
+}
+
+.phase-badge {
+  background: var(--chef-green);
+  border: 2px solid var(--chef-ink);
+  color: var(--chef-ink);
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--chef-blue);
+  --bs-btn-border-color: var(--chef-ink);
+  --bs-btn-hover-bg: #2f7ee8;
+  --bs-btn-hover-border-color: var(--chef-ink);
+  border-width: 3px;
+  font-weight: 800;
+}
+
+.ingredient-list li,
+.instruction-list li {
+  margin-bottom: 0.75rem;
+}
+
+.ingredient-list li::marker {
+  content: "🥕 ";
+}
+
+.not-found-panel {
+  max-width: 42rem;
+}
+
+.chef-footer {
+  background: rgba(255, 255, 255, 0.45);
+  border-top: 3px dashed rgba(57, 43, 36, 0.25);
+}

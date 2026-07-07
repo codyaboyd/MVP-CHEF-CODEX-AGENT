@@ -1,0 +1,39 @@
+{
+  "name": "mvp-chef-codex",
+  "version": "1.0.0",
+  "description": "A cartoonish digital recipe book for MVP prompt recipes built with Express, EJS, Bootstrap 5, and SQLite.",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "express",
+    "ejs",
+    "sqlite",
+    "bootstrap",
+    "recipes",
+    "mvp"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "bootstrap": "^5.3.3",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.18.0",
+    "nodemon": "^3.1.9",
+    "supertest": "^7.0.0"
+  }
+}
