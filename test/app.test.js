@@ -219,3 +219,94 @@ test('projects page manages command defaults and validates project health', asyn
 
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.id);
 });
+
+test('CodexRunner mock mode saves redacted run step logs', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const codexRunner = require('../src/services/codexRunnerService');
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-runner-repo-'));
+  fs.writeFileSync(path.join(repoPath, '.env'), 'OPENAI_API_KEY=sk-test-secret-value\n');
+  const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('queued');
+  const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'queued');
+
+  const result = await codexRunner.executeStep({
+    runId: run.lastInsertRowid,
+    runStepId: step.lastInsertRowid,
+    repoPath,
+    prompt: 'Use sk-test-secret-value safely.',
+    mockMode: true
+  });
+
+  const savedStep = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(step.lastInsertRowid);
+  assert.equal(result.code, 0);
+  assert.equal(result.mocked, true);
+  assert.equal(savedStep.status, 'completed');
+  assert.match(savedStep.stdout_log, /Mock Codex runner completed/);
+  assert.doesNotMatch(`${savedStep.stdout_log}\n${savedStep.stderr_log || ''}`, /sk-test-secret-value/);
+
+  db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});
+
+test('CodexRunner spawns commands in repo path, streams logs, and captures exit code failures with retry', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const codexRunner = require('../src/services/codexRunnerService');
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-runner-retry-'));
+  const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('queued');
+  const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'queued');
+
+  await assert.rejects(() => codexRunner.executeStep({
+    runId: run.lastInsertRowid,
+    runStepId: step.lastInsertRowid,
+    repoPath,
+    prompt: 'hello from stdin',
+    codexCommand: process.execPath,
+    codexArgs: ['-e', 'process.stdin.resume(); process.stdin.on(\'data\', () => {}); console.error(process.cwd()); process.exit(7);'],
+    retries: 1,
+    mockMode: false
+  }), /Codex exited with code 7/);
+
+  const savedStep = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(step.lastInsertRowid);
+  assert.equal(savedStep.status, 'failed');
+  assert.match(savedStep.stdout_log, /Attempt 1 of 2/);
+  assert.match(savedStep.stdout_log, /Attempt 2 of 2/);
+  assert.match(savedStep.stderr_log, new RegExp(repoPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(savedStep.error_message, /Codex exited with code 7/);
+
+  db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});
+
+test('CodexRunner can cancel an active spawned process', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const codexRunner = require('../src/services/codexRunnerService');
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-runner-cancel-'));
+  const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('queued');
+  const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'queued');
+
+  const execution = codexRunner.executeStep({
+    runId: run.lastInsertRowid,
+    runStepId: step.lastInsertRowid,
+    repoPath,
+    prompt: 'wait until cancelled',
+    codexCommand: process.execPath,
+    codexArgs: ['-e', 'process.stdin.resume(); setTimeout(() => {}, 30000);'],
+    timeoutMs: 30000,
+    mockMode: false
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(codexRunner.cancel(step.lastInsertRowid), true);
+  const result = await execution;
+  const savedStep = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(step.lastInsertRowid);
+  assert.equal(result.cancelled, true);
+  assert.equal(savedStep.status, 'cancelled');
+
+  db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});
