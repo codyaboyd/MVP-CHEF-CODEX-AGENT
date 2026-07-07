@@ -1,0 +1,43 @@
+<%- include('partials/header') %>
+<section class="hero py-5">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-7">
+        <p class="badge rounded-pill text-bg-warning mb-3">Cartoon recipe book for MVP prompts</p>
+        <h1 class="display-4 fw-black">Cook up your next MVP, one prompt recipe at a time.</h1>
+        <p class="lead">Flip through playful Codex recipes for discovery, planning, implementation, testing, and launch readiness.</p>
+        <a class="btn btn-primary btn-lg rounded-pill shadow-sm" href="/recipes/new">Write a new recipe</a>
+      </div>
+      <div class="col-lg-5 text-center">
+        <div class="mascot-card mx-auto">
+          <div class="mascot">👨‍🍳</div>
+          <div class="speech-bubble">Ready to ship something tasty?</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="h1 mb-1">Recipe Cards</h2>
+      <p class="text-muted mb-0">Your SQLite-backed cookbook starts with <%= recipes.length %> recipes.</p>
+    </div>
+  </div>
+  <div class="row g-4">
+    <% recipes.forEach((recipe) => { %>
+      <div class="col-md-6 col-xl-4">
+        <article class="card recipe-card h-100 border-0 shadow-sm">
+          <div class="card-body p-4">
+            <span class="badge rounded-pill phase-badge mb-3"><%= recipe.phase %></span>
+            <h3 class="h4"><%= recipe.title %></h3>
+            <p class="text-muted"><%= recipe.summary %></p>
+            <a class="stretched-link fw-bold" href="/recipes/<%= recipe.id %>">Open recipe →</a>
+          </div>
+        </article>
+      </div>
+    <% }) %>
+  </div>
+</section>
+<%- include('partials/footer') %>

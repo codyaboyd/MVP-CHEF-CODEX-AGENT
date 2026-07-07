@@ -1,0 +1,13 @@
+<%- include('partials/header') %>
+<section class="container py-5 text-center">
+  <div class="paper-panel p-5 mx-auto not-found-panel">
+    <div class="display-1">🔥</div>
+    <h1>Kitchen mishap!</h1>
+    <p class="lead text-muted">Something bubbled over. Please try again.</p>
+    <% if (error) { %>
+      <pre class="text-start bg-light p-3 rounded"><%= error.stack %></pre>
+    <% } %>
+    <a class="btn btn-primary rounded-pill" href="/">Back to safety</a>
+  </div>
+</section>
+<%- include('partials/footer') %>
