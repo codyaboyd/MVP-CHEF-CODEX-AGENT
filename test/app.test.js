@@ -172,3 +172,50 @@ test('recipe import rejects malformed and schema-invalid JSON with useful errors
   assert.match(invalidResponse.text, /Step 1 requiredChecks must be an array of strings/);
   assert.match(invalidResponse.text, /Step 1 maxRetries must be a non-negative integer/);
 });
+
+test('projects page manages command defaults and validates project health', async () => {
+  const projectsResponse = await request(app).get('/projects');
+
+  assert.equal(projectsResponse.status, 200);
+  assert.match(projectsResponse.text, /Stock a new project/);
+  assert.match(projectsResponse.text, /Project health/);
+  assert.match(projectsResponse.text, /GitHub repo slug/);
+  assert.match(projectsResponse.text, /npm test/);
+
+  const invalidResponse = await request(app)
+    .post('/projects')
+    .type('form')
+    .send({
+      name: 'Invalid Project',
+      repoPath: '/path/that/does/not/exist',
+      githubRepoSlug: 'not-a-slug',
+      defaultBranch: ''
+    });
+
+  assert.equal(invalidResponse.status, 400);
+  assert.match(invalidResponse.text, /Local repo path must exist/);
+  assert.match(invalidResponse.text, /GitHub repo slug must use owner\/repo format/);
+  assert.match(invalidResponse.text, /Default branch is required/);
+
+  const createResponse = await request(app)
+    .post('/projects')
+    .type('form')
+    .send({
+      name: 'Managed Project',
+      repoPath: process.cwd(),
+      githubRepoSlug: 'example/managed-project',
+      defaultBranch: 'main',
+      packageManagerCommand: 'npm ci',
+      testCommand: 'npm test',
+      buildCommand: 'npm run build',
+      lintCommand: 'npm run lint',
+      description: 'A managed project fixture.'
+    });
+
+  assert.equal(createResponse.status, 302);
+  const project = db.prepare('SELECT * FROM projects WHERE github_repo_slug = ?').get('example/managed-project');
+  assert.equal(project.default_branch, 'main');
+  assert.equal(project.package_manager_command, 'npm ci');
+
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.id);
+});

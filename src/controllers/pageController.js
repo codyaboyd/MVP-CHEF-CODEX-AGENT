@@ -1,5 +1,6 @@
 const dashboardService = require('../services/dashboardService');
 const recipeService = require('../services/recipeService');
+const projectService = require('../services/projectService');
 
 function dashboard(req, res) {
   res.render('dashboard', {
@@ -11,8 +12,28 @@ function dashboard(req, res) {
 function projects(req, res) {
   res.render('projects', {
     title: 'Projects',
-    projects: dashboardService.getProjects()
+    projects: dashboardService.getProjects(),
+    form: projectService.normalizeProjectInput({}),
+    errors: []
   });
+}
+
+function createProject(req, res) {
+  try {
+    projectService.createProject(req.body);
+    res.redirect('/projects');
+  } catch (error) {
+    if (!error.validationErrors) {
+      throw error;
+    }
+
+    res.status(400).render('projects', {
+      title: 'Projects',
+      projects: dashboardService.getProjects(),
+      form: error.project,
+      errors: error.validationErrors
+    });
+  }
 }
 
 function recipes(req, res) {
@@ -54,6 +75,7 @@ function settings(req, res) {
 module.exports = {
   dashboard,
   projects,
+  createProject,
   recipes,
   runDetail,
   settings

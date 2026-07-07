@@ -140,6 +140,25 @@ function runMigrations(db) {
         ALTER TABLE recipe_steps ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE recipe_steps ADD COLUMN human_approval INTEGER NOT NULL DEFAULT 0;
       `
+    },
+    {
+      version: 3,
+      name: 'add_project_management_fields',
+      sql: `
+        ALTER TABLE projects ADD COLUMN github_repo_slug TEXT NOT NULL DEFAULT '';
+        ALTER TABLE projects ADD COLUMN default_branch TEXT NOT NULL DEFAULT 'main';
+        ALTER TABLE projects ADD COLUMN package_manager_command TEXT NOT NULL DEFAULT 'npm install';
+        ALTER TABLE projects ADD COLUMN test_command TEXT NOT NULL DEFAULT 'npm test';
+        ALTER TABLE projects ADD COLUMN build_command TEXT NOT NULL DEFAULT 'npm run build';
+        ALTER TABLE projects ADD COLUMN lint_command TEXT NOT NULL DEFAULT 'npm run lint';
+        UPDATE projects
+        SET github_repo_slug = CASE
+          WHEN github_repo_url LIKE 'https://github.com/%' THEN substr(github_repo_url, length('https://github.com/') + 1)
+          ELSE github_repo_slug
+        END
+        WHERE github_repo_slug = '';
+        CREATE INDEX IF NOT EXISTS idx_projects_github_repo_slug ON projects(github_repo_slug);
+      `
     }
   ];
 
@@ -226,12 +245,24 @@ function seedDatabase(db) {
 
   const seed = db.transaction(() => {
     const project = db.prepare(`
-      INSERT INTO projects (name, repo_path, github_repo_url, description)
-      VALUES (@name, @repoPath, @githubRepoUrl, @description)
+      INSERT INTO projects (
+        name, repo_path, github_repo_url, github_repo_slug, default_branch,
+        package_manager_command, test_command, build_command, lint_command, description
+      )
+      VALUES (
+        @name, @repoPath, @githubRepoUrl, @githubRepoSlug, @defaultBranch,
+        @packageManagerCommand, @testCommand, @buildCommand, @lintCommand, @description
+      )
     `).run({
       name: 'Demo MVP Chef Project',
-      repoPath: '/workspace/demo-mvp-chef-project',
+      repoPath: process.cwd(),
       githubRepoUrl: 'https://github.com/example/demo-mvp-chef-project',
+      githubRepoSlug: 'example/demo-mvp-chef-project',
+      defaultBranch: 'main',
+      packageManagerCommand: 'npm install',
+      testCommand: 'npm test',
+      buildCommand: 'npm run build',
+      lintCommand: 'npm run lint',
       description: 'A sample project for trying recipe-driven Codex runs.'
     });
 

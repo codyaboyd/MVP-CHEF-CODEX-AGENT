@@ -1,15 +1,11 @@
 const db = require('../db');
 const recipeService = require('./recipeService');
+const projectService = require('./projectService');
 
 function getProjects() {
-  return db.prepare(`
-    SELECT p.*, COUNT(r.id) AS recipe_count
-    FROM projects p
-    LEFT JOIN recipes r ON r.project_id = p.id
-    GROUP BY p.id
-    ORDER BY p.updated_at DESC, p.id ASC
-  `).all();
+  return projectService.getProjects();
 }
+
 
 function getRuns() {
   return db.prepare(`

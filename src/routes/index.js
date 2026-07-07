@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.get('/', pageController.dashboard);
 router.get('/projects', pageController.projects);
+router.post('/projects', pageController.createProject);
 router.get('/recipes', pageController.recipes);
 router.get('/recipes/new', recipeController.newRecipeForm);
 router.get('/recipes/import', recipeController.importRecipeForm);
