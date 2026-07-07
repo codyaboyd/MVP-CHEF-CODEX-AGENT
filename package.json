@@ -11,6 +11,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "test": "node --test",
+    "build": "node -e \"console.log('No build step configured for MVP Chef Codex.')\"",
     "lint": "eslint ."
   },
   "keywords": [

@@ -100,6 +100,17 @@ function renderRunSteps(root, snapshot) {
         <strong>${escapeHtml(step.title)}</strong> <span class="status-badge status-${step.status}" data-status="${step.status}">${step.status}</span>
         <p>${escapeHtml(step.prompt || '')}</p>
         <small>Retries: ${step.retryAttempts}/${step.maxRetries}</small>
+        <div class="quality-gates mt-2">
+          <strong>Quality gates</strong>
+          ${(step.checks || []).map((check) => `
+            <details class="quality-gate quality-gate-${check.status}">
+              <summary>${escapeHtml(check.name)} · ${escapeHtml(check.status)} · ${check.required ? 'required' : 'optional'}</summary>
+              <code>${escapeHtml(check.command || 'No command configured')}</code>
+              <pre>${escapeHtml([check.stdout, check.stderr].filter(Boolean).join('\\n') || 'No output captured.')}</pre>
+            </details>
+          `).join('') || '<p class="small text-muted mb-0">No checks have run yet.</p>'}
+          ${step.qualityGateOverride ? `<p class="small text-warning mb-0">Manual override: ${escapeHtml(step.qualityGateOverrideReason || 'No reason supplied.')}</p>` : ''}
+        </div>
       </div>
     </div>
   `).join('') || '<div class="timeline-item"><span>1</span><div><strong>Preheat Codex</strong><p>No run steps have been recorded yet.</p></div></div>';

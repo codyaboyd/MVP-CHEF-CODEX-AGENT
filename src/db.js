@@ -170,6 +170,36 @@ function runMigrations(db) {
         UPDATE run_steps SET status = 'succeeded' WHERE status = 'completed';
         CREATE INDEX IF NOT EXISTS idx_runs_project_status ON runs(project_id, status);
       `
+    },
+    {
+      version: 5,
+      name: 'add_run_step_quality_gates',
+      sql: `
+        ALTER TABLE run_steps ADD COLUMN quality_gate_override INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE run_steps ADD COLUMN quality_gate_override_reason TEXT;
+        ALTER TABLE run_steps ADD COLUMN quality_gate_override_at TEXT;
+
+        CREATE TABLE IF NOT EXISTS run_step_checks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          run_id INTEGER NOT NULL,
+          run_step_id INTEGER NOT NULL,
+          check_name TEXT NOT NULL,
+          command TEXT NOT NULL,
+          required INTEGER NOT NULL DEFAULT 1,
+          status TEXT NOT NULL,
+          exit_code INTEGER,
+          stdout_log TEXT,
+          stderr_log TEXT,
+          started_at TEXT,
+          completed_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE,
+          FOREIGN KEY (run_step_id) REFERENCES run_steps(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_run_step_checks_run_id ON run_step_checks(run_id);
+        CREATE INDEX IF NOT EXISTS idx_run_step_checks_step_id ON run_step_checks(run_step_id);
+      `
     }
   ];
 

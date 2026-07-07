@@ -2,6 +2,7 @@ const db = require('../db');
 const codexRunner = require('./codexRunnerService');
 const recipeService = require('./recipeService');
 const runStateManager = require('./runStateManager');
+const qualityGateService = require('./qualityGateService');
 const { GitManager } = require('./gitManagerService');
 
 const { STATUSES } = runStateManager;
@@ -102,6 +103,13 @@ async function executeRun(runId, options = {}) {
         codexCommand: options.codexCommand,
         codexArgs: options.codexArgs,
         timeoutMs: options.timeoutMs
+      });
+
+      await qualityGateService.runQualityGates({
+        runId,
+        runStepId: nextStep.id,
+        project,
+        recipeStep
       });
 
       const gitResult = gitManager
