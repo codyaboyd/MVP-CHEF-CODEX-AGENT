@@ -200,6 +200,14 @@ function runMigrations(db) {
         CREATE INDEX IF NOT EXISTS idx_run_step_checks_run_id ON run_step_checks(run_id);
         CREATE INDEX IF NOT EXISTS idx_run_step_checks_step_id ON run_step_checks(run_step_id);
       `
+    },
+    {
+      version: 6,
+      name: 'add_run_step_github_automation_fields',
+      sql: `
+        ALTER TABLE run_steps ADD COLUMN pr_url TEXT;
+        ALTER TABLE run_steps ADD COLUMN merge_commit_sha TEXT;
+      `
     }
   ];
 
