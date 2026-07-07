@@ -28,12 +28,19 @@ function getRunById(id) {
 
   if (run) {
     run.steps = db.prepare(`
-      SELECT run_steps.*, recipe_steps.title AS recipe_step_title, recipe_steps.prompt, recipe_steps.retry_count
+      SELECT run_steps.*, recipe_steps.title AS recipe_step_title, recipe_steps.prompt, recipe_steps.retry_count, recipe_steps.required_checks
       FROM run_steps
       LEFT JOIN recipe_steps ON recipe_steps.id = run_steps.recipe_step_id
       WHERE run_steps.run_id = ?
       ORDER BY run_steps.step_order ASC
     `).all(id);
+    const checks = db.prepare('SELECT * FROM run_step_checks WHERE run_id = ? ORDER BY id ASC').all(id);
+    const checksByStep = checks.reduce((groups, check) => {
+      groups[check.run_step_id] = groups[check.run_step_id] || [];
+      groups[check.run_step_id].push(check);
+      return groups;
+    }, {});
+    run.steps = run.steps.map((step) => ({ ...step, checks: checksByStep[step.id] || [] }));
   }
 
   return run;
@@ -71,6 +78,21 @@ function normalizeStepForSnapshot(step) {
     retryAttempts: countAttempts(step),
     maxRetries: Number(step.retry_count || 0),
     errorMessage: step.error_message || '',
+    requiredChecks: step.required_checks || '',
+    qualityGateOverride: Boolean(step.quality_gate_override),
+    qualityGateOverrideReason: step.quality_gate_override_reason || '',
+    checks: (step.checks || []).map((check) => ({
+      id: check.id,
+      name: check.check_name,
+      command: check.command,
+      required: Boolean(check.required),
+      status: check.status,
+      exitCode: check.exit_code,
+      stdout: check.stdout_log || '',
+      stderr: check.stderr_log || '',
+      startedAt: check.started_at,
+      completedAt: check.completed_at
+    })),
     startedAt: step.started_at,
     completedAt: step.completed_at,
     updatedAt: step.updated_at
