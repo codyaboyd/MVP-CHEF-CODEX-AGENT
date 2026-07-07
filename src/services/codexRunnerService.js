@@ -1,0 +1,266 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
+const dotenv = require('dotenv');
+const db = require('../db');
+
+const DEFAULT_CODEX_COMMAND = process.env.CODEX_CLI_COMMAND || 'codex';
+const DEFAULT_TIMEOUT_MS = Number.parseInt(process.env.CODEX_RUN_TIMEOUT_MS || '600000', 10);
+const SECRET_KEY_PATTERN = /(SECRET|TOKEN|KEY|PASSWORD|PASS|PWD|AUTH|COOKIE|SESSION|PRIVATE|CREDENTIAL)/i;
+const activeProcesses = new Map();
+const cancelledSteps = new Set();
+
+function nowSql() {
+  return new Date().toISOString();
+}
+
+function appendText(existing, next) {
+  return [existing, next].filter(Boolean).join('');
+}
+
+function getStep(runStepId) {
+  return db.prepare('SELECT * FROM run_steps WHERE id = ?').get(runStepId);
+}
+
+function updateRunStep(runStepId, patch) {
+  const current = getStep(runStepId);
+  if (!current) {
+    throw new Error(`Run step ${runStepId} was not found.`);
+  }
+
+  const next = { ...current, ...patch, updated_at: nowSql() };
+  db.prepare(`
+    UPDATE run_steps
+    SET status = @status,
+        stdout_log = @stdout_log,
+        stderr_log = @stderr_log,
+        error_message = @error_message,
+        started_at = @started_at,
+        completed_at = @completed_at,
+        updated_at = @updated_at
+    WHERE id = @id
+  `).run(next);
+}
+
+function appendRunStepLog(runStepId, streamName, text) {
+  if (!text) return;
+  const column = streamName === 'stderr' ? 'stderr_log' : 'stdout_log';
+  const current = getStep(runStepId);
+  if (!current) return;
+  db.prepare(`UPDATE run_steps SET ${column} = ?, updated_at = ? WHERE id = ?`)
+    .run(appendText(current[column], text), nowSql(), runStepId);
+}
+
+function updateRunStatus(runId, status, patch = {}) {
+  if (!runId) return;
+  const run = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId);
+  if (!run) return;
+  db.prepare(`
+    UPDATE runs
+    SET status = @status,
+        stdout_log = @stdout_log,
+        stderr_log = @stderr_log,
+        error_message = @error_message,
+        started_at = @started_at,
+        completed_at = @completed_at,
+        updated_at = @updated_at
+    WHERE id = @id
+  `).run({
+    ...run,
+    ...patch,
+    status,
+    updated_at: nowSql()
+  });
+}
+
+function parseEnvFile(repoPath) {
+  const envPath = path.join(repoPath, '.env');
+  if (!fs.existsSync(envPath)) return {};
+  return dotenv.parse(fs.readFileSync(envPath));
+}
+
+function collectSecretValues(repoPath) {
+  const values = [];
+  const envSources = { ...process.env, ...parseEnvFile(repoPath) };
+  Object.entries(envSources).forEach(([key, value]) => {
+    if (SECRET_KEY_PATTERN.test(key) && typeof value === 'string' && value.length >= 4) {
+      values.push({ key, value });
+    }
+  });
+  return values.sort((a, b) => b.value.length - a.value.length);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function createRedactor(repoPath) {
+  const secrets = collectSecretValues(repoPath);
+  return (input = '') => secrets.reduce((output, secret) => {
+    return output.replace(new RegExp(escapeRegExp(secret.value), 'g'), `[REDACTED:${secret.key}]`);
+  }, String(input));
+}
+
+function validateRepoPath(repoPath) {
+  if (!repoPath || !fs.existsSync(repoPath) || !fs.statSync(repoPath).isDirectory()) {
+    throw new Error('A valid project repository path is required.');
+  }
+}
+
+function shouldUseMock(mode) {
+  return mode === true || mode === 'true' || mode === 'always' || process.env.CODEX_RUNNER_MOCK === 'true';
+}
+
+function buildCodexArgs(prompt, extraArgs = []) {
+  // Prompt text is written to stdin instead of interpolated into shell commands or argv.
+  return extraArgs.length ? extraArgs : ['exec', '--stdin'];
+}
+
+function runMock({ runStepId, prompt, redactor }) {
+  return new Promise((resolve) => {
+    const stdout = redactor(`Mock Codex runner started.\nPrompt length: ${prompt.length} characters.\nMock Codex runner completed.\n`);
+    appendRunStepLog(runStepId, 'stdout', stdout);
+    resolve({ code: 0, signal: null, stdout, stderr: '', mocked: true });
+  });
+}
+
+function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, redactor }) {
+  return new Promise((resolve, reject) => {
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    let timedOut = false;
+    const child = spawn(command, args, {
+      cwd: repoPath,
+      shell: false,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: process.env
+    });
+
+    activeProcesses.set(runStepId, child);
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      setTimeout(() => {
+        if (!child.killed) child.kill('SIGKILL');
+      }, 5000).unref();
+    }, timeoutMs);
+    timer.unref();
+
+    child.stdout.on('data', (chunk) => {
+      const text = redactor(chunk.toString());
+      stdout += text;
+      appendRunStepLog(runStepId, 'stdout', text);
+    });
+
+    child.stderr.on('data', (chunk) => {
+      const text = redactor(chunk.toString());
+      stderr += text;
+      appendRunStepLog(runStepId, 'stderr', text);
+    });
+
+    child.on('error', (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      activeProcesses.delete(runStepId);
+      reject(error);
+    });
+
+    child.on('close', (code, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      activeProcesses.delete(runStepId);
+      resolve({ code, signal, stdout, stderr, timedOut });
+    });
+
+    child.stdin.end(prompt);
+  });
+}
+
+async function executeStep(options) {
+  const {
+    runId,
+    runStepId,
+    repoPath,
+    prompt,
+    codexCommand = DEFAULT_CODEX_COMMAND,
+    codexArgs = [],
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    retries = 0,
+    mockMode = 'auto'
+  } = options;
+
+  validateRepoPath(repoPath);
+  if (!runStepId) throw new Error('runStepId is required.');
+  if (typeof prompt !== 'string' || !prompt.trim()) throw new Error('Prompt text is required.');
+
+  const redactor = createRedactor(repoPath);
+  const maxAttempts = Math.max(1, Number.parseInt(retries, 10) + 1);
+  const args = buildCodexArgs(prompt, codexArgs);
+
+  updateRunStatus(runId, 'running', { started_at: nowSql() });
+  updateRunStep(runStepId, { status: 'running', started_at: nowSql(), completed_at: null, error_message: null });
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    appendRunStepLog(runStepId, 'stdout', redactor(`\n[CodexRunner] Attempt ${attempt} of ${maxAttempts}.\n`));
+
+    try {
+      const result = shouldUseMock(mockMode)
+        ? await runMock({ runStepId, prompt, redactor })
+        : await spawnCodex({ command: codexCommand, args, repoPath, prompt, timeoutMs, runStepId, redactor });
+
+      if (result.code === 0) {
+        updateRunStep(runStepId, { status: 'completed', completed_at: nowSql(), error_message: null });
+        updateRunStatus(runId, 'completed', { completed_at: nowSql(), error_message: null });
+        return { ...result, attempt };
+      }
+
+      if (cancelledSteps.has(runStepId)) {
+        cancelledSteps.delete(runStepId);
+        updateRunStep(runStepId, { status: 'cancelled', completed_at: nowSql(), error_message: 'Cancelled by user.' });
+        updateRunStatus(runId, 'cancelled', { completed_at: nowSql(), error_message: 'Cancelled by user.' });
+        return { ...result, cancelled: true, attempt };
+      }
+
+      const error = new Error(result.timedOut ? 'Codex run timed out.' : `Codex exited with code ${result.code}${result.signal ? ` (${result.signal})` : ''}.`);
+      error.result = result;
+      throw error;
+    } catch (error) {
+      if (error.code === 'ENOENT' && mockMode === 'auto') {
+        appendRunStepLog(runStepId, 'stderr', '[CodexRunner] Codex CLI unavailable; using mock runner.\n');
+        const result = await runMock({ runStepId, prompt, redactor });
+        updateRunStep(runStepId, { status: 'completed', completed_at: nowSql(), error_message: null });
+        updateRunStatus(runId, 'completed', { completed_at: nowSql(), error_message: null });
+        return { ...result, attempt };
+      }
+
+      const message = redactor(error.message);
+      appendRunStepLog(runStepId, 'stderr', `[CodexRunner] ${message}\n`);
+      if (attempt === maxAttempts) {
+        updateRunStep(runStepId, { status: 'failed', completed_at: nowSql(), error_message: message });
+        updateRunStatus(runId, 'failed', { completed_at: nowSql(), error_message: message });
+        throw error;
+      }
+    }
+  }
+
+  throw new Error('Codex runner ended unexpectedly.');
+}
+
+function cancel(runStepId) {
+  const child = activeProcesses.get(runStepId);
+  if (!child) return false;
+  cancelledSteps.add(runStepId);
+  child.kill('SIGTERM');
+  updateRunStep(runStepId, { status: 'cancelled', completed_at: nowSql(), error_message: 'Cancelled by user.' });
+  return true;
+}
+
+module.exports = {
+  cancel,
+  createRedactor,
+  executeStep
+};
