@@ -12,60 +12,285 @@ function ensureDatabaseDirectory(filePath) {
   }
 }
 
+function tableExists(db, tableName) {
+  const table = db.prepare('SELECT name FROM sqlite_master WHERE type = \'table\' AND name = ?').get(tableName);
+  return Boolean(table);
+}
+
+function tableHasColumn(db, tableName, columnName) {
+  return db.prepare(`PRAGMA table_info(${tableName})`).all().some((column) => column.name === columnName);
+}
+
+function prepareLegacyRecipeTable(db) {
+  if (tableExists(db, 'recipes') && !tableHasColumn(db, 'recipes', 'name')) {
+    db.exec('ALTER TABLE recipes RENAME TO legacy_recipes');
+  }
+}
+
+function runMigrations(db) {
+  prepareLegacyRecipeTable(db);
+
+  db.exec(`
+    PRAGMA foreign_keys = ON;
+
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  const migrations = [
+    {
+      version: 1,
+      name: 'create_mvp_chef_codex_schema',
+      sql: `
+        CREATE TABLE IF NOT EXISTS projects (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          repo_path TEXT NOT NULL,
+          github_repo_url TEXT,
+          description TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS recipes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_id INTEGER,
+          name TEXT NOT NULL,
+          version TEXT NOT NULL DEFAULT '1.0.0',
+          description TEXT NOT NULL,
+          imported_json TEXT,
+          exported_json TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS recipe_steps (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          recipe_id INTEGER NOT NULL,
+          step_order INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          prompt TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE,
+          UNIQUE (recipe_id, step_order)
+        );
+
+        CREATE TABLE IF NOT EXISTS runs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_id INTEGER,
+          recipe_id INTEGER,
+          status TEXT NOT NULL DEFAULT 'queued',
+          stdout_log TEXT,
+          stderr_log TEXT,
+          commit_sha TEXT,
+          pr_url TEXT,
+          error_message TEXT,
+          started_at TEXT,
+          completed_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+          FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS run_steps (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          run_id INTEGER NOT NULL,
+          recipe_step_id INTEGER,
+          step_order INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'queued',
+          stdout_log TEXT,
+          stderr_log TEXT,
+          commit_sha TEXT,
+          error_message TEXT,
+          started_at TEXT,
+          completed_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE,
+          FOREIGN KEY (recipe_step_id) REFERENCES recipe_steps(id) ON DELETE SET NULL,
+          UNIQUE (run_id, step_order)
+        );
+
+        CREATE TABLE IF NOT EXISTS app_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          key TEXT NOT NULL UNIQUE,
+          value TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_projects_repo_path ON projects(repo_path);
+        CREATE INDEX IF NOT EXISTS idx_recipes_project_id ON recipes(project_id);
+        CREATE INDEX IF NOT EXISTS idx_recipe_steps_recipe_id ON recipe_steps(recipe_id);
+        CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
+        CREATE INDEX IF NOT EXISTS idx_run_steps_run_id ON run_steps(run_id);
+      `
+    }
+  ];
+
+  const applied = db.prepare('SELECT version FROM schema_migrations').all().map((row) => row.version);
+  const insertMigration = db.prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)');
+
+  migrations.forEach((migration) => {
+    if (!applied.includes(migration.version)) {
+      const applyMigration = db.transaction(() => {
+        db.exec(migration.sql);
+        insertMigration.run(migration.version, migration.name);
+      });
+      applyMigration();
+    }
+  });
+}
+
+function migrateLegacyRecipes(db) {
+  if (!tableExists(db, 'legacy_recipes')) {
+    return;
+  }
+
+  const legacyRecipes = db.prepare('SELECT * FROM legacy_recipes ORDER BY id ASC').all();
+  const existingCount = db.prepare('SELECT COUNT(*) AS total FROM recipes').get().total;
+
+  if (existingCount > 0 || legacyRecipes.length === 0) {
+    return;
+  }
+
+  const insertRecipe = db.prepare(`
+    INSERT INTO recipes (name, version, description, imported_json, exported_json, created_at)
+    VALUES (@name, @version, @description, @importedJson, @exportedJson, @createdAt)
+  `);
+  const insertStep = db.prepare(`
+    INSERT INTO recipe_steps (recipe_id, step_order, title, prompt)
+    VALUES (@recipeId, @stepOrder, @title, @prompt)
+  `);
+
+  const migrate = db.transaction(() => {
+    legacyRecipes.forEach((legacyRecipe) => {
+      const ingredients = legacyRecipe.ingredients.split('\n').map((line) => line.trim()).filter(Boolean);
+      const steps = legacyRecipe.instructions.split('\n').map((prompt, index) => ({
+        title: `Step ${index + 1}`,
+        prompt: prompt.trim()
+      })).filter((step) => step.prompt);
+      const recipeJson = {
+        name: legacyRecipe.title,
+        version: legacyRecipe.phase,
+        description: legacyRecipe.summary,
+        ingredients,
+        steps
+      };
+      const result = insertRecipe.run({
+        name: recipeJson.name,
+        version: recipeJson.version,
+        description: recipeJson.description,
+        importedJson: JSON.stringify(recipeJson, null, 2),
+        exportedJson: JSON.stringify(recipeJson, null, 2),
+        createdAt: legacyRecipe.created_at
+      });
+
+      steps.forEach((step, index) => {
+        insertStep.run({
+          recipeId: result.lastInsertRowid,
+          stepOrder: index + 1,
+          title: step.title,
+          prompt: step.prompt
+        });
+      });
+    });
+  });
+
+  migrate();
+}
+
+function seedDatabase(db) {
+  migrateLegacyRecipes(db);
+
+  const projectCount = db.prepare('SELECT COUNT(*) AS total FROM projects').get().total;
+
+  if (projectCount > 0) {
+    return;
+  }
+
+  const seed = db.transaction(() => {
+    const project = db.prepare(`
+      INSERT INTO projects (name, repo_path, github_repo_url, description)
+      VALUES (@name, @repoPath, @githubRepoUrl, @description)
+    `).run({
+      name: 'Demo MVP Chef Project',
+      repoPath: '/workspace/demo-mvp-chef-project',
+      githubRepoUrl: 'https://github.com/example/demo-mvp-chef-project',
+      description: 'A sample project for trying recipe-driven Codex runs.'
+    });
+
+    const recipeJson = {
+      name: 'Product Brief Soufflé',
+      version: '1.0.0',
+      description: 'Turn a fuzzy product idea into a light, structured MVP brief.',
+      ingredients: [
+        'Target user',
+        'Core problem',
+        'Primary journey',
+        'Must-have features',
+        'Success metrics'
+      ],
+      steps: [
+        {
+          title: 'Clarify the appetite',
+          prompt: 'Ask up to five clarifying questions about users, the problem, constraints, and success criteria.'
+        },
+        {
+          title: 'Plate the brief',
+          prompt: 'Draft a concise MVP product brief with goals, non-goals, feature boundaries, and measurable success signals.'
+        }
+      ]
+    };
+
+    const recipe = db.prepare(`
+      INSERT INTO recipes (project_id, name, version, description, imported_json, exported_json)
+      VALUES (@projectId, @name, @version, @description, @importedJson, @exportedJson)
+    `).run({
+      projectId: project.lastInsertRowid,
+      name: recipeJson.name,
+      version: recipeJson.version,
+      description: recipeJson.description,
+      importedJson: JSON.stringify(recipeJson, null, 2),
+      exportedJson: JSON.stringify(recipeJson, null, 2)
+    });
+
+    const insertStep = db.prepare(`
+      INSERT INTO recipe_steps (recipe_id, step_order, title, prompt)
+      VALUES (@recipeId, @stepOrder, @title, @prompt)
+    `);
+
+    recipeJson.steps.forEach((step, index) => {
+      insertStep.run({
+        recipeId: recipe.lastInsertRowid,
+        stepOrder: index + 1,
+        title: step.title,
+        prompt: step.prompt
+      });
+    });
+
+    db.prepare(`
+      INSERT INTO app_settings (key, value)
+      VALUES ('seeded_at', CURRENT_TIMESTAMP)
+    `).run();
+  });
+
+  seed();
+}
+
 ensureDatabaseDirectory(databasePath);
 
 const db = new Database(databasePath);
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS recipes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    phase TEXT NOT NULL,
-    summary TEXT NOT NULL,
-    ingredients TEXT NOT NULL,
-    instructions TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-`);
-
-const seedCount = db.prepare('SELECT COUNT(*) AS total FROM recipes').get().total;
-
-if (seedCount === 0) {
-  const insert = db.prepare(`
-    INSERT INTO recipes (title, phase, summary, ingredients, instructions)
-    VALUES (@title, @phase, @summary, @ingredients, @instructions)
-  `);
-
-  const seedRecipes = [
-    {
-      title: 'Product Brief Soufflé',
-      phase: 'Discovery',
-      summary: 'Turn a fuzzy product idea into a light, structured MVP brief.',
-      ingredients: 'Target user\nCore problem\nPrimary journey\nMust-have features\nSuccess metrics',
-      instructions: 'Ask up to five clarifying questions, then draft a concise product brief with clear boundaries.'
-    },
-    {
-      title: 'Scope Cutter Sandwich',
-      phase: 'Planning',
-      summary: 'Trim a big product plan into the smallest useful MVP slice.',
-      ingredients: 'Product brief\nTimebox\nAssumptions\nRisks\nMilestones',
-      instructions: 'Separate features to keep from features to cut, then produce a practical milestone plan.'
-    },
-    {
-      title: 'Launch Readiness Pie',
-      phase: 'Launch',
-      summary: 'Check whether the MVP is warm, stable, and ready to serve.',
-      ingredients: 'Critical paths\nConfiguration\nError states\nSecurity basics\nSetup docs',
-      instructions: 'Review launch blockers first, then list nice-to-have polish items for later.'
-    }
-  ];
-
-  const seed = db.transaction((recipes) => {
-    recipes.forEach((recipe) => insert.run(recipe));
-  });
-
-  seed(seedRecipes);
-}
+runMigrations(db);
+seedDatabase(db);
 
 module.exports = db;
