@@ -84,3 +84,5 @@ body {
 .step-number { background: var(--chef-yellow); border: 2px solid var(--chef-ink); border-radius: 999px; padding: .35rem .75rem; }
 .step-detail { background: rgba(255,255,255,.6); border: 2px solid rgba(57,43,36,.18); border-radius: 1rem; padding: 1rem; }
 .action-row form { display: inline; }
+.project-health-list { display: grid; gap: .4rem; list-style: none; padding-left: 0; }
+.project-health-list li { background: rgba(255,255,255,.55); border: 2px solid rgba(57,43,36,.12); border-radius: .75rem; padding: .5rem .75rem; }

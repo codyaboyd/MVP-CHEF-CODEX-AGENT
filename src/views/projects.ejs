@@ -1,17 +1,92 @@
 <%- include('partials/layout') %>
 <section class="container py-5">
-  <div class="cookbook-title mb-4"><div><p class="eyebrow">📁 Project pantry</p><h1>Projects</h1><p class="text-muted">Every pantry holds repos, recipes, and launch ingredients.</p></div></div>
+  <div class="cookbook-title mb-4">
+    <div>
+      <p class="eyebrow">📁 Project pantry</p>
+      <h1>Projects</h1>
+      <p class="text-muted">Manage local repos, GitHub slugs, default branches, and command recipes for Codex runs.</p>
+    </div>
+  </div>
+
+  <article class="paper-panel p-4 mb-5">
+    <h2 class="h4 fw-black mb-3">Stock a new project</h2>
+    <% if (errors && errors.length) { %>
+      <div class="alert alert-danger recipe-alert" role="alert">
+        <strong>Project needs more seasoning:</strong>
+        <ul class="mb-0 mt-2">
+          <% errors.forEach((error) => { %><li><%= error %></li><% }) %>
+        </ul>
+      </div>
+    <% } %>
+    <form action="/projects" method="post" class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label fw-bold" for="name">Name</label>
+        <input class="form-control" id="name" name="name" value="<%= form.name %>" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold" for="githubRepoSlug">GitHub repo slug</label>
+        <input class="form-control" id="githubRepoSlug" name="githubRepoSlug" placeholder="owner/repo" value="<%= form.githubRepoSlug %>" required>
+      </div>
+      <div class="col-md-8">
+        <label class="form-label fw-bold" for="repoPath">Local repo path</label>
+        <input class="form-control" id="repoPath" name="repoPath" placeholder="/workspace/my-repo" value="<%= form.repoPath %>" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold" for="defaultBranch">Default branch</label>
+        <input class="form-control" id="defaultBranch" name="defaultBranch" value="<%= form.defaultBranch %>" required>
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <label class="form-label fw-bold" for="packageManagerCommand">Package manager</label>
+        <input class="form-control" id="packageManagerCommand" name="packageManagerCommand" value="<%= form.packageManagerCommand %>">
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <label class="form-label fw-bold" for="testCommand">Test command</label>
+        <input class="form-control" id="testCommand" name="testCommand" value="<%= form.testCommand %>">
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <label class="form-label fw-bold" for="buildCommand">Build command</label>
+        <input class="form-control" id="buildCommand" name="buildCommand" value="<%= form.buildCommand %>">
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <label class="form-label fw-bold" for="lintCommand">Lint command</label>
+        <input class="form-control" id="lintCommand" name="lintCommand" value="<%= form.lintCommand %>">
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-bold" for="description">Description</label>
+        <textarea class="form-control" id="description" name="description" rows="2"><%= form.description %></textarea>
+      </div>
+      <div class="col-12"><button class="btn btn-primary rounded-pill chef-button" type="submit">+ Add project</button></div>
+    </form>
+  </article>
+
   <div class="row g-4">
     <% projects.forEach((project) => { %>
       <div class="col-lg-6">
         <article class="paper-panel p-4 h-100">
           <div class="d-flex justify-content-between gap-3">
-            <div><h2 class="h4"><%= project.name %></h2><p class="text-muted"><%= project.description %></p></div>
-            <div class="project-badge">🍱</div>
+            <div>
+              <h2 class="h4"><%= project.name %></h2>
+              <p class="text-muted"><%= project.description %></p>
+            </div>
+            <div class="project-badge"><%= project.health_status === 'healthy' ? '✅' : '🛠️' %></div>
           </div>
           <div class="pantry-row"><span>Repo path</span><code><%= project.repo_path %></code></div>
-          <% if (project.github_repo_url) { %><div class="pantry-row"><span>Remote</span><a href="<%= project.github_repo_url %>"><%= project.github_repo_url %></a></div><% } %>
-          <div class="progress mt-4 oven-progress" role="progressbar" aria-label="Project cooking progress" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: 72%">72% baked</div></div>
+          <div class="pantry-row"><span>GitHub repo</span><a href="<%= project.github_repo_url %>"><%= project.github_repo_slug %></a></div>
+          <div class="pantry-row"><span>Default branch</span><code><%= project.default_branch %></code></div>
+          <div class="pantry-row"><span>Command defaults</span><code><%= project.package_manager_command %></code><br><code><%= project.test_command %></code><br><code><%= project.build_command %></code><br><code><%= project.lint_command %></code></div>
+
+          <div class="mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <strong>Project health</strong>
+              <span class="badge <%= project.health_status === 'healthy' ? 'text-bg-success' : 'text-bg-warning' %>"><%= project.health_score %>%</span>
+            </div>
+            <div class="progress oven-progress" role="progressbar" aria-label="Project health" aria-valuenow="<%= project.health_score %>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: <%= project.health_score %>%"><%= project.health_score %>% ready</div></div>
+            <ul class="project-health-list mt-3 mb-0">
+              <% project.health_checks.forEach((check) => { %>
+                <li class="<%= check.ok ? 'text-success' : 'text-danger' %>"><strong><%= check.ok ? 'Pass' : 'Fix' %>:</strong> <%= check.label %> <small class="text-muted">(<%= check.detail %>)</small></li>
+              <% }) %>
+            </ul>
+          </div>
           <p class="small mt-3 mb-0"><strong><%= project.recipe_count %></strong> recipe cards stocked.</p>
         </article>
       </div>
