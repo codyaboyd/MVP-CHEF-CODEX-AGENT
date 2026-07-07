@@ -11,6 +11,7 @@
       </div>
       <div class="action-row d-flex flex-wrap gap-2">
         <a class="btn btn-primary rounded-pill" href="/recipes/<%= recipe.id %>/edit">Edit</a>
+        <a class="btn btn-outline-primary rounded-pill" href="/recipes/<%= recipe.id %>/export">Export JSON</a>
         <form action="/recipes/<%= recipe.id %>/duplicate" method="post"><button class="btn btn-outline-primary rounded-pill" type="submit">Duplicate</button></form>
         <form action="/recipes/<%= recipe.id %>/delete" method="post" onsubmit="return confirm('Delete this recipe?');"><button class="btn btn-outline-danger rounded-pill" type="submit">Delete</button></form>
       </div>

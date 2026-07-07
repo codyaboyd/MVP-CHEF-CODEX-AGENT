@@ -21,13 +21,17 @@ function normalizeProjectId(projectId) {
 }
 
 function normalizeStep(step = {}, index = 0) {
+  const requiredChecks = Array.isArray(step.requiredChecks)
+    ? step.requiredChecks.join('\n')
+    : (step.requiredChecks || step.required_checks || '');
+
   return {
     id: step.id ? Number(step.id) : null,
     title: (step.title || `Step ${index + 1}`).trim(),
     prompt: (step.prompt || '').trim(),
-    requiredChecks: (step.requiredChecks || step.required_checks || '').trim(),
-    retryCount: Number.parseInt(step.retryCount || step.retry_count || 0, 10) || 0,
-    humanApproval: Boolean(step.humanApproval || step.human_approval),
+    requiredChecks: requiredChecks.trim(),
+    retryCount: Number.parseInt(step.retryCount ?? step.retry_count ?? step.maxRetries ?? 0, 10) || 0,
+    humanApproval: Boolean(step.humanApproval ?? step.human_approval ?? step.requiresApproval),
     stepOrder: index + 1
   };
 }
@@ -52,21 +56,88 @@ function getRecipeSteps(recipeId) {
 }
 
 function buildRecipeJson(recipe, steps, ingredients) {
-  return {
+  const recipeJson = {
     name: recipe.title,
-    version: recipe.phase,
+    version: recipe.phase || '1.0.0',
     description: recipe.summary,
-    ingredients,
-    project_id: recipe.projectId,
     steps: steps.map((step) => ({
       title: step.title,
       prompt: step.prompt,
-      required_checks: step.requiredChecks,
-      retry_count: step.retryCount,
-      human_approval: step.humanApproval,
-      order_index: step.stepOrder
+      requiredChecks: parseLines(step.requiredChecks),
+      maxRetries: step.retryCount,
+      requiresApproval: step.humanApproval
     }))
   };
+
+  if (ingredients.length) {
+    recipeJson.ingredients = ingredients;
+  }
+
+  return recipeJson;
+}
+
+function validateRecipeJson(recipe) {
+  const errors = [];
+
+  if (!recipe || typeof recipe !== 'object' || Array.isArray(recipe)) {
+    return ['Recipe JSON must be an object.'];
+  }
+
+  if (typeof recipe.name !== 'string' || !recipe.name.trim()) {
+    errors.push('Recipe name is required and must be a non-empty string.');
+  }
+  if (typeof recipe.version !== 'string' || !recipe.version.trim()) {
+    errors.push('Recipe version is required and must be a non-empty string.');
+  }
+  if (typeof recipe.description !== 'string' || !recipe.description.trim()) {
+    errors.push('Recipe description is required and must be a non-empty string.');
+  }
+  if (recipe.ingredients !== undefined && (!Array.isArray(recipe.ingredients) || recipe.ingredients.some((item) => typeof item !== 'string'))) {
+    errors.push('Recipe ingredients must be an array of strings when provided.');
+  }
+  if (!Array.isArray(recipe.steps) || recipe.steps.length === 0) {
+    errors.push('Recipe steps must be a non-empty array.');
+    return errors;
+  }
+
+  recipe.steps.forEach((step, index) => {
+    const label = `Step ${index + 1}`;
+    if (!step || typeof step !== 'object' || Array.isArray(step)) {
+      errors.push(`${label} must be an object.`);
+      return;
+    }
+    if (typeof step.title !== 'string' || !step.title.trim()) {
+      errors.push(`${label} title is required and must be a non-empty string.`);
+    }
+    if (typeof step.prompt !== 'string' || !step.prompt.trim()) {
+      errors.push(`${label} prompt is required and must be a non-empty string.`);
+    }
+    if (!Array.isArray(step.requiredChecks) || step.requiredChecks.some((check) => typeof check !== 'string')) {
+      errors.push(`${label} requiredChecks must be an array of strings.`);
+    }
+    if (!Number.isInteger(step.maxRetries) || step.maxRetries < 0) {
+      errors.push(`${label} maxRetries must be a non-negative integer.`);
+    }
+    if (typeof step.requiresApproval !== 'boolean') {
+      errors.push(`${label} requiresApproval must be true or false.`);
+    }
+  });
+
+  return errors;
+}
+
+function parseRecipeJson(jsonText) {
+  if (!jsonText || !jsonText.trim()) {
+    return { errors: ['Paste recipe JSON or choose a JSON file before importing.'] };
+  }
+
+  try {
+    const recipe = JSON.parse(jsonText);
+    const errors = validateRecipeJson(recipe);
+    return errors.length ? { errors } : { recipe };
+  } catch (error) {
+    return { errors: [`Recipe JSON is malformed: ${error.message}`] };
+  }
 }
 
 function serializeRecipe(row) {
@@ -130,6 +201,48 @@ function createRecipe({ title, phase, summary, ingredients = '', projectId = nul
   return getRecipeById(create());
 }
 
+function importRecipeFromJson(jsonText, projectId = null) {
+  const parsed = parseRecipeJson(jsonText);
+  if (parsed.errors) {
+    const error = new Error(parsed.errors.join(' '));
+    error.validationErrors = parsed.errors;
+    throw error;
+  }
+
+  const recipe = parsed.recipe;
+  return createRecipe({
+    title: recipe.name.trim(),
+    phase: recipe.version.trim(),
+    summary: recipe.description.trim(),
+    ingredients: (recipe.ingredients || []).join('\n'),
+    projectId,
+    steps: recipe.steps.map((step) => ({
+      title: step.title,
+      prompt: step.prompt,
+      requiredChecks: step.requiredChecks,
+      retryCount: step.maxRetries,
+      humanApproval: step.requiresApproval
+    }))
+  });
+}
+
+function getRecipeExport(id) {
+  const recipe = getRecipeById(id);
+  if (!recipe) return null;
+
+  return buildRecipeJson({
+    title: recipe.title,
+    phase: recipe.phase,
+    summary: recipe.summary
+  }, recipe.steps.map((step) => ({
+    title: step.title,
+    prompt: step.prompt,
+    requiredChecks: step.requiredChecks,
+    retryCount: step.retryCount,
+    humanApproval: step.humanApproval
+  })), recipe.ingredientsList);
+}
+
 function saveSteps(recipeId, steps) {
   const insertStep = db.prepare(`
     INSERT INTO recipe_steps (recipe_id, step_order, title, prompt, required_checks, retry_count, human_approval)
@@ -184,5 +297,8 @@ module.exports = {
   getAllRecipes,
   getProjects,
   getRecipeById,
+  getRecipeExport,
+  importRecipeFromJson,
+  parseRecipeJson,
   updateRecipe
 };
