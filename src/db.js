@@ -159,6 +159,17 @@ function runMigrations(db) {
         WHERE github_repo_slug = '';
         CREATE INDEX IF NOT EXISTS idx_projects_github_repo_slug ON projects(github_repo_slug);
       `
+    },
+    {
+      version: 4,
+      name: 'normalize_run_statuses',
+      sql: `
+        UPDATE runs SET status = 'pending' WHERE status = 'queued';
+        UPDATE runs SET status = 'succeeded' WHERE status = 'completed';
+        UPDATE run_steps SET status = 'pending' WHERE status = 'queued';
+        UPDATE run_steps SET status = 'succeeded' WHERE status = 'completed';
+        CREATE INDEX IF NOT EXISTS idx_runs_project_status ON runs(project_id, status);
+      `
     }
   ];
 

@@ -50,12 +50,12 @@ function runDetail(req, res) {
     id: Number(req.params.id),
     recipe_name: 'Product Brief Soufflé',
     project_name: 'Demo MVP Chef Project',
-    status: 'baking',
+    status: 'running',
     commit_sha: null,
     pr_url: null,
     steps: [
-      { step_order: 1, recipe_step_title: 'Clarify the appetite', prompt: 'Gather constraints, target users, and measurable success signals.', status: 'completed' },
-      { step_order: 2, recipe_step_title: 'Plate the brief', prompt: 'Draft the MVP brief and prep it for review.', status: 'baking' }
+      { step_order: 1, recipe_step_title: 'Clarify the appetite', prompt: 'Gather constraints, target users, and measurable success signals.', status: 'succeeded' },
+      { step_order: 2, recipe_step_title: 'Plate the brief', prompt: 'Draft the MVP brief and prep it for review.', status: 'running' }
     ]
   };
 
