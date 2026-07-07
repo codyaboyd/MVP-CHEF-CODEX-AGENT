@@ -1,0 +1,46 @@
+<%- include('partials/layout') %>
+<section class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-xl-9">
+      <div class="paper-panel shadow-sm p-4 p-lg-5">
+        <h1 class="mb-3">Import Recipe JSON</h1>
+        <p class="text-muted">Paste recipe JSON or choose a local <code>.json</code> file. Imported steps are saved in the same order they appear in the file.</p>
+        <% if (errors && errors.length) { %>
+          <div class="alert alert-danger">
+            <p class="fw-bold mb-2">Recipe import failed:</p>
+            <ul class="mb-0">
+              <% errors.forEach((error) => { %>
+                <li><%= error %></li>
+              <% }) %>
+            </ul>
+          </div>
+        <% } %>
+        <form action="/recipes/import" method="post" class="row g-3" data-recipe-import-form>
+          <div class="col-md-6">
+            <label class="form-label" for="projectId">Project</label>
+            <select class="form-select" id="projectId" name="projectId">
+              <option value="">No project</option>
+              <% projects.forEach((project) => { %>
+                <option value="<%= project.id %>" <%= Number(values.projectId) === project.id ? 'selected' : '' %>><%= project.name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="recipeFile">JSON file</label>
+            <input class="form-control" id="recipeFile" type="file" accept="application/json,.json" data-recipe-json-file>
+            <div class="form-text">Choosing a file fills the pasted JSON box before submit.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="recipeJson">Recipe JSON</label>
+            <textarea class="form-control font-monospace" id="recipeJson" name="recipeJson" rows="18" required><%= values.recipeJson || '' %></textarea>
+          </div>
+          <div class="col-12 d-flex gap-2">
+            <button class="btn btn-primary rounded-pill" type="submit">Import recipe</button>
+            <a class="btn btn-outline-secondary rounded-pill" href="/recipes">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+<%- include('partials/footer') %>

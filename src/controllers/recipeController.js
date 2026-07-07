@@ -57,6 +57,15 @@ function newRecipeForm(req, res) {
   });
 }
 
+function importRecipeForm(req, res) {
+  res.render('recipe-import', {
+    title: 'Import Recipe',
+    projects: recipeService.getProjects(),
+    values: { recipeJson: '', projectId: '' },
+    errors: []
+  });
+}
+
 function editRecipeForm(req, res, next) {
   const recipe = recipeService.getRecipeById(Number(req.params.id));
   if (!recipe) {
@@ -93,6 +102,43 @@ function createRecipe(req, res) {
 
   const recipe = recipeService.createRecipe(values);
   res.redirect(`/recipes/${recipe.id}`);
+}
+
+function importRecipe(req, res) {
+  try {
+    const recipe = recipeService.importRecipeFromJson(req.body.recipeJson, req.body.projectId);
+    res.redirect(`/recipes/${recipe.id}`);
+  } catch (error) {
+    res.status(400).render('recipe-import', {
+      title: 'Import Recipe',
+      projects: recipeService.getProjects(),
+      values: { recipeJson: req.body.recipeJson || '', projectId: req.body.projectId || '' },
+      errors: error.validationErrors || [error.message]
+    });
+  }
+}
+
+function exportRecipe(req, res, next) {
+  const recipe = recipeService.getRecipeExport(Number(req.params.id));
+  if (!recipe) {
+    next();
+    return;
+  }
+
+  const filename = `${recipe.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'recipe'}.json`;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(`${JSON.stringify(recipe, null, 2)}\n`);
+}
+
+function exportRecipePreview(req, res, next) {
+  const recipe = recipeService.getRecipeExport(Number(req.params.id));
+  if (!recipe) {
+    next();
+    return;
+  }
+
+  res.type('application/json').send(`${JSON.stringify(recipe, null, 2)}\n`);
 }
 
 function updateRecipe(req, res, next) {
@@ -136,7 +182,11 @@ module.exports = {
   deleteRecipe,
   duplicateRecipe,
   editRecipeForm,
+  exportRecipe,
+  exportRecipePreview,
   home,
+  importRecipe,
+  importRecipeForm,
   newRecipeForm,
   showRecipe,
   updateRecipe

@@ -55,3 +55,15 @@ document.querySelectorAll('[data-recipe-form]').forEach((form) => {
     }
   });
 });
+
+document.querySelectorAll('[data-recipe-import-form]').forEach((form) => {
+  const fileInput = form.querySelector('[data-recipe-json-file]');
+  const jsonInput = form.querySelector('textarea[name="recipeJson"]');
+
+  fileInput.addEventListener('change', async () => {
+    const [file] = fileInput.files;
+    if (!file) return;
+
+    jsonInput.value = await file.text();
+  });
+});

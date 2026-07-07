@@ -98,3 +98,77 @@ test('recipe CRUD supports project association and step details', async () => {
 
   db.prepare('DELETE FROM recipes WHERE id = ?').run(duplicateId);
 });
+
+test('recipes can be imported from and exported to versioned JSON', async () => {
+  const project = db.prepare('SELECT id FROM projects ORDER BY id ASC LIMIT 1').get();
+  const importJson = {
+    name: 'Import Export Stew',
+    version: '1.0.0',
+    description: 'A recipe for import and export testing.',
+    steps: [
+      {
+        title: 'First simmer',
+        prompt: 'Do the first step.',
+        requiredChecks: ['npm test'],
+        maxRetries: 1,
+        requiresApproval: false
+      },
+      {
+        title: 'Second garnish',
+        prompt: 'Do the second step.',
+        requiredChecks: ['npm run lint'],
+        maxRetries: 2,
+        requiresApproval: true
+      }
+    ]
+  };
+
+  const importResponse = await request(app)
+    .post('/recipes/import')
+    .type('form')
+    .send({
+      projectId: String(project.id),
+      recipeJson: JSON.stringify(importJson)
+    });
+
+  assert.equal(importResponse.status, 302);
+  const recipeId = Number(importResponse.headers.location.split('/').pop());
+  const steps = db.prepare('SELECT * FROM recipe_steps WHERE recipe_id = ? ORDER BY step_order').all(recipeId);
+  assert.equal(steps[0].title, 'First simmer');
+  assert.equal(steps[1].title, 'Second garnish');
+
+  const exportResponse = await request(app).get(`/recipes/${recipeId}/export`);
+  assert.equal(exportResponse.status, 200);
+  assert.equal(exportResponse.type, 'application/json');
+  assert.match(exportResponse.headers['content-disposition'], /attachment/);
+  assert.deepEqual(exportResponse.body, importJson);
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
+});
+
+test('recipe import rejects malformed and schema-invalid JSON with useful errors', async () => {
+  const malformedResponse = await request(app)
+    .post('/recipes/import')
+    .type('form')
+    .send({ recipeJson: '{not json' });
+
+  assert.equal(malformedResponse.status, 400);
+  assert.match(malformedResponse.text, /Recipe JSON is malformed/);
+
+  const invalidResponse = await request(app)
+    .post('/recipes/import')
+    .type('form')
+    .send({
+      recipeJson: JSON.stringify({
+        name: 'Bad Bake',
+        version: '1.0.0',
+        description: 'Missing step fields.',
+        steps: [{ title: '', prompt: '', requiredChecks: 'npm test', maxRetries: -1, requiresApproval: 'no' }]
+      })
+    });
+
+  assert.equal(invalidResponse.status, 400);
+  assert.match(invalidResponse.text, /Step 1 title is required/);
+  assert.match(invalidResponse.text, /Step 1 requiredChecks must be an array of strings/);
+  assert.match(invalidResponse.text, /Step 1 maxRetries must be a non-negative integer/);
+});
