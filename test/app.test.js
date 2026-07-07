@@ -413,3 +413,52 @@ test('run events stream live run snapshots with progress, logs, and retries', as
   db.prepare('DELETE FROM run_steps WHERE id = ?').run(step.lastInsertRowid);
   db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
 });
+
+test('GitManager enforces a clean tree, branches, summarizes, commits, pushes, pulls, and rolls back', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { execFileSync } = require('node:child_process');
+  const { GitManager } = require('../src/services/gitManagerService');
+  const originPath = fs.mkdtempSync(path.join(os.tmpdir(), 'git-manager-origin-'));
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'git-manager-repo-'));
+  const git = (args, cwd = repoPath) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+
+  git(['init', '--bare', '--initial-branch=main'], originPath);
+  git(['init', '--initial-branch=main']);
+  git(['config', 'user.email', 'chef@example.test']);
+  git(['config', 'user.name', 'MVP Chef']);
+  git(['remote', 'add', 'origin', originPath]);
+  fs.writeFileSync(path.join(repoPath, 'README.md'), 'hello\n');
+  git(['add', 'README.md']);
+  git(['commit', '-m', 'initial']);
+  git(['push', '-u', 'origin', 'main']);
+
+  const manager = new GitManager({ repoPath, mainBranch: 'main' });
+  await manager.assertCleanWorkingTree();
+  fs.writeFileSync(path.join(repoPath, 'dirty.txt'), 'dirty\n');
+  await assert.rejects(() => manager.assertCleanWorkingTree(), /Working tree must be clean/);
+  fs.rmSync(path.join(repoPath, 'dirty.txt'));
+
+  const checkpoint = await manager.getCurrentSha();
+  const branch = await manager.createBranchForStep({ runId: 42, stepId: 7, stepTitle: 'Build UI!' });
+  assert.equal(branch, 'mvp-chef/run-42/step-7-build-ui');
+  fs.writeFileSync(path.join(repoPath, 'feature.txt'), 'feature\n');
+
+  const changedFiles = await manager.detectChangedFiles();
+  assert.deepEqual(changedFiles, [{ status: '??', file: 'feature.txt' }]);
+  assert.match(await manager.diffSummary(), /feature.txt/);
+
+  const commit = await manager.commitStep({ runId: 42, stepId: 7, stepTitle: 'Build UI!' });
+  assert.equal(commit.committed, true);
+  assert.match(git(['log', '-1', '--pretty=%B']), /mvp-chef: Build UI!\n\nRun ID: 42\nStep ID: 7/);
+  await manager.pushBranch(branch);
+
+  await manager.rollbackToCheckpoint(checkpoint);
+  assert.equal(git(['rev-parse', 'HEAD']), checkpoint);
+  assert.equal(fs.existsSync(path.join(repoPath, 'feature.txt')), false);
+  await manager.pullLatestMain();
+
+  fs.rmSync(originPath, { recursive: true, force: true });
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});

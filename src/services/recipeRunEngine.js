@@ -2,6 +2,7 @@ const db = require('../db');
 const codexRunner = require('./codexRunnerService');
 const recipeService = require('./recipeService');
 const runStateManager = require('./runStateManager');
+const { GitManager } = require('./gitManagerService');
 
 const { STATUSES } = runStateManager;
 
@@ -67,6 +68,9 @@ async function executeRun(runId, options = {}) {
 
   runStateManager.updateRun(runId, STATUSES.RUNNING, { started_at: run.started_at || nowSql(), completed_at: null, error_message: null });
 
+  const gitManager = options.gitEnabled ? new GitManager({ repoPath: project.repo_path, mainBranch: project.default_branch }) : null;
+  if (gitManager) await gitManager.assertCleanWorkingTree();
+
   while (nextStep) {
     const latestRun = runStateManager.getRun(runId);
     if (latestRun.status === STATUSES.CANCELLED) return latestRun;
@@ -79,7 +83,15 @@ async function executeRun(runId, options = {}) {
       return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: 'Waiting for human approval.' });
     }
 
+    let branchName = null;
+    let checkpointSha = null;
+
     try {
+      if (gitManager) {
+        checkpointSha = await gitManager.getCurrentSha();
+        branchName = await gitManager.createBranchForStep({ runId, stepId: nextStep.id, stepTitle: recipeStep.title });
+      }
+
       await codexRunner.executeStep({
         runId,
         runStepId: nextStep.id,
@@ -91,9 +103,32 @@ async function executeRun(runId, options = {}) {
         codexArgs: options.codexArgs,
         timeoutMs: options.timeoutMs
       });
-      runStateManager.updateRunStep(nextStep.id, STATUSES.SUCCEEDED, { completed_at: nowSql(), error_message: null });
-      runStateManager.updateRun(runId, STATUSES.RUNNING, { completed_at: null, error_message: null });
+
+      const gitResult = gitManager
+        ? await gitManager.commitStep({ runId, stepId: nextStep.id, stepTitle: recipeStep.title })
+        : null;
+      if (gitManager && gitResult.committed && options.gitPush !== false) {
+        await gitManager.pushBranch(branchName);
+      }
+      runStateManager.updateRunStep(nextStep.id, STATUSES.SUCCEEDED, {
+        completed_at: nowSql(),
+        error_message: null,
+        commit_sha: gitResult?.commitSha || nextStep.commit_sha || null
+      });
+      runStateManager.updateRun(runId, STATUSES.RUNNING, {
+        completed_at: null,
+        error_message: null,
+        commit_sha: gitResult?.commitSha || latestRun.commit_sha || null
+      });
     } catch (error) {
+      if (gitManager && checkpointSha) {
+        try {
+          await gitManager.rollbackToCheckpoint(checkpointSha);
+        } catch (rollbackError) {
+          error.message = `${error.message}
+Rollback failed: ${rollbackError.message}`;
+        }
+      }
       if (/quota|rate limit/i.test(error.message)) {
         runStateManager.updateRunStep(nextStep.id, STATUSES.WAITING_FOR_QUOTA, { error_message: error.message });
         return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_QUOTA, { error_message: error.message });
@@ -105,6 +140,8 @@ async function executeRun(runId, options = {}) {
     runSteps = runStateManager.getRunSteps(runId);
     nextStep = findResumeStep(runSteps);
   }
+
+  if (gitManager) await gitManager.pullLatestMain();
 
   return runStateManager.updateRun(runId, STATUSES.SUCCEEDED, { completed_at: nowSql(), error_message: null });
 }
