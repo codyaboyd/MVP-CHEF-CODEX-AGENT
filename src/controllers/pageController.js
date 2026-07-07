@@ -1,6 +1,8 @@
 const dashboardService = require('../services/dashboardService');
 const recipeService = require('../services/recipeService');
 const projectService = require('../services/projectService');
+const recipeRunEngine = require('../services/recipeRunEngine');
+const runStateManager = require('../services/runStateManager');
 
 function dashboard(req, res) {
   res.render('dashboard', {
@@ -43,11 +45,11 @@ function recipes(req, res) {
   });
 }
 
-function runDetail(req, res) {
-  const run = dashboardService.getRunById(Number(req.params.id));
+function getDisplayRun(id) {
+  const run = dashboardService.getRunById(id);
   const fallback = dashboardService.getRuns()[0];
   const demoRun = {
-    id: Number(req.params.id),
+    id,
     recipe_name: 'Product Brief Soufflé',
     project_name: 'Demo MVP Chef Project',
     status: 'running',
@@ -58,11 +60,67 @@ function runDetail(req, res) {
       { step_order: 2, recipe_step_title: 'Plate the brief', prompt: 'Draft the MVP brief and prep it for review.', status: 'running' }
     ]
   };
+  return run || (fallback ? { ...fallback, steps: [] } : demoRun);
+}
 
+function runDetail(req, res) {
   res.render('run-detail', {
     title: 'Run Detail',
-    run: run || (fallback ? { ...fallback, steps: [] } : demoRun)
+    run: getDisplayRun(Number(req.params.id)),
+    runSnapshot: dashboardService.getRunSnapshot(Number(req.params.id))
   });
+}
+
+function runEvents(req, res) {
+  const runId = Number(req.params.id);
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+
+  let lastPayload = '';
+  const send = () => {
+    const snapshot = dashboardService.getRunSnapshot(runId);
+    if (!snapshot) {
+      res.write('event: error\n');
+      res.write(`data: ${JSON.stringify({ message: 'Run not found.' })}\n\n`);
+      return;
+    }
+    const payload = JSON.stringify(snapshot);
+    if (payload !== lastPayload) {
+      res.write(`id: ${Date.now()}\n`);
+      res.write('event: run-update\n');
+      res.write(`data: ${payload}\n\n`);
+      lastPayload = payload;
+    } else {
+      res.write(': keep-alive\n\n');
+    }
+  };
+
+  send();
+  const interval = setInterval(send, 1000);
+  req.on('close', () => clearInterval(interval));
+}
+
+function redirectToRun(req, res) {
+  res.redirect(`/runs/${Number(req.params.id)}`);
+}
+
+function pauseRun(req, res) {
+  runStateManager.pauseRun(Number(req.params.id));
+  redirectToRun(req, res);
+}
+
+function resumeRun(req, res, next) {
+  recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto', approved: true }).catch(next);
+  redirectToRun(req, res);
+}
+
+function cancelRun(req, res) {
+  runStateManager.cancelRun(Number(req.params.id));
+  redirectToRun(req, res);
 }
 
 function settings(req, res) {
@@ -78,5 +136,9 @@ module.exports = {
   createProject,
   recipes,
   runDetail,
+  runEvents,
+  pauseRun,
+  resumeRun,
+  cancelRun,
   settings
 };
