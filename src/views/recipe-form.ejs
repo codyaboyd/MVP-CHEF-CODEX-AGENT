@@ -1,0 +1,94 @@
+<%- include('partials/layout') %>
+<section class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-xl-10">
+      <div class="paper-panel shadow-sm p-4 p-lg-5">
+        <h1 class="mb-3"><%= pageTitle %></h1>
+        <p class="text-muted">Build a reusable Codex workflow, connect it to a project pantry, and tune each prompt step.</p>
+        <% if (error) { %>
+          <div class="alert alert-danger"><%= error %></div>
+        <% } %>
+        <form action="<%= action %>" method="post" class="row g-3" data-recipe-form>
+          <div class="col-md-8">
+            <label class="form-label" for="title">Title</label>
+            <input class="form-control" id="title" name="title" value="<%= values.title || values.name || '' %>" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="phase">Version</label>
+            <input class="form-control" id="phase" name="phase" value="<%= values.phase || values.version || '1.0.0' %>" required>
+          </div>
+          <div class="col-md-8">
+            <label class="form-label" for="summary">Summary</label>
+            <input class="form-control" id="summary" name="summary" value="<%= values.summary || values.description || '' %>" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="projectId">Project</label>
+            <select class="form-select" id="projectId" name="projectId">
+              <option value="">No project</option>
+              <% projects.forEach((project) => { %>
+                <option value="<%= project.id %>" <%= Number(values.projectId || values.project_id) === project.id ? 'selected' : '' %>><%= project.name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="ingredients">Ingredients / inputs</label>
+            <textarea class="form-control" id="ingredients" name="ingredients" rows="4"><%= values.ingredients || '' %></textarea>
+            <div class="form-text">One ingredient or input per line.</div>
+          </div>
+
+          <div class="col-12 d-flex justify-content-between align-items-center mt-4">
+            <h2 class="h4 mb-0">Prompt steps</h2>
+            <button class="btn btn-outline-primary rounded-pill" type="button" data-add-step>+ Add step</button>
+          </div>
+          <div class="col-12 recipe-step-list" data-step-list>
+            <% const steps = values.steps && values.steps.length ? values.steps : [{ title: 'Step 1', prompt: '', requiredChecks: '', retryCount: 0, humanApproval: false }]; %>
+            <% steps.forEach((step, index) => { %>
+              <div class="recipe-step-editor" data-step-editor>
+                <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+                  <strong class="step-number">Step <%= index + 1 %></strong>
+                  <div class="btn-group btn-group-sm" role="group" aria-label="Reorder or remove step">
+                    <button class="btn btn-outline-secondary" type="button" data-move-step="up">↑ Up</button>
+                    <button class="btn btn-outline-secondary" type="button" data-move-step="down">↓ Down</button>
+                    <button class="btn btn-outline-danger" type="button" data-delete-step>Delete</button>
+                  </div>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-8">
+                    <label class="form-label">Step title</label>
+                    <input class="form-control" name="stepTitles" value="<%= step.title || '' %>" required>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Retries</label>
+                    <input class="form-control" type="number" min="0" name="stepRetryCounts" value="<%= step.retryCount ?? step.retry_count ?? 0 %>">
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Approval</label>
+                    <select class="form-select" name="stepHumanApprovals">
+                      <option value="0" <%= !(step.humanApproval || step.human_approval) ? 'selected' : '' %>>No</option>
+                      <option value="1" <%= (step.humanApproval || step.human_approval) ? 'selected' : '' %>>Yes</option>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Prompt text</label>
+                    <textarea class="form-control" name="stepPrompts" rows="4" required><%= step.prompt || '' %></textarea>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Required checks</label>
+                    <textarea class="form-control" name="stepRequiredChecks" rows="2"><%= step.requiredChecks || step.required_checks || '' %></textarea>
+                    <div class="form-text">Describe checks that must pass before this step is considered done.</div>
+                  </div>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+
+          <div class="col-12 d-flex gap-2">
+            <button class="btn btn-primary rounded-pill" type="submit">Save recipe</button>
+            <a class="btn btn-outline-secondary rounded-pill" href="/recipes">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+<%- include('partials/footer') %>

@@ -77,3 +77,10 @@ body {
   .cookbook-title, .section-heading { align-items: start; flex-direction: column; }
   .timer-face { height: 11rem; width: 11rem; }
 }
+
+
+.recipe-step-list { display: grid; gap: 1.25rem; }
+.recipe-step-editor { background: rgba(255,217,90,.18); border: 3px dashed rgba(57,43,36,.28); border-radius: 1.5rem; padding: 1rem; }
+.step-number { background: var(--chef-yellow); border: 2px solid var(--chef-ink); border-radius: 999px; padding: .35rem .75rem; }
+.step-detail { background: rgba(255,255,255,.6); border: 2px solid rgba(57,43,36,.18); border-radius: 1rem; padding: 1rem; }
+.action-row form { display: inline; }
