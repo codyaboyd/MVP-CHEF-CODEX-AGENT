@@ -13,6 +13,7 @@
             <span class="badge rounded-pill phase-badge mb-3"><%= recipe.phase %></span>
             <h2 class="h4"><%= recipe.title %></h2>
             <p class="text-muted"><%= recipe.summary %></p>
+            <p class="small fw-bold mb-2">Project: <%= recipe.projectName || 'Unassigned' %></p>
             <div class="mini-meta"><span>🥕 <%= recipe.ingredientsList.length %> ingredients</span><span>🥄 <%= recipe.instructionSteps.length %> steps</span></div>
             <a class="stretched-link fw-bold" href="/recipes/<%= recipe.id %>">Read card →</a>
           </div>

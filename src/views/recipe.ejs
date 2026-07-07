@@ -1,14 +1,24 @@
 <%- include('partials/layout') %>
 <section class="container py-5">
-  <a href="/" class="btn btn-link ps-0">← Back to cookbook</a>
+  <a href="/recipes" class="btn btn-link ps-0">← Back to cookbook</a>
   <div class="recipe-page p-4 p-lg-5 shadow-sm">
-    <span class="badge rounded-pill phase-badge mb-3"><%= recipe.phase %></span>
-    <h1 class="display-5 fw-bold"><%= recipe.title %></h1>
-    <p class="lead"><%= recipe.summary %></p>
+    <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">
+      <div>
+        <span class="badge rounded-pill phase-badge mb-3"><%= recipe.phase %></span>
+        <h1 class="display-5 fw-bold"><%= recipe.title %></h1>
+        <p class="lead"><%= recipe.summary %></p>
+        <p class="text-muted mb-0">Project: <strong><%= recipe.projectName || 'No project assigned' %></strong></p>
+      </div>
+      <div class="action-row d-flex flex-wrap gap-2">
+        <a class="btn btn-primary rounded-pill" href="/recipes/<%= recipe.id %>/edit">Edit</a>
+        <form action="/recipes/<%= recipe.id %>/duplicate" method="post"><button class="btn btn-outline-primary rounded-pill" type="submit">Duplicate</button></form>
+        <form action="/recipes/<%= recipe.id %>/delete" method="post" onsubmit="return confirm('Delete this recipe?');"><button class="btn btn-outline-danger rounded-pill" type="submit">Delete</button></form>
+      </div>
+    </div>
     <div class="row g-4 mt-3">
-      <div class="col-lg-5">
+      <div class="col-lg-4">
         <div class="paper-panel h-100">
-          <h2 class="h4">Ingredients</h2>
+          <h2 class="h4">Ingredients / inputs</h2>
           <ul class="ingredient-list">
             <% recipe.ingredientsList.forEach((ingredient) => { %>
               <li><%= ingredient %></li>
@@ -16,14 +26,25 @@
           </ul>
         </div>
       </div>
-      <div class="col-lg-7">
+      <div class="col-lg-8">
         <div class="paper-panel h-100">
-          <h2 class="h4">Instructions</h2>
-          <ol class="instruction-list">
-            <% recipe.instructionSteps.forEach((step) => { %>
-              <li><%= step %></li>
+          <h2 class="h4">Prompt steps</h2>
+          <div class="timeline">
+            <% recipe.steps.forEach((step) => { %>
+              <article class="timeline-item">
+                <span><%= step.orderIndex %></span>
+                <div class="step-detail flex-grow-1">
+                  <h3 class="h5"><%= step.title %></h3>
+                  <p><%= step.prompt %></p>
+                  <div class="mini-meta">
+                    <span>✅ Checks: <%= step.requiredChecks || 'None' %></span>
+                    <span>🔁 Retries: <%= step.retryCount %></span>
+                    <span>🙋 Human approval: <%= step.humanApproval ? 'Yes' : 'No' %></span>
+                  </div>
+                </div>
+              </article>
             <% }) %>
-          </ol>
+          </div>
         </div>
       </div>
     </div>

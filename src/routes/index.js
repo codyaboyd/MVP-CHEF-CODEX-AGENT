@@ -10,6 +10,10 @@ router.get('/recipes', pageController.recipes);
 router.get('/recipes/new', recipeController.newRecipeForm);
 router.post('/recipes', recipeController.createRecipe);
 router.get('/recipes/:id', recipeController.showRecipe);
+router.get('/recipes/:id/edit', recipeController.editRecipeForm);
+router.post('/recipes/:id', recipeController.updateRecipe);
+router.post('/recipes/:id/duplicate', recipeController.duplicateRecipe);
+router.post('/recipes/:id/delete', recipeController.deleteRecipe);
 router.get('/runs/:id', pageController.runDetail);
 router.get('/settings', pageController.settings);
 

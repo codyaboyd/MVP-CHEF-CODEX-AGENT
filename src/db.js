@@ -131,6 +131,15 @@ function runMigrations(db) {
         CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
         CREATE INDEX IF NOT EXISTS idx_run_steps_run_id ON run_steps(run_id);
       `
+    },
+    {
+      version: 2,
+      name: 'add_recipe_step_crud_fields',
+      sql: `
+        ALTER TABLE recipe_steps ADD COLUMN required_checks TEXT NOT NULL DEFAULT '';
+        ALTER TABLE recipe_steps ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE recipe_steps ADD COLUMN human_approval INTEGER NOT NULL DEFAULT 0;
+      `
     }
   ];
 
