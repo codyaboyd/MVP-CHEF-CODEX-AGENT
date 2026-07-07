@@ -67,3 +67,81 @@ document.querySelectorAll('[data-recipe-import-form]').forEach((form) => {
     jsonInput.value = await file.text();
   });
 });
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>\"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', '\'': '&#39;' }[char]));
+}
+
+function setStatusBadge(element, status) {
+  if (!element) return;
+  element.textContent = status || 'unknown';
+  element.dataset.status = status || 'unknown';
+  element.className = `status-badge status-${status || 'unknown'}`;
+}
+
+function updateRunControls(root, snapshot) {
+  const terminalStatuses = ['succeeded', 'failed', 'cancelled'];
+  const status = snapshot.status;
+  const pause = root.querySelector('[data-run-pause]');
+  const resume = root.querySelector('[data-run-resume]');
+  const cancel = root.querySelector('[data-run-cancel]');
+  if (pause) pause.disabled = terminalStatuses.includes(status) || status === 'paused';
+  if (resume) resume.disabled = terminalStatuses.includes(status) || status === 'running';
+  if (cancel) cancel.disabled = terminalStatuses.includes(status);
+}
+
+function renderRunSteps(root, snapshot) {
+  const list = root.querySelector('[data-run-steps]');
+  if (!list) return;
+  list.innerHTML = snapshot.steps.map((step) => `
+    <div class="timeline-item ${snapshot.currentStep && snapshot.currentStep.id === step.id ? 'is-current' : ''}" data-step-id="${step.id}">
+      <span>${step.order}</span>
+      <div>
+        <strong>${escapeHtml(step.title)}</strong> <span class="status-badge status-${step.status}" data-status="${step.status}">${step.status}</span>
+        <p>${escapeHtml(step.prompt || '')}</p>
+        <small>Retries: ${step.retryAttempts}/${step.maxRetries}</small>
+      </div>
+    </div>
+  `).join('') || '<div class="timeline-item"><span>1</span><div><strong>Preheat Codex</strong><p>No run steps have been recorded yet.</p></div></div>';
+}
+
+function updateRunDetail(root, snapshot) {
+  setStatusBadge(root.querySelector('[data-run-status]'), snapshot.status);
+  const currentStep = root.querySelector('[data-run-current-step]');
+  if (currentStep) currentStep.textContent = snapshot.currentStep ? snapshot.currentStep.title : 'Complete';
+  const retries = root.querySelector('[data-run-retries]');
+  if (retries) retries.textContent = snapshot.retryAttempts;
+  const commit = root.querySelector('[data-run-commit]');
+  if (commit) commit.textContent = snapshot.commitSha || 'Pending';
+  const progress = root.querySelector('[data-run-progress]');
+  const progressLabel = root.querySelector('[data-run-progress-label]');
+  if (progress) {
+    progress.style.width = `${snapshot.progress}%`;
+    progress.textContent = `${snapshot.progress}%`;
+    progress.parentElement.setAttribute('aria-valuenow', snapshot.progress);
+  }
+  if (progressLabel) progressLabel.textContent = `${snapshot.progress}%`;
+  const logs = root.querySelector('[data-run-logs]');
+  if (logs) {
+    logs.textContent = [snapshot.stdout, snapshot.stderr ? `\n[stderr]\n${snapshot.stderr}` : ''].filter(Boolean).join('') || 'Waiting for logs…';
+    const terminal = root.querySelector('[data-run-terminal]');
+    if (terminal) terminal.scrollTop = terminal.scrollHeight;
+  }
+  renderRunSteps(root, snapshot);
+  updateRunControls(root, snapshot);
+}
+
+document.querySelectorAll('[data-run-detail]').forEach((root) => {
+  if (!window.EventSource) return;
+  const runId = root.getAttribute('data-run-id');
+  const connection = root.querySelector('[data-run-connection]');
+  const source = new EventSource(`/runs/${runId}/events`);
+  if (connection) connection.textContent = 'Live';
+  source.addEventListener('run-update', (event) => {
+    if (connection) connection.textContent = 'Live';
+    updateRunDetail(root, JSON.parse(event.data));
+  });
+  source.onerror = () => {
+    if (connection) connection.textContent = 'Reconnecting';
+  };
+});

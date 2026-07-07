@@ -116,6 +116,27 @@ function assertProjectAvailable(projectId, exceptRunId = null) {
   }
 }
 
+
+function pauseRun(runId) {
+  const run = getRun(runId);
+  if (!run) {
+    throw new Error(`Run ${runId} was not found.`);
+  }
+
+  const steps = getRunSteps(runId);
+  steps
+    .filter((step) => [STATUSES.PENDING, STATUSES.RUNNING, STATUSES.WAITING_FOR_QUOTA, STATUSES.WAITING_FOR_APPROVAL].includes(step.status))
+    .forEach((step) => {
+      updateRunStep(step.id, STATUSES.PAUSED, {
+        error_message: step.error_message || 'Paused by user.'
+      });
+    });
+
+  return updateRun(runId, STATUSES.PAUSED, {
+    error_message: run.error_message || 'Paused by user.'
+  });
+}
+
 function cancelRun(runId) {
   const run = getRun(runId);
   if (!run) {
@@ -147,6 +168,7 @@ module.exports = {
   cancelRun,
   getRun,
   getRunSteps,
+  pauseRun,
   updateRun,
   updateRunStep
 };

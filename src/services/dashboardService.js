@@ -28,7 +28,7 @@ function getRunById(id) {
 
   if (run) {
     run.steps = db.prepare(`
-      SELECT run_steps.*, recipe_steps.title AS recipe_step_title, recipe_steps.prompt
+      SELECT run_steps.*, recipe_steps.title AS recipe_step_title, recipe_steps.prompt, recipe_steps.retry_count
       FROM run_steps
       LEFT JOIN recipe_steps ON recipe_steps.id = run_steps.recipe_step_id
       WHERE run_steps.run_id = ?
@@ -37,6 +37,67 @@ function getRunById(id) {
   }
 
   return run;
+}
+
+
+function countAttempts(step) {
+  const logs = `${step.stdout_log || ''}\n${step.stderr_log || ''}`;
+  const matches = logs.match(/\[CodexRunner\] Attempt \d+ of \d+\./g);
+  return matches ? matches.length : 0;
+}
+
+function calculateProgress(steps = []) {
+  if (!steps.length) return 0;
+  const completed = steps.filter((step) => ['succeeded', 'failed', 'cancelled'].includes(step.status)).length;
+  return Math.round((completed / steps.length) * 100);
+}
+
+function getCurrentStep(steps = []) {
+  return steps.find((step) => ['running', 'waiting_for_quota', 'waiting_for_approval', 'paused'].includes(step.status))
+    || steps.find((step) => step.status === 'pending')
+    || steps[steps.length - 1]
+    || null;
+}
+
+function normalizeStepForSnapshot(step) {
+  return {
+    id: step.id,
+    order: step.step_order,
+    title: step.recipe_step_title || step.title || `Step ${step.step_order}`,
+    prompt: step.prompt || '',
+    status: step.status,
+    stdout: step.stdout_log || '',
+    stderr: step.stderr_log || '',
+    retryAttempts: countAttempts(step),
+    maxRetries: Number(step.retry_count || 0),
+    errorMessage: step.error_message || '',
+    startedAt: step.started_at,
+    completedAt: step.completed_at,
+    updatedAt: step.updated_at
+  };
+}
+
+function getRunSnapshot(id) {
+  const run = getRunById(id);
+  if (!run) return null;
+  const steps = (run.steps || []).map(normalizeStepForSnapshot);
+  const currentStep = getCurrentStep(steps);
+  return {
+    id: run.id,
+    recipeName: run.recipe_name || 'Recipe run',
+    projectName: run.project_name || 'a project pantry',
+    status: run.status,
+    commitSha: run.commit_sha,
+    prUrl: run.pr_url,
+    errorMessage: run.error_message || '',
+    progress: calculateProgress(steps),
+    currentStep,
+    stdout: [run.stdout_log || '', ...steps.map((step) => step.stdout)].filter(Boolean).join('\n'),
+    stderr: [run.stderr_log || '', ...steps.map((step) => step.stderr)].filter(Boolean).join('\n'),
+    retryAttempts: steps.reduce((total, step) => total + step.retryAttempts, 0),
+    steps,
+    updatedAt: run.updated_at
+  };
 }
 
 function getSettings() {
@@ -67,6 +128,7 @@ module.exports = {
   getDashboard,
   getProjects,
   getRunById,
+  getRunSnapshot,
   getRuns,
   getSettings
 };
