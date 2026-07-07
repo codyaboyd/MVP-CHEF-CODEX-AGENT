@@ -14,7 +14,7 @@
       <h2 class="h4">Cooking steps</h2>
       <div class="timeline">
         <% (run.steps || []).forEach((step) => { %><div class="timeline-item"><span><%= step.step_order %></span><div><strong><%= step.recipe_step_title || step.title || 'Recipe step' %></strong><p><%= step.prompt || step.status %></p></div></div><% }) %>
-        <% if (!run.steps || !run.steps.length) { %><div class="timeline-item"><span>1</span><div><strong>Preheat Codex</strong><p>This demo run is queued and ready for recipe steps.</p></div></div><% } %>
+        <% if (!run.steps || !run.steps.length) { %><div class="timeline-item"><span>1</span><div><strong>Preheat Codex</strong><p>This demo run is pending and ready for recipe steps.</p></div></div><% } %>
       </div>
     </div>
   </div>

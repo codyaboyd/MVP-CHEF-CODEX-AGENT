@@ -241,7 +241,7 @@ test('CodexRunner mock mode saves redacted run step logs', async () => {
   const savedStep = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(step.lastInsertRowid);
   assert.equal(result.code, 0);
   assert.equal(result.mocked, true);
-  assert.equal(savedStep.status, 'completed');
+  assert.equal(savedStep.status, 'succeeded');
   assert.match(savedStep.stdout_log, /Mock Codex runner completed/);
   assert.doesNotMatch(`${savedStep.stdout_log}\n${savedStep.stderr_log || ''}`, /sk-test-secret-value/);
 
@@ -309,4 +309,79 @@ test('CodexRunner can cancel an active spawned process', async () => {
 
   db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
   fs.rmSync(repoPath, { recursive: true, force: true });
+});
+
+test('RecipeRunEngine starts a recipe run, creates pending steps, and executes them in order', async () => {
+  const engine = require('../src/services/recipeRunEngine');
+  const project = db.prepare('SELECT id FROM projects ORDER BY id ASC LIMIT 1').get();
+  const recipe = db.prepare(`
+    INSERT INTO recipes (project_id, name, version, description)
+    VALUES (?, ?, ?, ?)
+  `).run(project.id, 'Engine Order Cake', '1.0.0', 'Exercise ordered engine runs.');
+  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 1, 'First', 'Do first.');
+  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 2, 'Second', 'Do second.');
+
+  const run = await engine.startRunFromRecipe(recipe.lastInsertRowid, { mockMode: true });
+  const savedRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(run.id);
+  const steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(run.id);
+
+  assert.equal(savedRun.status, 'succeeded');
+  assert.deepEqual(steps.map((step) => step.step_order), [1, 2]);
+  assert.deepEqual(steps.map((step) => step.status), ['succeeded', 'succeeded']);
+  assert.match(steps[0].stdout_log, /Mock Codex runner completed/);
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
+});
+
+test('RecipeRunEngine stops on failure and resumes from the failed step', async () => {
+  const engine = require('../src/services/recipeRunEngine');
+  const project = db.prepare('SELECT id FROM projects ORDER BY id ASC LIMIT 1').get();
+  const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
+    .run(project.id, 'Resume Cake', '1.0.0', 'Exercise resume.');
+  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 1, 'First', 'Do first.');
+  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 2, 'Second', 'Do second.');
+
+  const created = await engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false });
+  const failed = await engine.executeRun(created.id, {
+    codexCommand: process.execPath,
+    codexArgs: ['-e', 'process.exit(9);'],
+    mockMode: false
+  });
+  assert.equal(failed.status, 'failed');
+  let steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(created.id);
+  assert.equal(steps[0].status, 'failed');
+  assert.equal(steps[1].status, 'pending');
+
+  const resumed = await engine.resumeRun(created.id, { mockMode: true });
+  steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(created.id);
+  assert.equal(resumed.status, 'succeeded');
+  assert.deepEqual(steps.map((step) => step.status), ['succeeded', 'succeeded']);
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
+});
+
+test('RunStateManager prevents concurrent active runs for one project and cancels active runs', async () => {
+  const engine = require('../src/services/recipeRunEngine');
+  const state = require('../src/services/runStateManager');
+  const project = db.prepare('SELECT id FROM projects ORDER BY id ASC LIMIT 1').get();
+  const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
+    .run(project.id, 'Lock Cake', '1.0.0', 'Exercise locks.');
+  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 1, 'Only', 'Do only.');
+
+  const run = await engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false });
+  await assert.rejects(
+    () => engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false }),
+    /already has active run/
+  );
+
+  const cancelled = state.cancelRun(run.id);
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(db.prepare('SELECT status FROM run_steps WHERE run_id = ?').get(run.id).status, 'cancelled');
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
 });

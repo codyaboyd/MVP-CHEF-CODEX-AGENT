@@ -213,8 +213,8 @@ async function executeStep(options) {
         : await spawnCodex({ command: codexCommand, args, repoPath, prompt, timeoutMs, runStepId, redactor });
 
       if (result.code === 0) {
-        updateRunStep(runStepId, { status: 'completed', completed_at: nowSql(), error_message: null });
-        updateRunStatus(runId, 'completed', { completed_at: nowSql(), error_message: null });
+        updateRunStep(runStepId, { status: 'succeeded', completed_at: nowSql(), error_message: null });
+        updateRunStatus(runId, 'succeeded', { completed_at: nowSql(), error_message: null });
         return { ...result, attempt };
       }
 
@@ -232,8 +232,8 @@ async function executeStep(options) {
       if (error.code === 'ENOENT' && mockMode === 'auto') {
         appendRunStepLog(runStepId, 'stderr', '[CodexRunner] Codex CLI unavailable; using mock runner.\n');
         const result = await runMock({ runStepId, prompt, redactor });
-        updateRunStep(runStepId, { status: 'completed', completed_at: nowSql(), error_message: null });
-        updateRunStatus(runId, 'completed', { completed_at: nowSql(), error_message: null });
+        updateRunStep(runStepId, { status: 'succeeded', completed_at: nowSql(), error_message: null });
+        updateRunStatus(runId, 'succeeded', { completed_at: nowSql(), error_message: null });
         return { ...result, attempt };
       }
 

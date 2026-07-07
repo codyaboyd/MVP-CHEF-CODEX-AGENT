@@ -47,8 +47,8 @@ function getDashboard() {
   const recipes = recipeService.getAllRecipes();
   const projects = getProjects();
   const runs = getRuns();
-  const completedRuns = runs.filter((run) => run.status === 'completed').length;
-  const progress = runs.length ? Math.round((completedRuns / runs.length) * 100) : 68;
+  const succeededRuns = runs.filter((run) => run.status === 'succeeded').length;
+  const progress = runs.length ? Math.round((succeededRuns / runs.length) * 100) : 68;
 
   return {
     recipes,
