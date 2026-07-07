@@ -1,0 +1,8 @@
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <section class="container pt-4">
+    <div class="alert alert-<%= flash.type || 'info' %> alert-dismissible fade show recipe-alert" role="alert">
+      <strong><%= flash.icon || '🍳' %></strong> <%= flash.message %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  </section>
+<% } %>

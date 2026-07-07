@@ -1,0 +1,24 @@
+<%- include('partials/layout') %>
+<section class="container py-5">
+  <div class="cookbook-title mb-4">
+    <div><p class="eyebrow">🗂️ Cookbook shelf</p><h1>Recipes</h1><p class="text-muted">Reusable Codex workflows styled as warm kitchen cards.</p></div>
+    <a class="btn btn-primary rounded-pill chef-button" href="/recipes/new">New Recipe</a>
+  </div>
+  <div class="row g-4">
+    <% recipes.forEach((recipe, index) => { %>
+      <div class="col-md-6 col-xl-4">
+        <article class="card recipe-card h-100 border-0 recipe-tilt-<%= index % 3 %>">
+          <div class="card-body p-4">
+            <div class="recipe-pin">📌</div>
+            <span class="badge rounded-pill phase-badge mb-3"><%= recipe.phase %></span>
+            <h2 class="h4"><%= recipe.title %></h2>
+            <p class="text-muted"><%= recipe.summary %></p>
+            <div class="mini-meta"><span>🥕 <%= recipe.ingredientsList.length %> ingredients</span><span>🥄 <%= recipe.instructionSteps.length %> steps</span></div>
+            <a class="stretched-link fw-bold" href="/recipes/<%= recipe.id %>">Read card →</a>
+          </div>
+        </article>
+      </div>
+    <% }) %>
+  </div>
+</section>
+<%- include('partials/footer') %>

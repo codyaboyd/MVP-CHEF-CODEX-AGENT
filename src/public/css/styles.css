@@ -1,101 +1,79 @@
 :root {
   --chef-ink: #392b24;
   --chef-cream: #fff5d9;
+  --chef-paper: #fffaf0;
   --chef-peach: #ffbd8a;
   --chef-red: #ee6352;
   --chef-blue: #4d96ff;
   --chef-green: #6bcb77;
+  --chef-yellow: #ffd95a;
 }
 
 body {
-  background: radial-gradient(circle at top left, #fff2b8, transparent 28rem), linear-gradient(135deg, #fff8e8 0%, #ffe4c7 100%);
+  background: radial-gradient(circle at top left, #fff2b8, transparent 28rem), radial-gradient(circle at 85% 12%, #ffd0b0, transparent 18rem), linear-gradient(135deg, #fff8e8 0%, #ffe4c7 100%);
   color: var(--chef-ink);
   font-family: "Trebuchet MS", "Comic Sans MS", system-ui, sans-serif;
   min-height: 100vh;
 }
 
-.fw-black {
-  font-weight: 900;
-}
+.fw-black { font-weight: 900; }
+.eyebrow { color: #a24d32; font-weight: 900; letter-spacing: .04em; margin-bottom: .25rem; text-transform: uppercase; }
 
-.chef-navbar {
-  background: linear-gradient(90deg, var(--chef-red), #ff8c42);
-  border-bottom: 5px solid #f9d64a;
-}
+.chef-navbar { background: linear-gradient(90deg, var(--chef-red), #ff8c42); border-bottom: 5px solid var(--chef-yellow); box-shadow: 0 8px 0 rgba(57,43,36,.08); }
+.brand-icon { filter: drop-shadow(2px 2px 0 rgba(0,0,0,.2)); }
+.navbar .nav-link { font-weight: 800; }
+.hero { background-image: linear-gradient(rgba(255,255,255,.5), rgba(255,255,255,.1)); }
 
-.hero {
-  background-image: linear-gradient(rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.15));
-}
-
-.mascot-card,
-.paper-panel,
-.recipe-page,
-.recipe-card {
+.mascot-card, .paper-panel, .recipe-page, .recipe-card, .oven-timer, .stat-card {
   background: var(--chef-cream);
   border: 4px solid var(--chef-ink) !important;
   border-radius: 2rem;
-  box-shadow: 8px 8px 0 rgba(57, 43, 36, 0.18) !important;
+  box-shadow: 8px 8px 0 rgba(57,43,36,.18) !important;
 }
+.paper-panel, .recipe-page { background: var(--chef-paper); }
 
-.mascot-card {
-  max-width: 22rem;
-  padding: 2rem;
-  transform: rotate(2deg);
-}
+.chef-button, .btn-primary { border-width: 3px; font-weight: 900; }
+.btn-primary { --bs-btn-bg: var(--chef-blue); --bs-btn-border-color: var(--chef-ink); --bs-btn-hover-bg: #2f7ee8; --bs-btn-hover-border-color: var(--chef-ink); }
+.btn-warning { --bs-btn-border-color: var(--chef-ink); border-width: 3px; font-weight: 900; }
 
-.mascot {
-  font-size: 8rem;
-  line-height: 1;
-}
+.oven-timer { max-width: 24rem; padding: 2rem; transform: rotate(2deg); }
+.timer-face { align-items: center; background: conic-gradient(var(--chef-green) 0 68%, #fff 68%); border: 8px solid var(--chef-ink); border-radius: 50%; display: flex; height: 14rem; justify-content: center; margin: auto; width: 14rem; }
+.timer-face span { background: #fff; border: 4px solid var(--chef-ink); border-radius: 50%; font-size: 2.4rem; font-weight: 900; padding: 2rem 1.25rem; }
 
-.speech-bubble {
-  background: #fff;
-  border: 3px solid var(--chef-ink);
-  border-radius: 1.5rem;
-  display: inline-block;
-  font-weight: 800;
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
-}
+.stat-card { align-items: center; display: flex; flex-direction: column; gap: .35rem; padding: 1.25rem; text-align: center; }
+.stat-card span { font-size: 2rem; } .stat-card strong { font-size: clamp(1.3rem, 4vw, 2rem); line-height: 1; } .stat-card small { color: #7a665a; font-weight: 800; }
 
-.recipe-card {
-  transition: transform 160ms ease, box-shadow 160ms ease;
-}
+.section-heading, .cookbook-title { align-items: end; display: flex; justify-content: space-between; gap: 1rem; }
+.cookbook-title h1, .section-heading h2 { font-weight: 900; margin: 0; }
 
-.recipe-card:hover {
-  box-shadow: 12px 12px 0 rgba(57, 43, 36, 0.24) !important;
-  transform: translate(-3px, -3px) rotate(-1deg);
-}
+.recipe-card { position: relative; transition: transform 160ms ease, box-shadow 160ms ease; }
+.recipe-card:hover { box-shadow: 12px 12px 0 rgba(57,43,36,.24) !important; transform: translate(-3px,-3px) rotate(-1deg); }
+.recipe-tilt-1 { transform: rotate(1deg); } .recipe-tilt-2 { transform: rotate(-1deg); }
+.recipe-pin { position: absolute; right: 1rem; top: -1rem; font-size: 2rem; }
+.phase-badge { background: var(--chef-green); border: 2px solid var(--chef-ink); color: var(--chef-ink); }
+.mini-meta { display: flex; flex-wrap: wrap; gap: .75rem; font-size: .9rem; font-weight: 800; margin-bottom: 1rem; }
 
-.phase-badge {
-  background: var(--chef-green);
-  border: 2px solid var(--chef-ink);
-  color: var(--chef-ink);
-}
+.prep-list, .ingredient-list, .instruction-list { padding-left: 1.4rem; }
+.prep-list li, .ingredient-list li, .instruction-list li { margin-bottom: .75rem; }
+.ingredient-list li::marker { content: "🥕 "; }
+.prep-list li::marker { content: "🍴 "; }
 
-.btn-primary {
-  --bs-btn-bg: var(--chef-blue);
-  --bs-btn-border-color: var(--chef-ink);
-  --bs-btn-hover-bg: #2f7ee8;
-  --bs-btn-hover-border-color: var(--chef-ink);
-  border-width: 3px;
-  font-weight: 800;
-}
+.pantry-row { background: rgba(255,217,90,.25); border: 2px dashed rgba(57,43,36,.25); border-radius: 1rem; margin-top: .75rem; padding: .75rem; }
+.pantry-row span { display: block; font-weight: 900; }
+.project-badge { font-size: 3rem; }
+.oven-progress { background: #fff; border: 3px solid var(--chef-ink); border-radius: 999px; height: 1.6rem; }
+.oven-progress .progress-bar { background: linear-gradient(90deg, var(--chef-red), var(--chef-yellow)); color: var(--chef-ink); font-weight: 900; }
 
-.ingredient-list li,
-.instruction-list li {
-  margin-bottom: 0.75rem;
-}
+.settings-list .list-group-item { background: transparent; display: flex; justify-content: space-between; gap: 1rem; }
+.timeline { display: grid; gap: 1rem; }
+.timeline-item { display: flex; gap: 1rem; }
+.timeline-item > span { align-items: center; background: var(--chef-yellow); border: 3px solid var(--chef-ink); border-radius: 50%; display: flex; flex: 0 0 2.5rem; font-weight: 900; height: 2.5rem; justify-content: center; }
 
-.ingredient-list li::marker {
-  content: "🥕 ";
-}
+.recipe-alert { border: 3px solid var(--chef-ink); border-radius: 1rem; box-shadow: 4px 4px 0 rgba(57,43,36,.15); }
+.not-found-panel { max-width: 42rem; }
+.chef-footer { background: rgba(255,255,255,.45); border-top: 3px dashed rgba(57,43,36,.25); }
 
-.not-found-panel {
-  max-width: 42rem;
-}
-
-.chef-footer {
-  background: rgba(255, 255, 255, 0.45);
-  border-top: 3px dashed rgba(57, 43, 36, 0.25);
+@media (max-width: 767.98px) {
+  .cookbook-title, .section-heading { align-items: start; flex-direction: column; }
+  .timer-face { height: 11rem; width: 11rem; }
 }
