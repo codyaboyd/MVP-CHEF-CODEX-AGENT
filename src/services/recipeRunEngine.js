@@ -7,6 +7,7 @@ const { GitManager } = require('./gitManagerService');
 const { GitHubManager } = require('./githubManagerService');
 const appSettingsService = require('./appSettingsService');
 const promptLintService = require('./promptLintService');
+const failureRecoveryService = require('./failureRecoveryService');
 
 const { STATUSES } = runStateManager;
 
@@ -190,6 +191,7 @@ function skipRunStep(runId, runStepId) {
     skipped_at: nowSql(),
     error_message: 'Skipped by human reviewer.'
   });
+  failureRecoveryService.recordAction(runId, runStepId, 'skip_failed_step', { reason: 'Skipped by human reviewer.' });
   return runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: 'Step skipped by human reviewer.' });
 }
 
@@ -206,6 +208,7 @@ function editPromptAndRetry(runId, runStepId, prompt) {
     approval_point: null,
     error_message: 'Prompt edited by human reviewer; ready to retry.'
   });
+  failureRecoveryService.recordAction(runId, runStepId, 'edit_failed_prompt_and_retry', { prompt: prompt.trim() });
   return runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: 'Prompt edited by human reviewer; ready to retry.' });
 }
 

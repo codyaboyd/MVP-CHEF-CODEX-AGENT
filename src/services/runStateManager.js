@@ -146,6 +146,23 @@ function pauseRun(runId) {
   });
 }
 
+function recoverInterruptedRuns() {
+  const interruptedRuns = db.prepare('SELECT * FROM runs WHERE status = ?').all(STATUSES.RUNNING);
+  interruptedRuns.forEach((run) => {
+    getRunSteps(run.id)
+      .filter((step) => step.status === STATUSES.RUNNING)
+      .forEach((step) => updateRunStep(step.id, STATUSES.PAUSED, {
+        completed_at: null,
+        error_message: step.error_message || 'Server restarted during this step; ready to resume.'
+      }));
+    updateRun(run.id, STATUSES.PAUSED, {
+      completed_at: null,
+      error_message: run.error_message || 'Server restarted during this run; ready to resume.'
+    });
+  });
+  return interruptedRuns.length;
+}
+
 function cancelRun(runId) {
   const run = getRun(runId);
   if (!run) {
@@ -178,6 +195,7 @@ module.exports = {
   getRun,
   getRunSteps,
   pauseRun,
+  recoverInterruptedRuns,
   updateRun,
   updateRunStep
 };

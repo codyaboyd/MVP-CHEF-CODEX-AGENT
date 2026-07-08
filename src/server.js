@@ -4,6 +4,7 @@ const path = require('node:path');
 const express = require('express');
 const morgan = require('morgan');
 const routes = require('./routes');
+require('./services/runStateManager').recoverInterruptedRuns();
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;

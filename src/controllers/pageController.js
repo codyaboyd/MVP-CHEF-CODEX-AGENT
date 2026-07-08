@@ -4,6 +4,7 @@ const projectService = require('../services/projectService');
 const recipeRunEngine = require('../services/recipeRunEngine');
 const runStateManager = require('../services/runStateManager');
 const appSettingsService = require('../services/appSettingsService');
+const failureRecoveryService = require('../services/failureRecoveryService');
 
 function dashboard(req, res) {
   res.render('dashboard', {
@@ -153,6 +154,57 @@ function skipRunStep(req, res, next) {
   }
 }
 
+function retryRunStep(req, res, next) {
+  try {
+    failureRecoveryService.retryFailedStep(Number(req.params.id), Number(req.params.stepId));
+    recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto' }).catch(next);
+    redirectToRun(req, res);
+  } catch (error) {
+    next(error);
+  }
+}
+
+function continueFromStep(req, res, next) {
+  try {
+    failureRecoveryService.continueFromStep(Number(req.params.id), Number(req.params.stepId));
+    recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto' }).catch(next);
+    redirectToRun(req, res);
+  } catch (error) {
+    next(error);
+  }
+}
+
+function rollbackLastStep(req, res, next) {
+  failureRecoveryService.rollbackLastStep(Number(req.params.id))
+    .then(() => redirectToRun(req, res))
+    .catch(next);
+}
+
+function runDiff(req, res, next) {
+  failureRecoveryService.getDiff(Number(req.params.id), req.query.stepId ? Number(req.query.stepId) : null)
+    .then((diff) => res.type('text/plain').send(diff))
+    .catch(next);
+}
+
+function runLogs(req, res, next) {
+  try {
+    const logs = failureRecoveryService.getLogs(Number(req.params.id), req.query.stepId ? Number(req.query.stepId) : null);
+    res.type('text/plain').send([logs.error && `Error: ${logs.error}`, logs.stdout, logs.stderr].filter(Boolean).join('\n'));
+  } catch (error) {
+    next(error);
+  }
+}
+
+function exportFailureReport(req, res, next) {
+  try {
+    const report = failureRecoveryService.exportFailureReport(Number(req.params.id));
+    res.setHeader('Content-Disposition', `attachment; filename="run-${req.params.id}-failure-report.json"`);
+    res.type('application/json').send(`${JSON.stringify(report, null, 2)}\n`);
+  } catch (error) {
+    next(error);
+  }
+}
+
 function setQuotaRefill(req, res, next) {
   try {
     const runId = Number(req.params.id);
@@ -223,6 +275,12 @@ module.exports = {
   overrideQualityGate,
   approveRunStep,
   rejectRunStep,
+  retryRunStep,
+  continueFromStep,
+  rollbackLastStep,
+  runDiff,
+  runLogs,
+  exportFailureReport,
   editPromptAndRetry,
   skipRunStep,
   cancelRun,

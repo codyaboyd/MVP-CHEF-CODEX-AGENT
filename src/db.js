@@ -230,6 +230,23 @@ function runMigrations(db) {
         ALTER TABLE run_steps ADD COLUMN prompt_override TEXT;
         ALTER TABLE run_steps ADD COLUMN skipped_at TEXT;
       `
+    },
+    {
+      version: 9,
+      name: 'add_failure_recovery_actions',
+      sql: `
+        CREATE TABLE IF NOT EXISTS run_recovery_actions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          run_id INTEGER NOT NULL,
+          run_step_id INTEGER,
+          action TEXT NOT NULL,
+          details_json TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE,
+          FOREIGN KEY (run_step_id) REFERENCES run_steps(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_run_recovery_actions_run_id ON run_recovery_actions(run_id);
+      `
     }
   ];
 
