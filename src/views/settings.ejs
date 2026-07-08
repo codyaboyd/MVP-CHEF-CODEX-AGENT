@@ -1,23 +1,153 @@
 <%- include('partials/layout') %>
-<section class="container py-5">
-  <div class="row g-4 align-items-start">
-    <div class="col-lg-5"><div class="paper-panel p-4"><p class="eyebrow">⚙️ Kitchen controls</p><h1>Settings</h1><p class="text-muted">Tune your cookbook defaults, pantry labels, and oven notifications.</p><div class="display-1">🧂</div></div></div>
-    <div class="col-lg-7"><div class="paper-panel p-4"><h2 class="h4">App settings</h2>
-      <form method="post" action="/settings" class="settings-form">
-        <% const values = settings.reduce((all, setting) => ({ ...all, [setting.key]: setting.value }), {}); %>
-        <div class="row g-3">
-          <div class="col-md-6"><label class="form-label">Default cooldown minutes</label><input class="form-control" type="number" min="0" name="defaultCooldownMinutes" value="<%= values.defaultCooldownMinutes || '60' %>"></div>
-          <div class="col-md-6"><label class="form-label">Max retries after quota</label><input class="form-control" type="number" min="0" name="maxRetriesAfterQuota" value="<%= values.maxRetriesAfterQuota || '3' %>"></div>
-          <% [['autoResumeAfterCooldown','Auto-resume after cooldown'], ['autoMergeEnabled','Auto-merge enabled'], ['requireHumanApprovalBeforeMerge','Require approval before merge'], ['protectedMainMode','Protected main mode'], ['projectSafeModeDefault','Default project safe mode'], ['secretScannerAllowOverride','Allow secrets scanner manual override']].forEach(([key, label]) => { %>
-            <div class="col-md-6"><label class="form-label"><%= label %></label><select class="form-select" name="<%= key %>"><option value="true" <%= values[key] !== 'false' ? 'selected' : '' %>>Enabled</option><option value="false" <%= values[key] === 'false' ? 'selected' : '' %>>Disabled</option></select></div>
-          <% }) %>
-        </div>
-        <button class="btn btn-primary mt-3" type="submit">Save settings</button>
-      </form>
-      <hr><div class="list-group list-group-flush settings-list">
-        <% settings.forEach((setting) => { %><div class="list-group-item"><strong><%= setting.key %></strong><span><%= setting.value %></span></div><% }) %>
+<%
+  const values = settings.reduce((all, setting) => ({ ...all, [setting.key]: setting.value }), {});
+  const valueFor = (key, fallback = '') => values[key] ?? fallback;
+  const boolSelect = (key, label, help) => { %>
+    <div class="col-md-6">
+      <label class="form-label fw-bold" for="<%= key %>"><%= label %></label>
+      <select class="form-select" id="<%= key %>" name="<%= key %>">
+        <option value="true" <%= valueFor(key, 'false') === 'true' ? 'selected' : '' %>>Enabled</option>
+        <option value="false" <%= valueFor(key, 'false') !== 'true' ? 'selected' : '' %>>Disabled</option>
+      </select>
+      <% if (help) { %><div class="form-text"><%= help %></div><% } %>
+    </div>
+  <% };
+%>
+<section class="container py-5 settings-page">
+  <div class="row g-4 align-items-start mb-4">
+    <div class="col-lg-5">
+      <div class="paper-panel p-4 h-100">
+        <p class="eyebrow">⚙️ Kitchen controls</p>
+        <h1 class="fw-black">Settings</h1>
+        <p class="text-muted">Tune Codex execution, GitHub automation, safety rails, quota recovery, and the workbench display from one pantry.</p>
+        <div class="display-1">🧂</div>
       </div>
-    </div></div>
+    </div>
+    <div class="col-lg-7">
+      <div class="paper-panel p-4 h-100">
+        <h2 class="h4 fw-black">Control center</h2>
+        <p class="mb-0 text-muted">Changes are saved as application defaults and used by future runs unless a run or project overrides them.</p>
+        <div class="settings-summary mt-3">
+          <span>Codex: <strong><%= valueFor('codexCommandPath', 'codex') %></strong></span>
+          <span>Cooldown: <strong><%= valueFor('defaultCooldownMinutes', '60') %> min</strong></span>
+          <span>Parallel runs: <strong><%= valueFor('maxParallelRuns', '1') %></strong></span>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <form method="post" action="/settings" class="settings-form">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <section class="paper-panel p-4 settings-section">
+          <p class="eyebrow">🤖 Codex CLI settings</p>
+          <h2 class="h4 fw-black">Runner command</h2>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-bold" for="codexCommandPath">Codex command path</label>
+              <input class="form-control" id="codexCommandPath" name="codexCommandPath" value="<%= valueFor('codexCommandPath', 'codex') %>" placeholder="codex or /usr/local/bin/codex">
+              <div class="form-text">Command or absolute path used to launch the Codex CLI.</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold" for="mockRunnerMode">Mock runner mode</label>
+              <select class="form-select" id="mockRunnerMode" name="mockRunnerMode">
+                <% [['auto','Auto fallback'], ['true','Always mock'], ['false','Use real CLI']].forEach(([value, label]) => { %>
+                  <option value="<%= value %>" <%= valueFor('mockRunnerMode', 'auto') === value ? 'selected' : '' %>><%= label %></option>
+                <% }) %>
+              </select>
+              <div class="form-text">Choose whether runs use the real CLI, mock output, or mock only when the CLI is unavailable.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-lg-6">
+        <section class="paper-panel p-4 settings-section">
+          <p class="eyebrow">🐙 GitHub settings</p>
+          <h2 class="h4 fw-black">Branch and merge automation</h2>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="defaultBranch">Default branch</label>
+              <input class="form-control" id="defaultBranch" name="defaultBranch" value="<%= valueFor('defaultBranch', 'main') %>">
+            </div>
+            <% boolSelect('autoMergeEnabled', 'Auto merge', 'Merge eligible pull requests after checks and approvals pass.'); %>
+            <% boolSelect('protectedMainMode', 'Protected main mode', 'Prefer pull requests over direct main-branch changes.'); %>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-lg-6">
+        <section class="paper-panel p-4 settings-section">
+          <p class="eyebrow">🛡️ Safety settings</p>
+          <h2 class="h4 fw-black">Approval gates</h2>
+          <div class="row g-3">
+            <% boolSelect('requireHumanApprovalBeforeMerge', 'Require approval', 'Pause before merge until a human approves the run.'); %>
+            <% boolSelect('projectSafeModeDefault', 'Default project safe mode', 'Start new projects with stricter prompt linting enabled.'); %>
+            <% boolSelect('secretScannerAllowOverride', 'Allow secrets scanner manual override', 'Permit explicit operator override of secret-scan blocks.'); %>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-lg-6">
+        <section class="paper-panel p-4 settings-section">
+          <p class="eyebrow">⏲️ Quota/cooldown settings</p>
+          <h2 class="h4 fw-black">Quota recovery</h2>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="defaultCooldownMinutes">Default cooldown minutes</label>
+              <input class="form-control" id="defaultCooldownMinutes" type="number" min="0" name="defaultCooldownMinutes" value="<%= valueFor('defaultCooldownMinutes', '60') %>">
+            </div>
+            <% boolSelect('autoResumeAfterCooldown', 'Auto resume', 'Resume waiting runs automatically after a quota cooldown.'); %>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-lg-6">
+        <section class="paper-panel p-4 settings-section">
+          <p class="eyebrow">🎨 UI preferences</p>
+          <h2 class="h4 fw-black">Workbench display</h2>
+          <div class="row g-3">
+            <% boolSelect('compactUiMode', 'Compact UI mode', 'Use denser cards and lists on operational pages.'); %>
+            <% boolSelect('showAdvancedSettings', 'Show advanced settings', 'Keep lower-level runner controls visible by default.'); %>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-lg-6">
+        <section class="paper-panel p-4 settings-section">
+          <p class="eyebrow">🏃 Runner limits</p>
+          <h2 class="h4 fw-black">Concurrency and timeouts</h2>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="maxParallelRuns">Max parallel runs</label>
+              <input class="form-control" id="maxParallelRuns" type="number" min="1" name="maxParallelRuns" value="<%= valueFor('maxParallelRuns', '1') %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="maxStepRuntimeMinutes">Max step runtime</label>
+              <input class="form-control" id="maxStepRuntimeMinutes" type="number" min="1" name="maxStepRuntimeMinutes" value="<%= valueFor('maxStepRuntimeMinutes', '30') %>">
+              <div class="form-text">Minutes before a Codex step is considered timed out.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="paper-panel p-4 mt-4 d-flex flex-wrap gap-3 align-items-center justify-content-between">
+      <div>
+        <h2 class="h5 fw-black mb-1">Save the pantry labels</h2>
+        <p class="text-muted mb-0">Persist these defaults for the next batch of Codex recipes.</p>
+      </div>
+      <button class="btn btn-primary btn-lg rounded-pill" type="submit">Save settings</button>
+    </div>
+  </form>
+
+  <section class="paper-panel p-4 mt-4">
+    <h2 class="h4 fw-black">Current raw settings</h2>
+    <div class="list-group list-group-flush settings-list">
+      <% settings.forEach((setting) => { %>
+        <div class="list-group-item"><strong><%= setting.key %></strong><span><%= setting.value %></span></div>
+      <% }) %>
+    </div>
+  </section>
 </section>
 <%- include('partials/footer') %>
