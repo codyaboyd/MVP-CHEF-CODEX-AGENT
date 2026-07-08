@@ -261,6 +261,7 @@ function cancel(runStepId) {
 
 module.exports = {
   cancel,
+  collectSecretValues,
   createRedactor,
   executeStep
 };

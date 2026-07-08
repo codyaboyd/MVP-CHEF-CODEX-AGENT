@@ -452,6 +452,53 @@ test('run events stream live run snapshots with progress, logs, and retries', as
   db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
 });
 
+
+test('app settings include auto-merge safety controls', () => {
+  const settings = require('../src/services/appSettingsService').getAutomationSettings();
+  assert.equal(settings.autoMergeEnabled, true);
+  assert.equal(settings.requireHumanApprovalBeforeMerge, false);
+  assert.equal(settings.protectedMainMode, true);
+
+  const keys = db.prepare(`
+    SELECT key FROM app_settings
+    WHERE key IN ('autoMergeEnabled', 'requireHumanApprovalBeforeMerge', 'protectedMainMode')
+    ORDER BY key
+  `).all().map((row) => row.key);
+  assert.deepEqual(keys, ['autoMergeEnabled', 'protectedMainMode', 'requireHumanApprovalBeforeMerge']);
+});
+
+test('GitManager blocks PR automation when committed changes contain known secrets', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { execFileSync } = require('node:child_process');
+  const { GitManager } = require('../src/services/gitManagerService');
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'git-manager-secret-'));
+  const git = (args) => execFileSync('git', args, { cwd: repoPath, encoding: 'utf8' }).trim();
+  const previousToken = process.env.MVP_CHEF_TEST_TOKEN;
+
+  process.env.MVP_CHEF_TEST_TOKEN = 'secret-value-for-detection';
+  git(['init', '--initial-branch=main']);
+  git(['config', 'user.email', 'chef@example.test']);
+  git(['config', 'user.name', 'MVP Chef']);
+  fs.writeFileSync(path.join(repoPath, 'README.md'), 'hello\n');
+  git(['add', 'README.md']);
+  git(['commit', '-m', 'initial']);
+  fs.writeFileSync(path.join(repoPath, 'leak.txt'), 'secret-value-for-detection\n');
+  git(['add', 'leak.txt']);
+  git(['commit', '-m', 'leak']);
+
+  const manager = new GitManager({ repoPath, mainBranch: 'main' });
+  await assert.rejects(() => manager.assertNoSecretsInCommit(git(['rev-parse', 'HEAD'])), /Secret values were detected/);
+
+  if (previousToken === undefined) {
+    delete process.env.MVP_CHEF_TEST_TOKEN;
+  } else {
+    process.env.MVP_CHEF_TEST_TOKEN = previousToken;
+  }
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});
+
 test('GitManager enforces a clean tree, branches, summarizes, commits, pushes, pulls, and rolls back', async () => {
   const os = require('node:os');
   const fs = require('node:fs');

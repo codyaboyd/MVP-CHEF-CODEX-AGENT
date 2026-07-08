@@ -88,7 +88,9 @@ class GitHubManager {
       '--jq', '.url'
     ];
     const result = await this.run(args);
-    return result.stdout.split('\n').filter(Boolean).at(-1) || result.stdout;
+    const prUrl = result.stdout.split('\n').filter(Boolean).at(-1) || result.stdout;
+    if (!prUrl) throw new Error('GitHub pull request creation did not return a PR URL.');
+    return prUrl;
   }
 
   async waitForChecks(prUrl, { timeoutMs = this.checkTimeoutMs, pollIntervalMs = this.checkPollIntervalMs } = {}) {
@@ -119,9 +121,14 @@ class GitHubManager {
     return view.error ? null : parseMergeCommitSha(view.stdout);
   }
 
-  async createMergeAfterChecks({ branchName, title, body, squash = true }) {
+  async createPullRequestAfterChecks({ branchName, title, body }) {
     const prUrl = await this.createPullRequest({ branchName, title, body });
     await this.waitForChecks(prUrl);
+    return { prUrl, checksPassed: true };
+  }
+
+  async createMergeAfterChecks({ branchName, title, body, squash = true }) {
+    const { prUrl } = await this.createPullRequestAfterChecks({ branchName, title, body });
     const mergeCommitSha = await this.mergePullRequest(prUrl, { squash });
     return { prUrl, mergeCommitSha };
   }
