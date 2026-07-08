@@ -23,8 +23,10 @@ router.get('/runs/:id', pageController.runDetail);
 router.get('/runs/:id/events', pageController.runEvents);
 router.post('/runs/:id/pause', pageController.pauseRun);
 router.post('/runs/:id/resume', pageController.resumeRun);
+router.post('/runs/:id/quota-refill', pageController.setQuotaRefill);
 router.post('/runs/:id/steps/:stepId/quality-gate-override', pageController.overrideQualityGate);
 router.post('/runs/:id/cancel', pageController.cancelRun);
 router.get('/settings', pageController.settings);
+router.post('/settings', pageController.updateSettings);
 
 module.exports = router;

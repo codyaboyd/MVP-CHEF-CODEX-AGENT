@@ -55,6 +55,8 @@ function updateRun(runId, status, patch = {}) {
         error_message = @error_message,
         started_at = @started_at,
         completed_at = @completed_at,
+        quota_refill_at = @quota_refill_at,
+        quota_retry_count = @quota_retry_count,
         updated_at = @updated_at
     WHERE id = @id
   `).run({
@@ -85,6 +87,8 @@ function updateRunStep(runStepId, status, patch = {}) {
         error_message = @error_message,
         started_at = @started_at,
         completed_at = @completed_at,
+        quota_refill_at = @quota_refill_at,
+        quota_retry_count = @quota_retry_count,
         updated_at = @updated_at
     WHERE id = @id
   `).run({

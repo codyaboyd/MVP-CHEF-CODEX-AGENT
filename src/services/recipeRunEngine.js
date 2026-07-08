@@ -9,6 +9,47 @@ const appSettingsService = require('./appSettingsService');
 
 const { STATUSES } = runStateManager;
 
+const quotaResumeTimers = new Map();
+
+function getRefillTime(settings, override) {
+  if (override) return new Date(override).toISOString();
+  return new Date(Date.now() + settings.defaultCooldownMinutes * 60 * 1000).toISOString();
+}
+
+function scheduleQuotaResume(runId, refillAt, options = {}) {
+  const delayMs = new Date(refillAt).getTime() - Date.now();
+  if (!Number.isFinite(delayMs) || delayMs <= 0) return;
+  if (quotaResumeTimers.has(runId)) clearTimeout(quotaResumeTimers.get(runId));
+  const timer = setTimeout(() => {
+    quotaResumeTimers.delete(runId);
+    resumeRun(runId, { ...options, quotaCooldownElapsed: true }).catch(() => {});
+  }, delayMs);
+  timer.unref();
+  quotaResumeTimers.set(runId, timer);
+}
+
+function pauseForQuota({ runId, stepId, error, options }) {
+  const quotaSettings = appSettingsService.getQuotaSettings(options);
+  const run = runStateManager.getRun(runId);
+  const retryCount = Number(run.quota_retry_count || 0);
+  const refillAt = getRefillTime(quotaSettings, options.quotaRefillAt);
+  const message = `${error.message} Recipe paused until quota refills.`;
+  runStateManager.updateRunStep(stepId, STATUSES.WAITING_FOR_QUOTA, {
+    error_message: message,
+    quota_refill_at: refillAt,
+    quota_retry_count: retryCount
+  });
+  const updated = runStateManager.updateRun(runId, STATUSES.WAITING_FOR_QUOTA, {
+    error_message: message,
+    quota_refill_at: refillAt,
+    quota_retry_count: retryCount
+  });
+  if (quotaSettings.autoResumeAfterCooldown && retryCount < quotaSettings.maxRetriesAfterQuota) {
+    scheduleQuotaResume(runId, refillAt, options);
+  }
+  return updated;
+}
+
 function nowSql() {
   return new Date().toISOString();
 }
@@ -243,9 +284,8 @@ ${gitResult.diffSummary || 'Automated MVP Chef step changes.'}`,
 Rollback failed: ${rollbackError.message}`;
         }
       }
-      if (/quota|rate limit/i.test(error.message)) {
-        runStateManager.updateRunStep(nextStep.id, STATUSES.WAITING_FOR_QUOTA, { error_message: error.message });
-        return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_QUOTA, { error_message: error.message });
+      if (error.code === 'QUOTA_LIMIT_DETECTED' || codexRunner.detectQuotaLimit(error.message, error.result?.stdout, error.result?.stderr)) {
+        return pauseForQuota({ runId, stepId: nextStep.id, error, options });
       }
       runStateManager.updateRunStep(nextStep.id, STATUSES.FAILED, { completed_at: nowSql(), error_message: error.message });
       return runStateManager.updateRun(runId, STATUSES.FAILED, { completed_at: nowSql(), error_message: error.message });
@@ -275,6 +315,20 @@ async function resumeRun(runId, options = {}) {
   if (!run) throw new Error(`Run ${runId} was not found.`);
   const step = findResumeStep(runStateManager.getRunSteps(runId));
   if (!step) return run;
+  if (step.status === STATUSES.WAITING_FOR_QUOTA) {
+    const quotaSettings = appSettingsService.getQuotaSettings(options);
+    const retryCount = Number(run.quota_retry_count || 0);
+    const refillDue = !run.quota_refill_at || new Date(run.quota_refill_at).getTime() <= Date.now();
+    if (!options.quotaCooldownElapsed && !refillDue) {
+      if (quotaSettings.autoResumeAfterCooldown && retryCount < quotaSettings.maxRetriesAfterQuota) scheduleQuotaResume(runId, run.quota_refill_at, options);
+      return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_QUOTA, { error_message: run.error_message || 'Waiting for quota refill.' });
+    }
+    if (retryCount >= quotaSettings.maxRetriesAfterQuota) {
+      return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_QUOTA, { error_message: 'Maximum quota retry attempts reached.' });
+    }
+    runStateManager.updateRunStep(step.id, STATUSES.PAUSED, { error_message: null, quota_retry_count: retryCount + 1 });
+    runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: null, quota_retry_count: retryCount + 1 });
+  }
   if (step.status === STATUSES.WAITING_FOR_APPROVAL && !options.approved) {
     return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: 'Waiting for human approval.' });
   }

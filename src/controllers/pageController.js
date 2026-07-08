@@ -3,6 +3,7 @@ const recipeService = require('../services/recipeService');
 const projectService = require('../services/projectService');
 const recipeRunEngine = require('../services/recipeRunEngine');
 const runStateManager = require('../services/runStateManager');
+const appSettingsService = require('../services/appSettingsService');
 
 function dashboard(req, res) {
   res.render('dashboard', {
@@ -114,8 +115,23 @@ function pauseRun(req, res) {
 }
 
 function resumeRun(req, res, next) {
-  recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto', approved: true }).catch(next);
+  recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto', approved: true, quotaCooldownElapsed: req.body.ignoreQuotaCooldown === '1' }).catch(next);
   redirectToRun(req, res);
+}
+
+function setQuotaRefill(req, res, next) {
+  try {
+    const runId = Number(req.params.id);
+    const refillAt = req.body.quotaRefillAt ? new Date(req.body.quotaRefillAt).toISOString() : null;
+    if (!refillAt) throw new Error('Quota refill time is required.');
+    const run = runStateManager.updateRun(runId, runStateManager.STATUSES.WAITING_FOR_QUOTA, { quota_refill_at: refillAt });
+    const step = runStateManager.getRunSteps(runId).find((candidate) => candidate.status === runStateManager.STATUSES.WAITING_FOR_QUOTA);
+    if (step) runStateManager.updateRunStep(step.id, runStateManager.STATUSES.WAITING_FOR_QUOTA, { quota_refill_at: refillAt });
+    recipeRunEngine.resumeRun(run.id, { mockMode: 'auto', approved: true }).catch(next);
+    redirectToRun(req, res);
+  } catch (error) {
+    next(error);
+  }
 }
 
 function overrideQualityGate(req, res, next) {
@@ -142,8 +158,21 @@ function cancelRun(req, res) {
 function settings(req, res) {
   res.render('settings', {
     title: 'Settings',
-    settings: dashboardService.getSettings()
+    settings,
+  updateSettings: dashboardService.getSettings()
   });
+}
+
+function updateSettings(req, res) {
+  appSettingsService.updateSettings({
+    autoMergeEnabled: req.body.autoMergeEnabled === 'true' ? 'true' : 'false',
+    requireHumanApprovalBeforeMerge: req.body.requireHumanApprovalBeforeMerge === 'true' ? 'true' : 'false',
+    protectedMainMode: req.body.protectedMainMode === 'true' ? 'true' : 'false',
+    defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
+    autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
+    maxRetriesAfterQuota: req.body.maxRetriesAfterQuota || '3'
+  });
+  res.redirect('/settings');
 }
 
 module.exports = {
@@ -153,9 +182,11 @@ module.exports = {
   recipes,
   runDetail,
   runEvents,
+  setQuotaRefill,
   pauseRun,
   resumeRun,
   overrideQualityGate,
   cancelRun,
-  settings
+  settings,
+  updateSettings
 };

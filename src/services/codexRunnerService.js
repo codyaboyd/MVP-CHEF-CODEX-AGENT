@@ -10,6 +10,13 @@ const SECRET_KEY_PATTERN = /(SECRET|TOKEN|KEY|PASSWORD|PASS|PWD|AUTH|COOKIE|SESS
 const activeProcesses = new Map();
 const cancelledSteps = new Set();
 
+const QUOTA_LIMIT_PATTERN = /(quota|rate[ -]?limit|usage[ -]?limit|refill|too many requests|exhausted)/i;
+
+function detectQuotaLimit(...parts) {
+  const text = parts.filter(Boolean).join('\n');
+  return QUOTA_LIMIT_PATTERN.test(text);
+}
+
 function nowSql() {
   return new Date().toISOString();
 }
@@ -212,6 +219,13 @@ async function executeStep(options) {
         ? await runMock({ runStepId, prompt, redactor })
         : await spawnCodex({ command: codexCommand, args, repoPath, prompt, timeoutMs, runStepId, redactor });
 
+      if (detectQuotaLimit(result.stdout, result.stderr)) {
+        const quotaError = new Error('Codex quota or rate limit detected.');
+        quotaError.code = 'QUOTA_LIMIT_DETECTED';
+        quotaError.result = result;
+        throw quotaError;
+      }
+
       if (result.code === 0) {
         updateRunStep(runStepId, { status: 'succeeded', completed_at: nowSql(), error_message: null });
         updateRunStatus(runId, 'succeeded', { completed_at: nowSql(), error_message: null });
@@ -237,11 +251,18 @@ async function executeStep(options) {
         return { ...result, attempt };
       }
 
+      const quotaDetected = error.code === 'QUOTA_LIMIT_DETECTED' || detectQuotaLimit(error.message, error.result?.stdout, error.result?.stderr);
       const message = redactor(error.message);
       appendRunStepLog(runStepId, 'stderr', `[CodexRunner] ${message}\n`);
-      if (attempt === maxAttempts) {
-        updateRunStep(runStepId, { status: 'failed', completed_at: nowSql(), error_message: message });
-        updateRunStatus(runId, 'failed', { completed_at: nowSql(), error_message: message });
+      if (quotaDetected || attempt === maxAttempts) {
+        if (quotaDetected) {
+          error.code = 'QUOTA_LIMIT_DETECTED';
+          updateRunStep(runStepId, { status: 'waiting_for_quota', completed_at: null, error_message: message });
+          updateRunStatus(runId, 'waiting_for_quota', { completed_at: null, error_message: message });
+        } else {
+          updateRunStep(runStepId, { status: 'failed', completed_at: nowSql(), error_message: message });
+          updateRunStatus(runId, 'failed', { completed_at: nowSql(), error_message: message });
+        }
         throw error;
       }
     }
@@ -263,5 +284,6 @@ module.exports = {
   cancel,
   collectSecretValues,
   createRedactor,
+  detectQuotaLimit,
   executeStep
 };
