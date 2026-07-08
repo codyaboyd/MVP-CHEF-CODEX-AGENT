@@ -621,3 +621,77 @@ test('GitHubManager fails gracefully when gh is missing', async () => {
 
   fs.rmSync(repoPath, { recursive: true, force: true });
 });
+
+test('CodexRunner detects quota text and marks a step waiting_for_quota without normal retries', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const codexRunner = require('../src/services/codexRunnerService');
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-runner-quota-'));
+  const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('queued');
+  const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'queued');
+
+  await assert.rejects(() => codexRunner.executeStep({
+    runId: run.lastInsertRowid,
+    runStepId: step.lastInsertRowid,
+    repoPath,
+    prompt: 'hello from stdin',
+    codexCommand: process.execPath,
+    codexArgs: ['-e', 'console.error("Too many requests: usage limit exhausted; refill soon"); process.exit(1);'],
+    retries: 3,
+    mockMode: false
+  }), (error) => error.code === 'QUOTA_LIMIT_DETECTED');
+
+  const savedRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(run.lastInsertRowid);
+  const savedStep = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(step.lastInsertRowid);
+  assert.equal(savedRun.status, 'waiting_for_quota');
+  assert.equal(savedStep.status, 'waiting_for_quota');
+  assert.match(savedStep.stderr_log, /usage limit exhausted/);
+  assert.doesNotMatch(savedStep.stdout_log, /Attempt 2 of 4/);
+
+  db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});
+
+test('RecipeRunEngine pauses on quota and does not start the next prompt until cooldown is cleared', async () => {
+  const engine = require('../src/services/recipeRunEngine');
+  const project = db.prepare(`
+    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run('Quota Project', process.cwd(), 'example/quota-project', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
+  const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
+    .run(project.lastInsertRowid, 'Quota Cake', '1.0.0', 'Exercise quota pause.');
+  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 1, 'Quota', 'Hit quota.');
+  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 2, 'Next', 'Must not start yet.');
+
+  const created = await engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false });
+  const waiting = await engine.executeRun(created.id, {
+    codexCommand: process.execPath,
+    codexArgs: ['-e', 'console.error("rate limit exhausted until refill"); process.exit(1);'],
+    mockMode: false,
+    defaultCooldownMinutes: 5,
+    autoResumeAfterCooldown: false
+  });
+
+  let steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(created.id);
+  assert.equal(waiting.status, 'waiting_for_quota');
+  assert.equal(steps[0].status, 'waiting_for_quota');
+  assert.equal(steps[1].status, 'pending');
+  assert.ok(waiting.quota_refill_at);
+
+  const stillWaiting = await engine.resumeRun(created.id, { mockMode: true, autoResumeAfterCooldown: false });
+  steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(created.id);
+  assert.equal(stillWaiting.status, 'waiting_for_quota');
+  assert.equal(steps[1].status, 'pending');
+
+  db.prepare('UPDATE runs SET quota_refill_at = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), created.id);
+  const resumed = await engine.resumeRun(created.id, { mockMode: true, autoResumeAfterCooldown: false });
+  steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(created.id);
+  assert.equal(resumed.status, 'succeeded');
+  assert.deepEqual(steps.map((step) => step.status), ['succeeded', 'succeeded']);
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
+});

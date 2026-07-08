@@ -3,7 +3,10 @@ const db = require('../db');
 const DEFAULT_SETTINGS = Object.freeze({
   autoMergeEnabled: 'true',
   requireHumanApprovalBeforeMerge: 'false',
-  protectedMainMode: 'true'
+  protectedMainMode: 'true',
+  defaultCooldownMinutes: '60',
+  autoResumeAfterCooldown: 'true',
+  maxRetriesAfterQuota: '3'
 });
 
 function normalizeBoolean(value, fallback = false) {
@@ -36,6 +39,34 @@ function getSettings() {
   return db.prepare('SELECT * FROM app_settings ORDER BY key ASC').all();
 }
 
+function normalizeInteger(value, fallback = 0) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function updateSettings(values = {}) {
+  ensureDefaultSettings();
+  const update = db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+  `);
+  Object.keys(DEFAULT_SETTINGS).forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(values, key)) update.run(key, String(values[key]));
+  });
+  return getSettings();
+}
+
+function getQuotaSettings(overrides = {}) {
+  ensureDefaultSettings();
+  const rows = getSettings().reduce((settings, row) => ({ ...settings, [row.key]: row.value }), {});
+  return {
+    defaultCooldownMinutes: normalizeInteger(overrides.defaultCooldownMinutes ?? rows.defaultCooldownMinutes, 60),
+    autoResumeAfterCooldown: normalizeBoolean(overrides.autoResumeAfterCooldown ?? rows.autoResumeAfterCooldown, true),
+    maxRetriesAfterQuota: normalizeInteger(overrides.maxRetriesAfterQuota ?? rows.maxRetriesAfterQuota, 3)
+  };
+}
+
 function getAutomationSettings(overrides = {}) {
   ensureDefaultSettings();
   const rows = getSettings().reduce((settings, row) => ({ ...settings, [row.key]: row.value }), {});
@@ -50,7 +81,10 @@ module.exports = {
   DEFAULT_SETTINGS,
   ensureDefaultSettings,
   getAutomationSettings,
+  getQuotaSettings,
   getSetting,
   getSettings,
-  normalizeBoolean
+  normalizeBoolean,
+  normalizeInteger,
+  updateSettings
 };

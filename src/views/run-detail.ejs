@@ -15,6 +15,27 @@
       </div>
     </div>
 
+
+    <% if (run.status === 'waiting_for_quota') { %>
+      <div class="alert alert-warning" data-quota-status>
+        <strong>Quota cooldown active.</strong>
+        <span data-quota-message><%= run.error_message || 'Waiting for quota or rate-limit refill.' %></span>
+        <div class="small mt-1">Next refill: <span data-quota-refill><%= run.quota_refill_at || 'Not set' %></span> · Retry <span data-quota-retry><%= run.quota_retry_count || 0 %></span></div>
+        <form method="post" action="/runs/<%= run.id %>/quota-refill" class="row g-2 align-items-end mt-2">
+          <div class="col-sm-8">
+            <label class="form-label small fw-bold">Set next refill time manually</label>
+            <input class="form-control" type="datetime-local" name="quotaRefillAt" required>
+          </div>
+          <div class="col-sm-4"><button class="btn btn-outline-dark w-100" type="submit">Save cooldown</button></div>
+        </form>
+      </div>
+    <% } else { %>
+      <div class="alert alert-warning d-none" data-quota-status>
+        <strong>Quota cooldown active.</strong> <span data-quota-message></span>
+        <div class="small mt-1">Next refill: <span data-quota-refill>Not set</span> · Retry <span data-quota-retry>0</span></div>
+      </div>
+    <% } %>
+
     <div class="row g-4 my-3">
       <div class="col-md-3"><div class="stat-card"><span>⏲️</span><strong><span class="status-badge" data-run-status><%= run.status %></span></strong><small>Status</small></div></div>
       <div class="col-md-3"><div class="stat-card"><span>🥄</span><strong data-run-current-step><%= runSnapshot && runSnapshot.currentStep ? runSnapshot.currentStep.title : 'Pending' %></strong><small>Current step</small></div></div>

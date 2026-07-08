@@ -96,6 +96,8 @@ function normalizeStepForSnapshot(step) {
     })),
     startedAt: step.started_at,
     completedAt: step.completed_at,
+    quotaRefillAt: step.quota_refill_at,
+    quotaRetryCount: Number(step.quota_retry_count || 0),
     updatedAt: step.updated_at
   };
 }
@@ -113,6 +115,12 @@ function getRunSnapshot(id) {
     commitSha: run.commit_sha,
     prUrl: run.pr_url,
     errorMessage: run.error_message || '',
+    quotaStatus: {
+      waiting: run.status === 'waiting_for_quota',
+      refillAt: run.quota_refill_at,
+      retryCount: Number(run.quota_retry_count || 0),
+      message: run.status === 'waiting_for_quota' ? (run.error_message || 'Waiting for quota refill.') : ''
+    },
     progress: calculateProgress(steps),
     currentStep,
     stdout: [run.stdout_log || '', ...steps.map((step) => step.stdout)].filter(Boolean).join('\n'),

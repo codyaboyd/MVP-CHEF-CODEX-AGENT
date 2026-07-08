@@ -208,6 +208,16 @@ function runMigrations(db) {
         ALTER TABLE run_steps ADD COLUMN pr_url TEXT;
         ALTER TABLE run_steps ADD COLUMN merge_commit_sha TEXT;
       `
+    },
+    {
+      version: 7,
+      name: 'add_quota_cooldown_fields',
+      sql: `
+        ALTER TABLE runs ADD COLUMN quota_refill_at TEXT;
+        ALTER TABLE runs ADD COLUMN quota_retry_count INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE run_steps ADD COLUMN quota_refill_at TEXT;
+        ALTER TABLE run_steps ADD COLUMN quota_retry_count INTEGER NOT NULL DEFAULT 0;
+      `
     }
   ];
 

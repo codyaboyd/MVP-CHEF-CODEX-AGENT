@@ -132,6 +132,16 @@ function updateRunDetail(root, snapshot) {
     progress.parentElement.setAttribute('aria-valuenow', snapshot.progress);
   }
   if (progressLabel) progressLabel.textContent = `${snapshot.progress}%`;
+  const quota = root.querySelector('[data-quota-status]');
+  if (quota && snapshot.quotaStatus) {
+    quota.classList.toggle('d-none', !snapshot.quotaStatus.waiting);
+    const message = quota.querySelector('[data-quota-message]');
+    const refill = quota.querySelector('[data-quota-refill]');
+    const retry = quota.querySelector('[data-quota-retry]');
+    if (message) message.textContent = snapshot.quotaStatus.message || '';
+    if (refill) refill.textContent = snapshot.quotaStatus.refillAt || 'Not set';
+    if (retry) retry.textContent = snapshot.quotaStatus.retryCount || 0;
+  }
   const logs = root.querySelector('[data-run-logs]');
   if (logs) {
     logs.textContent = [snapshot.stdout, snapshot.stderr ? `\n[stderr]\n${snapshot.stderr}` : ''].filter(Boolean).join('') || 'Waiting for logs…';
