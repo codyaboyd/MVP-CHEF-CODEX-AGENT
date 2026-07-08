@@ -894,3 +894,36 @@ test('RecipeRunEngine warns on prompt lint findings and only blocks them in safe
   db.prepare('DELETE FROM recipes WHERE id IN (?, ?)').run(normalRecipeId, safeRecipeId);
   db.prepare('DELETE FROM projects WHERE id IN (?, ?)').run(normalProject.lastInsertRowid, safeProject.lastInsertRowid);
 });
+
+test('database seeds built-in recipe templates with ordered Codex prompts', () => {
+  const templateNames = [
+    'Node.js SaaS MVP',
+    'Bootstrap landing page',
+    'REST API backend',
+    'Auth system',
+    'Stripe billing',
+    'Admin dashboard',
+    'CRUD app',
+    'AI chatbot app',
+    'Documentation cleanup',
+    'Test hardening'
+  ];
+
+  const rows = db.prepare(`
+    SELECT recipes.name, recipe_steps.step_order, recipe_steps.title, recipe_steps.prompt
+    FROM recipes
+    JOIN recipe_steps ON recipe_steps.recipe_id = recipes.id
+    WHERE recipes.name IN (${templateNames.map(() => '?').join(',')})
+    ORDER BY recipes.name ASC, recipe_steps.step_order ASC
+  `).all(...templateNames);
+
+  assert.equal(new Set(rows.map((row) => row.name)).size, templateNames.length);
+
+  for (const name of templateNames) {
+    const steps = rows.filter((row) => row.name === name);
+    assert.equal(steps.length, 4, `${name} should include four ordered prompts`);
+    assert.deepEqual(steps.map((step) => step.step_order), [1, 2, 3, 4]);
+    assert.ok(steps.every((step) => step.title.length > 5));
+    assert.ok(steps.every((step) => step.prompt.length > 80));
+  }
+});

@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const Database = require('better-sqlite3');
+const builtInRecipeTemplates = require('./services/builtInRecipeTemplates');
 
 const defaultDatabasePath = path.join(process.cwd(), 'data', 'mvp-chef-codex.sqlite');
 const databasePath = process.env.DATABASE_PATH || defaultDatabasePath;
@@ -322,6 +323,50 @@ function migrateLegacyRecipes(db) {
   migrate();
 }
 
+
+function seedBuiltInRecipeTemplates(db, projectId = null) {
+  const insertRecipe = db.prepare(`
+    INSERT INTO recipes (project_id, name, version, description, imported_json, exported_json)
+    VALUES (@projectId, @name, @version, @description, @recipeJson, @recipeJson)
+  `);
+  const insertStep = db.prepare(`
+    INSERT INTO recipe_steps (recipe_id, step_order, title, prompt, required_checks, retry_count, human_approval, approval_override)
+    VALUES (@recipeId, @stepOrder, @title, @prompt, @requiredChecks, @retryCount, @humanApproval, 'inherit')
+  `);
+  const existingRecipe = db.prepare('SELECT id FROM recipes WHERE name = ? LIMIT 1');
+
+  const seedTemplates = db.transaction(() => {
+    builtInRecipeTemplates.forEach((template) => {
+      if (existingRecipe.get(template.name)) {
+        return;
+      }
+
+      const recipeJson = JSON.stringify(template, null, 2);
+      const recipe = insertRecipe.run({
+        projectId,
+        name: template.name,
+        version: template.version,
+        description: template.description,
+        recipeJson
+      });
+
+      template.steps.forEach((step, index) => {
+        insertStep.run({
+          recipeId: recipe.lastInsertRowid,
+          stepOrder: index + 1,
+          title: step.title,
+          prompt: step.prompt,
+          requiredChecks: (step.requiredChecks || []).join('\n'),
+          retryCount: step.maxRetries || 0,
+          humanApproval: step.requiresApproval ? 1 : 0
+        });
+      });
+    });
+  });
+
+  seedTemplates();
+}
+
 function seedDatabase(db) {
   migrateLegacyRecipes(db);
 
@@ -339,6 +384,7 @@ function seedDatabase(db) {
   const projectCount = db.prepare('SELECT COUNT(*) AS total FROM projects').get().total;
 
   if (projectCount > 0) {
+    seedBuiltInRecipeTemplates(db);
     return;
   }
 
@@ -413,6 +459,8 @@ function seedDatabase(db) {
         prompt: step.prompt
       });
     });
+
+    seedBuiltInRecipeTemplates(db, project.lastInsertRowid);
 
     db.prepare(`
       INSERT INTO app_settings (key, value)
