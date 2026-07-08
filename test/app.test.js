@@ -695,3 +695,38 @@ test('RecipeRunEngine pauses on quota and does not start the next prompt until c
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
+
+test('human approval modes pause before a step and expose approval actions', async () => {
+  const engine = require('../src/services/recipeRunEngine');
+  const project = db.prepare(`
+    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run('Approval Project', process.cwd(), 'example/approval-project', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
+  const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description, approval_mode) VALUES (?, ?, ?, ?, ?)')
+    .run(project.lastInsertRowid, 'Approval Cake', '1.0.0', 'Exercise human approval.', 'before_step');
+  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 1, 'Review me', 'Do reviewed work.');
+
+  const created = await engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false });
+  const waiting = await engine.executeRun(created.id, { mockMode: true });
+  let step = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
+  assert.equal(waiting.status, 'waiting_for_approval');
+  assert.equal(step.status, 'waiting_for_approval');
+  assert.equal(step.approval_point, 'before_step');
+
+  const detail = await request(app).get(`/runs/${created.id}`);
+  assert.equal(detail.status, 200);
+  assert.match(detail.text, /Approve/);
+  assert.match(detail.text, /Reject/);
+  assert.match(detail.text, /Edit prompt and retry/);
+  assert.match(detail.text, /Skip step/);
+  assert.match(detail.text, /Cancel run/);
+
+  const resumed = await engine.resumeRun(created.id, { mockMode: true, approved: true, approvedPoint: 'before_step' });
+  step = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
+  assert.equal(resumed.status, 'succeeded');
+  assert.equal(step.status, 'succeeded');
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
+});

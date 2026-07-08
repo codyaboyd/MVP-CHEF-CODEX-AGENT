@@ -51,7 +51,15 @@
         <label class="form-label fw-bold" for="lintCommand">Lint command</label>
         <input class="form-control" id="lintCommand" name="lintCommand" value="<%= form.lintCommand %>">
       </div>
-      <div class="col-12">
+      <div class="col-md-4">
+        <label class="form-label fw-bold" for="safeMode">Safe mode</label>
+        <select class="form-select" id="safeMode" name="safeMode">
+          <option value="false" <%= !form.safeMode ? 'selected' : '' %>>Disabled</option>
+          <option value="true" <%= form.safeMode ? 'selected' : '' %>>Enabled</option>
+        </select>
+        <div class="form-text">Requires every approval checkpoint for project runs.</div>
+      </div>
+      <div class="col-md-8">
         <label class="form-label fw-bold" for="description">Description</label>
         <textarea class="form-control" id="description" name="description" rows="2"><%= form.description %></textarea>
       </div>
@@ -73,6 +81,7 @@
           <div class="pantry-row"><span>Repo path</span><code><%= project.repo_path %></code></div>
           <div class="pantry-row"><span>GitHub repo</span><a href="<%= project.github_repo_url %>"><%= project.github_repo_slug %></a></div>
           <div class="pantry-row"><span>Default branch</span><code><%= project.default_branch %></code></div>
+          <div class="pantry-row"><span>Safe mode</span><strong><%= project.safe_mode ? 'Enabled' : 'Disabled' %></strong></div>
           <div class="pantry-row"><span>Command defaults</span><code><%= project.package_manager_command %></code><br><code><%= project.test_command %></code><br><code><%= project.build_command %></code><br><code><%= project.lint_command %></code></div>
 
           <div class="mt-4">
