@@ -175,7 +175,9 @@ function createRunRecords(recipe) {
       });
     });
 
-    return run.lastInsertRowid;
+    const runId = run.lastInsertRowid;
+    runStateManager.acquireProjectLock(recipe.project_id, runId);
+    return runId;
   });
 
   return runStateManager.getRun(create());
@@ -216,6 +218,7 @@ async function executeRun(runId, options = {}) {
   const run = runStateManager.getRun(runId);
   if (!run) throw new Error(`Run ${runId} was not found.`);
   runStateManager.assertProjectAvailable(run.project_id, runId);
+  runStateManager.refreshProjectLock(run.project_id, runId);
 
   const recipe = recipeService.getRecipeById(run.recipe_id);
   if (!recipe) throw new Error(`Recipe ${run.recipe_id} was not found.`);
@@ -242,6 +245,7 @@ async function executeRun(runId, options = {}) {
     })
     : null;
   if (gitManager) {
+    runStateManager.assertRunOwnsProjectLock(run.project_id, runId);
     await gitManager.assertCleanWorkingTree();
     if (githubManager) await githubManager.verifyCli();
     await gitManager.pullLatestMain();
@@ -282,7 +286,9 @@ async function executeRun(runId, options = {}) {
         continue;
       } catch (error) {
         runStateManager.updateRunStep(nextStep.id, STATUSES.FAILED, { completed_at: nowSql(), error_message: error.message });
-        return runStateManager.updateRun(runId, STATUSES.FAILED, { completed_at: nowSql(), error_message: error.message });
+        const failed = runStateManager.updateRun(runId, STATUSES.FAILED, { completed_at: nowSql(), error_message: error.message });
+        runStateManager.releaseProjectLock(run.project_id, runId);
+        return failed;
       }
     }
 
@@ -309,6 +315,8 @@ async function executeRun(runId, options = {}) {
 
     try {
       if (gitManager) {
+        runStateManager.refreshProjectLock(run.project_id, runId);
+        runStateManager.assertRunOwnsProjectLock(run.project_id, runId);
         checkpointSha = await gitManager.getCurrentSha();
         branchName = await gitManager.createBranchForStep({ runId, stepId: nextStep.id, stepTitle: recipeStep.title });
       }
@@ -340,6 +348,7 @@ async function executeRun(runId, options = {}) {
         return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.BEFORE_COMMIT, 'Waiting for approval before commit.');
       }
 
+      if (gitManager) runStateManager.assertRunOwnsProjectLock(run.project_id, runId);
       const gitResult = gitManager
         ? await gitManager.commitStep({ runId, stepId: nextStep.id, stepTitle: recipeStep.title })
         : null;
@@ -395,16 +404,23 @@ Rollback failed: ${rollbackError.message}`;
         return pauseForQuota({ runId, stepId: nextStep.id, error, options });
       }
       runStateManager.updateRunStep(nextStep.id, STATUSES.FAILED, { completed_at: nowSql(), error_message: error.message });
-      return runStateManager.updateRun(runId, STATUSES.FAILED, { completed_at: nowSql(), error_message: error.message });
+      const failed = runStateManager.updateRun(runId, STATUSES.FAILED, { completed_at: nowSql(), error_message: error.message });
+      runStateManager.releaseProjectLock(run.project_id, runId);
+      return failed;
     }
 
     runSteps = runStateManager.getRunSteps(runId);
     nextStep = findResumeStep(runSteps);
   }
 
-  if (gitManager && !githubManager) await gitManager.pullLatestMain();
+  if (gitManager && !githubManager) {
+    runStateManager.assertRunOwnsProjectLock(run.project_id, runId);
+    await gitManager.pullLatestMain();
+  }
 
-  return runStateManager.updateRun(runId, STATUSES.SUCCEEDED, { completed_at: nowSql(), error_message: null });
+  const succeeded = runStateManager.updateRun(runId, STATUSES.SUCCEEDED, { completed_at: nowSql(), error_message: null });
+  runStateManager.releaseProjectLock(run.project_id, runId);
+  return succeeded;
 }
 
 async function startRunFromRecipe(recipeId, options = {}) {

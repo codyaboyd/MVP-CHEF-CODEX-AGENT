@@ -82,6 +82,7 @@
           <div class="pantry-row"><span>GitHub repo</span><a href="<%= project.github_repo_url %>"><%= project.github_repo_slug %></a></div>
           <div class="pantry-row"><span>Default branch</span><code><%= project.default_branch %></code></div>
           <div class="pantry-row"><span>Safe mode</span><strong><%= project.safe_mode ? 'Enabled' : 'Disabled' %></strong></div>
+          <div class="pantry-row"><span>Run lock</span><strong><%= project.lock_run_id ? `Run #${project.lock_run_id}` : 'Available' %></strong><% if (project.lock_owner) { %><small class="text-muted d-block">Owner: <%= project.lock_owner %> · expires <%= project.lock_expires_at %></small><% } %></div>
           <div class="pantry-row"><span>Command defaults</span><code><%= project.package_manager_command %></code><br><code><%= project.test_command %></code><br><code><%= project.build_command %></code><br><code><%= project.lint_command %></code></div>
 
           <div class="mt-4">
