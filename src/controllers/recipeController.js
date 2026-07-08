@@ -1,4 +1,5 @@
 const recipeService = require('../services/recipeService');
+const promptLintService = require('../services/promptLintService');
 
 function parseSteps(body) {
   const titles = Array.isArray(body.stepTitles) ? body.stepTitles : [body.stepTitles];
@@ -143,6 +144,10 @@ function exportRecipePreview(req, res, next) {
   res.type('application/json').send(`${JSON.stringify(recipe, null, 2)}\n`);
 }
 
+function improvePrompt(req, res) {
+  res.json({ improvedPrompt: promptLintService.improvePrompt(req.body.prompt || '') });
+}
+
 function updateRecipe(req, res, next) {
   const id = Number(req.params.id);
   if (!recipeService.getRecipeById(id)) {
@@ -189,6 +194,7 @@ module.exports = {
   home,
   importRecipe,
   importRecipeForm,
+  improvePrompt,
   newRecipeForm,
   showRecipe,
   updateRecipe

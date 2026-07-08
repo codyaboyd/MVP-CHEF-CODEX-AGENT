@@ -6,6 +6,7 @@ const qualityGateService = require('./qualityGateService');
 const { GitManager } = require('./gitManagerService');
 const { GitHubManager } = require('./githubManagerService');
 const appSettingsService = require('./appSettingsService');
+const promptLintService = require('./promptLintService');
 
 const { STATUSES } = runStateManager;
 
@@ -73,6 +74,27 @@ function requiresApprovalAt(recipe, recipeStep, project, point) {
   const mode = approvalModeForStep(recipe, recipeStep, project);
   if (mode === 'none' || mode === 'manual_steps') return false;
   return mode === 'all' || mode === point;
+}
+
+
+function lintPromptBeforeStep({ runId, nextStep, recipeStep, project }) {
+  const stepPrompt = nextStep.prompt_override || recipeStep.prompt;
+  const promptWarnings = promptLintService.lintPrompt(stepPrompt);
+  if (!promptWarnings.length) return { blocked: false, nextStep, stepPrompt };
+
+  const warningLog = `${promptLintService.formatWarnings(promptWarnings)}\n`;
+  runStateManager.updateRunStep(nextStep.id, project.safe_mode ? STATUSES.FAILED : nextStep.status, {
+    stdout_log: `${nextStep.stdout_log || ''}${warningLog}`,
+    error_message: project.safe_mode ? 'Safe mode blocked this recipe step because prompt lint warnings were found.' : nextStep.error_message
+  });
+  if (project.safe_mode) {
+    runStateManager.updateRun(runId, STATUSES.FAILED, {
+      error_message: 'Safe mode blocked this recipe run because prompt lint warnings were found.',
+      completed_at: nowSql()
+    });
+    return { blocked: true, nextStep, stepPrompt };
+  }
+  return { blocked: false, nextStep: { ...nextStep, stdout_log: `${nextStep.stdout_log || ''}${warningLog}` }, stepPrompt };
 }
 
 function waitForApproval(runId, runStepId, point, message) {
@@ -265,6 +287,11 @@ async function executeRun(runId, options = {}) {
       return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: nextStep.error_message || 'Waiting for human approval.' });
     }
 
+    const lintResult = lintPromptBeforeStep({ runId, nextStep, recipeStep, project });
+    if (lintResult.blocked) return runStateManager.getRun(runId);
+    nextStep = lintResult.nextStep;
+    const stepPrompt = lintResult.stepPrompt;
+
     if (requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.BEFORE_STEP) && nextStep.status === STATUSES.PENDING) {
       return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.BEFORE_STEP, 'Waiting for approval before running step.');
     }
@@ -287,7 +314,7 @@ async function executeRun(runId, options = {}) {
         runId,
         runStepId: nextStep.id,
         repoPath: project.repo_path,
-        prompt: nextStep.prompt_override || recipeStep.prompt,
+        prompt: stepPrompt,
         retries: recipeStep.retryCount,
         mockMode: options.mockMode ?? 'auto',
         codexCommand: options.codexCommand,

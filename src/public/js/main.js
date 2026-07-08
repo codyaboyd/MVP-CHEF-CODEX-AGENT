@@ -6,6 +6,12 @@ function refreshStepNumbers(list) {
   });
 }
 
+function resetPromptHelpers(step) {
+  step.querySelectorAll('[data-prompt-helper-status]').forEach((status) => {
+    status.textContent = 'Uses local prompt linting rules; no external APIs are called.';
+  });
+}
+
 function createStep(list) {
   const firstStep = list.querySelector('[data-step-editor]');
   const step = firstStep.cloneNode(true);
@@ -21,6 +27,7 @@ function createStep(list) {
   step.querySelectorAll('select').forEach((field) => {
     field.value = field.name === 'stepApprovalOverrides' ? 'inherit' : '0';
   });
+  resetPromptHelpers(step);
   return step;
 }
 
@@ -41,6 +48,26 @@ document.querySelectorAll('[data-recipe-form]').forEach((form) => {
         editor.remove();
         refreshStepNumbers(list);
       }
+      return;
+    }
+
+    if (event.target.matches('[data-improve-prompt]')) {
+      const prompt = editor.querySelector('textarea[name="stepPrompts"]');
+      const status = editor.querySelector('[data-prompt-helper-status]');
+      if (status) status.textContent = 'Improving prompt locally…';
+      fetch('/prompts/improve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: prompt ? prompt.value : '' })
+      })
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error('Unable to improve prompt.')))
+        .then((data) => {
+          if (prompt) prompt.value = data.improvedPrompt || prompt.value;
+          if (status) status.textContent = 'Prompt improved locally; review before saving.';
+        })
+        .catch(() => {
+          if (status) status.textContent = 'Prompt helper failed locally. Please edit manually.';
+        });
       return;
     }
 
