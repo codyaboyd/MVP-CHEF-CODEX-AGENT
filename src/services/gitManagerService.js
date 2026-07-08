@@ -1,6 +1,7 @@
 const { execFile } = require('node:child_process');
 const fs = require('node:fs');
 const { collectSecretValues } = require('./codexRunnerService');
+const { scanChangedFiles, formatSecretScanWarning, isManualOverrideEnabled } = require('./secretScannerService');
 
 const DEFAULT_MAIN_BRANCH = 'main';
 
@@ -97,6 +98,14 @@ class GitManager {
     const summary = await this.diffSummary();
     if (changedFiles.length === 0) {
       return { committed: false, changedFiles, diffSummary: summary, commitSha: null };
+    }
+
+    const secretFindings = scanChangedFiles(this.repoPath, changedFiles);
+    if (secretFindings.length && !isManualOverrideEnabled()) {
+      const error = new Error(formatSecretScanWarning(secretFindings));
+      error.code = 'SECRET_SCAN_BLOCKED';
+      error.secretFindings = secretFindings;
+      throw error;
     }
 
     await runGit(this.repoPath, ['add', '--all']);

@@ -730,3 +730,58 @@ test('human approval modes pause before a step and expose approval actions', asy
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
+
+test('GitManager scans changed files for secrets before committing and supports explicit settings override', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { execFileSync } = require('node:child_process');
+  const { GitManager } = require('../src/services/gitManagerService');
+  const settingsService = require('../src/services/appSettingsService');
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'git-manager-secret-scan-'));
+  const git = (args) => execFileSync('git', args, { cwd: repoPath, encoding: 'utf8' }).trim();
+
+  settingsService.updateSettings({ secretScannerAllowOverride: 'false' });
+  git(['init', '--initial-branch=main']);
+  git(['config', 'user.email', 'chef@example.test']);
+  git(['config', 'user.name', 'MVP Chef']);
+  fs.writeFileSync(path.join(repoPath, 'README.md'), 'hello\n');
+  git(['add', 'README.md']);
+  git(['commit', '-m', 'initial']);
+
+  const fakeToken = `ghp_${'123456789012345678901234567890123456'}`;
+  fs.writeFileSync(path.join(repoPath, 'config.js'), `const token = "${fakeToken}";\n`);
+  const manager = new GitManager({ repoPath, mainBranch: 'main' });
+  await assert.rejects(
+    () => manager.commitStep({ runId: 1, stepId: 1, stepTitle: 'leak' }),
+    (error) => {
+      assert.equal(error.code, 'SECRET_SCAN_BLOCKED');
+      assert.match(error.message, /Commit blocked/);
+      assert.match(error.message, /config\.js/);
+      assert.doesNotMatch(error.message, new RegExp(fakeToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+      return true;
+    }
+  );
+  assert.equal(git(['status', '--porcelain']), '?? config.js');
+
+  settingsService.updateSettings({ secretScannerAllowOverride: 'true' });
+  const committed = await manager.commitStep({ runId: 1, stepId: 1, stepTitle: 'manual override' });
+  assert.equal(committed.committed, true);
+
+  settingsService.updateSettings({ secretScannerAllowOverride: 'false' });
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});
+
+test('.env remains ignored and app settings expose secrets scanner override as disabled by default', async () => {
+  const fs = require('node:fs');
+  const gitignore = fs.readFileSync('.gitignore', 'utf8');
+  assert.match(gitignore, /^\.env$/m);
+
+  const settingsService = require('../src/services/appSettingsService');
+  settingsService.ensureDefaultSettings();
+  assert.equal(settingsService.getSetting('secretScannerAllowOverride').value, 'false');
+
+  const response = await request(app).get('/settings');
+  assert.equal(response.status, 200);
+  assert.match(response.text, /Allow secrets scanner manual override/);
+});
