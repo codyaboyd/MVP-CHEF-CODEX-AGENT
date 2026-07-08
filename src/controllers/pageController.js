@@ -250,11 +250,18 @@ function settings(req, res) {
 
 function updateSettings(req, res) {
   appSettingsService.updateSettings({
-    autoMergeEnabled: req.body.autoMergeEnabled === 'true' ? 'true' : 'false',
-    requireHumanApprovalBeforeMerge: req.body.requireHumanApprovalBeforeMerge === 'true' ? 'true' : 'false',
-    protectedMainMode: req.body.protectedMainMode === 'true' ? 'true' : 'false',
+    codexCommandPath: req.body.codexCommandPath || 'codex',
+    mockRunnerMode: ['true', 'false', 'auto'].includes(req.body.mockRunnerMode) ? req.body.mockRunnerMode : 'auto',
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
     autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
+    autoMergeEnabled: req.body.autoMergeEnabled === 'true' ? 'true' : 'false',
+    requireHumanApprovalBeforeMerge: req.body.requireHumanApprovalBeforeMerge === 'true' ? 'true' : 'false',
+    maxParallelRuns: req.body.maxParallelRuns || '1',
+    maxStepRuntimeMinutes: req.body.maxStepRuntimeMinutes || '30',
+    defaultBranch: req.body.defaultBranch || 'main',
+    protectedMainMode: req.body.protectedMainMode === 'true' ? 'true' : 'false',
+    compactUiMode: req.body.compactUiMode === 'true' ? 'true' : 'false',
+    showAdvancedSettings: req.body.showAdvancedSettings === 'true' ? 'true' : 'false',
     maxRetriesAfterQuota: req.body.maxRetriesAfterQuota || '3',
     projectSafeModeDefault: req.body.projectSafeModeDefault === 'true' ? 'true' : 'false',
     secretScannerAllowOverride: req.body.secretScannerAllowOverride === 'true' ? 'true' : 'false'

@@ -1,6 +1,13 @@
 const db = require('../db');
 
 const DEFAULT_SETTINGS = Object.freeze({
+  codexCommandPath: 'codex',
+  mockRunnerMode: 'auto',
+  defaultBranch: 'main',
+  maxParallelRuns: '1',
+  maxStepRuntimeMinutes: '30',
+  compactUiMode: 'false',
+  showAdvancedSettings: 'true',
   autoMergeEnabled: 'true',
   requireHumanApprovalBeforeMerge: 'false',
   protectedMainMode: 'true',
