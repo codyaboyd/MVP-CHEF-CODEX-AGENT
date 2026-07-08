@@ -1,6 +1,7 @@
 const db = require('../db');
 const recipeService = require('./recipeService');
 const projectService = require('./projectService');
+const appSettingsService = require('./appSettingsService');
 
 function getProjects() {
   return projectService.getProjects();
@@ -123,7 +124,7 @@ function getRunSnapshot(id) {
 }
 
 function getSettings() {
-  return db.prepare('SELECT * FROM app_settings ORDER BY key ASC').all();
+  return appSettingsService.getSettings();
 }
 
 function getDashboard() {

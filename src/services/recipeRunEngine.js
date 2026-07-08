@@ -5,6 +5,7 @@ const runStateManager = require('./runStateManager');
 const qualityGateService = require('./qualityGateService');
 const { GitManager } = require('./gitManagerService');
 const { GitHubManager } = require('./githubManagerService');
+const appSettingsService = require('./appSettingsService');
 
 const { STATUSES } = runStateManager;
 
@@ -15,6 +16,39 @@ function nowSql() {
 function getProject(projectId) {
   if (!projectId) return null;
   return db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) || null;
+}
+
+
+async function completePendingMerge({ runStep, gitManager, githubManager, automationSettings, squash }) {
+  if (!gitManager || !githubManager || !runStep.pr_url || runStep.merge_commit_sha) return null;
+  if (!automationSettings.autoMergeEnabled) return { prUrl: runStep.pr_url, mergeCommitSha: null, skipped: 'Auto-merge is disabled.' };
+  const mergeCommitSha = await githubManager.mergePullRequest(runStep.pr_url, { squash });
+  const pullResult = await gitManager.pullLatestMain();
+  return { prUrl: runStep.pr_url, mergeCommitSha, pullResult };
+}
+
+async function createPrAndMaybeMerge({ runId, runStepId, branchName, title, body, gitManager, githubManager, automationSettings, squash, approved }) {
+  if (!githubManager) return null;
+  const { prUrl } = await githubManager.createPullRequestAfterChecks({ branchName, title, body });
+  if (!prUrl) throw new Error('GitHub PR was not created successfully; auto-merge is blocked.');
+  if (!automationSettings.autoMergeEnabled) return { prUrl, mergeCommitSha: null, skipped: 'Auto-merge is disabled.' };
+  if (automationSettings.protectedMainMode && !githubManager) {
+    throw new Error('Protected main mode requires GitHub PR automation before auto-merge.');
+  }
+  if (automationSettings.requireHumanApprovalBeforeMerge && !approved) {
+    runStateManager.updateRunStep(runStepId, STATUSES.WAITING_FOR_APPROVAL, {
+      pr_url: prUrl,
+      error_message: 'Waiting for human approval before merge.'
+    });
+    runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, {
+      pr_url: prUrl,
+      error_message: 'Waiting for human approval before merge.'
+    });
+    return { prUrl, mergeCommitSha: null, waitingForApproval: true };
+  }
+  const mergeCommitSha = await githubManager.mergePullRequest(prUrl, { squash });
+  const pullResult = await gitManager.pullLatestMain();
+  return { prUrl, mergeCommitSha, pullResult };
 }
 
 function createRunRecords(recipe) {
@@ -70,6 +104,7 @@ async function executeRun(runId, options = {}) {
 
   runStateManager.updateRun(runId, STATUSES.RUNNING, { started_at: run.started_at || nowSql(), completed_at: null, error_message: null });
 
+  const automationSettings = appSettingsService.getAutomationSettings(options);
   const gitManager = options.gitEnabled ? new GitManager({ repoPath: project.repo_path, mainBranch: project.default_branch }) : null;
   const githubManager = gitManager && options.githubAutomation !== false
     ? new GitHubManager({
@@ -92,6 +127,38 @@ async function executeRun(runId, options = {}) {
 
     const recipeStep = recipe.steps.find((step) => step.id === nextStep.recipe_step_id);
     if (!recipeStep) throw new Error(`Recipe step ${nextStep.recipe_step_id} was not found.`);
+
+    if (nextStep.status === STATUSES.WAITING_FOR_APPROVAL && nextStep.pr_url && !nextStep.merge_commit_sha) {
+      try {
+        const mergeResult = await completePendingMerge({
+          runStep: nextStep,
+          gitManager,
+          githubManager,
+          automationSettings,
+          squash: options.githubSquashMerge !== false
+        });
+        if (mergeResult?.skipped) {
+          return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: mergeResult.skipped });
+        }
+        runStateManager.updateRunStep(nextStep.id, STATUSES.SUCCEEDED, {
+          completed_at: nowSql(),
+          error_message: null,
+          merge_commit_sha: mergeResult?.mergeCommitSha || nextStep.merge_commit_sha || null
+        });
+        runStateManager.updateRun(runId, STATUSES.RUNNING, {
+          completed_at: null,
+          error_message: null,
+          commit_sha: mergeResult?.mergeCommitSha || latestRun.commit_sha || null,
+          pr_url: nextStep.pr_url
+        });
+        runSteps = runStateManager.getRunSteps(runId);
+        nextStep = findResumeStep(runSteps);
+        continue;
+      } catch (error) {
+        runStateManager.updateRunStep(nextStep.id, STATUSES.FAILED, { completed_at: nowSql(), error_message: error.message });
+        return runStateManager.updateRun(runId, STATUSES.FAILED, { completed_at: nowSql(), error_message: error.message });
+      }
+    }
 
     if (recipeStep.humanApproval && nextStep.status === STATUSES.PENDING) {
       runStateManager.updateRunStep(nextStep.id, STATUSES.WAITING_FOR_APPROVAL, { started_at: nowSql() });
@@ -130,19 +197,28 @@ async function executeRun(runId, options = {}) {
         ? await gitManager.commitStep({ runId, stepId: nextStep.id, stepTitle: recipeStep.title })
         : null;
       let githubResult = null;
+      if (gitManager && gitResult.committed) {
+        await gitManager.assertNoSecretsInCommit(gitResult.commitSha);
+      }
       if (gitManager && gitResult.committed && options.gitPush !== false) {
         await gitManager.pushBranch(branchName);
         if (githubManager) {
-          githubResult = await githubManager.createMergeAfterChecks({
+          githubResult = await createPrAndMaybeMerge({
+            runId,
+            runStepId: nextStep.id,
             branchName,
             title: `MVP Chef run ${runId}: ${recipeStep.title || `step ${nextStep.id}`}`,
             body: `Run ID: ${runId}
 Step ID: ${nextStep.id}
 
 ${gitResult.diffSummary || 'Automated MVP Chef step changes.'}`,
-            squash: options.githubSquashMerge !== false
+            gitManager,
+            githubManager,
+            automationSettings,
+            squash: options.githubSquashMerge !== false,
+            approved: options.approved
           });
-          await gitManager.pullLatestMain();
+          if (githubResult?.waitingForApproval) return runStateManager.getRun(runId);
         }
       }
       runStateManager.updateRunStep(nextStep.id, STATUSES.SUCCEEDED, {
@@ -202,7 +278,7 @@ async function resumeRun(runId, options = {}) {
   if (step.status === STATUSES.WAITING_FOR_APPROVAL && !options.approved) {
     return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: 'Waiting for human approval.' });
   }
-  if (step.status === STATUSES.WAITING_FOR_APPROVAL && options.approved) {
+  if (step.status === STATUSES.WAITING_FOR_APPROVAL && options.approved && !step.pr_url) {
     runStateManager.updateRunStep(step.id, STATUSES.PAUSED, { error_message: null });
   }
   return executeRun(runId, options);

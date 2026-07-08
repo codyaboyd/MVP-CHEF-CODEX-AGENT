@@ -286,6 +286,15 @@ function migrateLegacyRecipes(db) {
 function seedDatabase(db) {
   migrateLegacyRecipes(db);
 
+  const insertSetting = db.prepare(`
+    INSERT INTO app_settings (key, value)
+    VALUES (?, ?)
+    ON CONFLICT(key) DO NOTHING
+  `);
+  insertSetting.run('autoMergeEnabled', 'true');
+  insertSetting.run('requireHumanApprovalBeforeMerge', 'false');
+  insertSetting.run('protectedMainMode', 'true');
+
   const projectCount = db.prepare('SELECT COUNT(*) AS total FROM projects').get().total;
 
   if (projectCount > 0) {
@@ -368,6 +377,15 @@ function seedDatabase(db) {
       INSERT INTO app_settings (key, value)
       VALUES ('seeded_at', CURRENT_TIMESTAMP)
     `).run();
+
+    const insertSetting = db.prepare(`
+      INSERT INTO app_settings (key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO NOTHING
+    `);
+    insertSetting.run('autoMergeEnabled', 'true');
+    insertSetting.run('requireHumanApprovalBeforeMerge', 'false');
+    insertSetting.run('protectedMainMode', 'true');
   });
 
   seed();

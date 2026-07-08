@@ -1,5 +1,6 @@
 const { execFile } = require('node:child_process');
 const fs = require('node:fs');
+const { collectSecretValues } = require('./codexRunnerService');
 
 const DEFAULT_MAIN_BRANCH = 'main';
 
@@ -104,6 +105,25 @@ class GitManager {
     await runGit(this.repoPath, ['commit', '-m', message, '-m', body]);
     const commitSha = await this.getCurrentSha();
     return { committed: true, changedFiles, diffSummary: summary, commitSha };
+  }
+
+
+  async getCommitPatch(commitSha) {
+    if (!commitSha) return '';
+    const result = await runGit(this.repoPath, ['show', '--format=', '--no-ext-diff', commitSha]);
+    return result.stdout;
+  }
+
+  async assertNoSecretsInCommit(commitSha) {
+    const secrets = collectSecretValues(this.repoPath);
+    if (!secrets.length || !commitSha) return true;
+    const patch = await this.getCommitPatch(commitSha);
+    const leaked = secrets.filter((secret) => patch.includes(secret.value));
+    if (leaked.length) {
+      const labels = leaked.map((secret) => secret.key).join(', ');
+      throw new Error(`Secret values were detected in committed changes for: ${labels}. Remove the secret before creating or merging a pull request.`);
+    }
+    return true;
   }
 
   async pushBranch(branchName) {
