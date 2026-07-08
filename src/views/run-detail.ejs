@@ -12,6 +12,7 @@
         <form method="post" action="/runs/<%= run.id %>/pause"><button class="btn btn-warning" type="submit" data-run-pause>Pause</button></form>
         <form method="post" action="/runs/<%= run.id %>/resume"><button class="btn btn-primary" type="submit" data-run-resume>Resume</button></form>
         <form method="post" action="/runs/<%= run.id %>/cancel"><button class="btn btn-danger" type="submit" data-run-cancel>Cancel</button></form>
+        <form method="post" action="/runs/<%= run.id %>/rollback-last-step"><button class="btn btn-outline-danger" type="submit">Rollback last step</button></form>
       </div>
     </div>
 
@@ -54,9 +55,38 @@
     </div>
 
     <div class="paper-panel p-4 mb-4">
+      <div class="d-flex flex-wrap justify-content-between gap-2 align-items-center mb-3">
+        <h2 class="h4 m-0">Failure recovery tools</h2>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Failure recovery utilities">
+          <a class="btn btn-outline-dark" href="/runs/<%= run.id %>/diff" target="_blank">Open diff viewer</a>
+          <a class="btn btn-outline-dark" href="/runs/<%= run.id %>/logs" target="_blank">View logs</a>
+          <a class="btn btn-outline-dark" href="/runs/<%= run.id %>/failure-report">Export failure report</a>
+        </div>
+      </div>
+      <p class="text-muted small">Failed run state, edited prompts, skipped steps, and recovery actions are stored in SQLite so a run can be resumed after a server restart.</p>
+    </div>
+
+    <div class="paper-panel p-4 mb-4">
       <h2 class="h4">Cooking steps</h2>
       <div class="timeline" data-run-steps>
         <% (run.steps || []).forEach((step) => { %><div class="timeline-item" data-step-id="<%= step.id || step.step_order %>"><span><%= step.step_order %></span><div><strong><%= step.recipe_step_title || step.title || 'Recipe step' %></strong> <span class="status-badge"><%= step.status %></span><p><%= step.prompt || step.status %></p>
+          <% if (['failed', 'paused', 'waiting_for_quota'].includes(step.status)) { %>
+            <div class="failure-recovery-panel alert alert-danger mt-2">
+              <strong>Failure recovery:</strong> <%= step.error_message || 'This step needs attention.' %>
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                <form method="post" action="/runs/<%= run.id %>/steps/<%= step.id %>/retry"><button class="btn btn-sm btn-primary" type="submit">Retry failed step</button></form>
+                <form method="post" action="/runs/<%= run.id %>/steps/<%= step.id %>/skip"><button class="btn btn-sm btn-outline-secondary" type="submit">Skip failed step</button></form>
+                <form method="post" action="/runs/<%= run.id %>/steps/<%= step.id %>/continue-from"><button class="btn btn-sm btn-outline-primary" type="submit">Continue from this step</button></form>
+                <a class="btn btn-sm btn-outline-dark" href="/runs/<%= run.id %>/diff?stepId=<%= step.id %>" target="_blank">Diff</a>
+                <a class="btn btn-sm btn-outline-dark" href="/runs/<%= run.id %>/logs?stepId=<%= step.id %>" target="_blank">Logs</a>
+              </div>
+              <form method="post" action="/runs/<%= run.id %>/steps/<%= step.id %>/edit-retry" class="mt-2">
+                <label class="form-label small fw-bold">Edit failed prompt and retry</label>
+                <textarea class="form-control form-control-sm" name="prompt" rows="3"><%= step.prompt_override || step.prompt || '' %></textarea>
+                <button class="btn btn-sm btn-primary mt-1" type="submit">Retry with edited prompt</button>
+              </form>
+            </div>
+          <% } %>
           <% if (step.status === 'waiting_for_approval') { %>
             <div class="approval-panel alert alert-info mt-2">
               <strong>Human approval required:</strong> <%= step.error_message || 'Review this checkpoint.' %>

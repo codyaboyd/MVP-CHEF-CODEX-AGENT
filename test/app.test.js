@@ -17,11 +17,11 @@ test('database initializes project, recipe, run, and settings schema', () => {
     SELECT name
     FROM sqlite_master
     WHERE type = 'table'
-      AND name IN ('projects', 'recipes', 'recipe_steps', 'runs', 'run_steps', 'run_step_checks', 'app_settings')
+      AND name IN ('projects', 'recipes', 'recipe_steps', 'runs', 'run_steps', 'run_step_checks', 'run_recovery_actions', 'app_settings')
     ORDER BY name
   `).all().map((row) => row.name);
 
-  assert.deepEqual(tables, ['app_settings', 'projects', 'recipe_steps', 'recipes', 'run_step_checks', 'run_steps', 'runs']);
+  assert.deepEqual(tables, ['app_settings', 'projects', 'recipe_steps', 'recipes', 'run_recovery_actions', 'run_step_checks', 'run_steps', 'runs']);
   assert.ok(db.prepare('SELECT COUNT(*) AS total FROM projects').get().total >= 1);
   assert.ok(db.prepare('SELECT COUNT(*) AS total FROM recipes').get().total >= 1);
   assert.ok(db.prepare('SELECT COUNT(*) AS total FROM recipe_steps').get().total >= 1);
@@ -422,6 +422,50 @@ test('RunStateManager prevents concurrent active runs for one project and cancel
   assert.equal(db.prepare('SELECT status FROM run_steps WHERE run_id = ?').get(run.id).status, 'cancelled');
 
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
+});
+
+test('failure recovery tools persist actions and expose reports, logs, and retry controls', async () => {
+  const engine = require('../src/services/recipeRunEngine');
+  const project = db.prepare(`
+    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run('Failure Recovery Project', process.cwd(), 'example/failure-recovery', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
+  const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
+    .run(project.lastInsertRowid, 'Recovery Cake', '1.0.0', 'Exercise failure recovery tools.');
+  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 1, 'Recover me', 'Original prompt.');
+
+  const created = await engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false });
+  await engine.executeRun(created.id, {
+    codexCommand: process.execPath,
+    codexArgs: ['-e', 'console.error("boom"); process.exit(4);'],
+    mockMode: false
+  });
+  const failedStep = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
+
+  const detail = await request(app).get(`/runs/${created.id}`);
+  assert.equal(detail.status, 200);
+  assert.match(detail.text, /Failure recovery tools/);
+  assert.match(detail.text, /Retry failed step/);
+  assert.match(detail.text, /Edit failed prompt and retry/);
+  assert.match(detail.text, /Continue from this step/);
+
+  const logs = await request(app).get(`/runs/${created.id}/logs?stepId=${failedStep.id}`);
+  assert.equal(logs.status, 200);
+  assert.match(logs.text, /boom/);
+
+  const retry = await request(app).post(`/runs/${created.id}/steps/${failedStep.id}/retry`);
+  assert.equal(retry.status, 302);
+  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM run_recovery_actions WHERE run_id = ? AND action = ?').get(created.id, 'retry_failed_step').total, 1);
+
+  const report = await request(app).get(`/runs/${created.id}/failure-report`);
+  assert.equal(report.status, 200);
+  assert.equal(report.type, 'application/json');
+  assert.equal(report.body.run.id, created.id);
+  assert.equal(report.body.recoveryActions[0].action, 'retry_failed_step');
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
 
 test('run events stream live run snapshots with progress, logs, and retries', async () => {
