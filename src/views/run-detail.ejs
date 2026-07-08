@@ -7,6 +7,7 @@
         <p class="eyebrow">🔥 Cook session #<%= run.id %></p>
         <h1>Run Detail</h1>
         <p class="lead"><span data-run-recipe><%= run.recipe_name || 'Recipe run' %></span> for <span data-run-project><%= run.project_name || 'a project pantry' %></span>.</p>
+        <% if (run.lock_owner) { %><p class="badge text-bg-warning">Locked by <%= run.lock_owner %> for run #<%= run.id %> until <%= run.lock_expires_at %></p><% } %>
       </div>
       <div class="run-actions btn-group" role="group" aria-label="Run controls">
         <form method="post" action="/runs/<%= run.id %>/pause"><button class="btn btn-warning" type="submit" data-run-pause>Pause</button></form>

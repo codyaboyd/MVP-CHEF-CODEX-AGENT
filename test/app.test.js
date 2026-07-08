@@ -17,11 +17,11 @@ test('database initializes project, recipe, run, and settings schema', () => {
     SELECT name
     FROM sqlite_master
     WHERE type = 'table'
-      AND name IN ('projects', 'recipes', 'recipe_steps', 'runs', 'run_steps', 'run_step_checks', 'run_recovery_actions', 'app_settings')
+      AND name IN ('projects', 'recipes', 'recipe_steps', 'runs', 'run_steps', 'run_step_checks', 'run_recovery_actions', 'project_run_locks', 'app_settings')
     ORDER BY name
   `).all().map((row) => row.name);
 
-  assert.deepEqual(tables, ['app_settings', 'projects', 'recipe_steps', 'recipes', 'run_recovery_actions', 'run_step_checks', 'run_steps', 'runs']);
+  assert.deepEqual(tables, ['app_settings', 'project_run_locks', 'projects', 'recipe_steps', 'recipes', 'run_recovery_actions', 'run_step_checks', 'run_steps', 'runs']);
   assert.ok(db.prepare('SELECT COUNT(*) AS total FROM projects').get().total >= 1);
   assert.ok(db.prepare('SELECT COUNT(*) AS total FROM recipes').get().total >= 1);
   assert.ok(db.prepare('SELECT COUNT(*) AS total FROM recipe_steps').get().total >= 1);
@@ -402,19 +402,51 @@ test('RecipeRunEngine fails required quality gates and allows manual override', 
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
 
-test('RunStateManager prevents concurrent active runs for one project and cancels active runs', async () => {
-  const engine = require('../src/services/recipeRunEngine');
+
+test('Project run locks expire, clean up stale owners, and guard git operations', () => {
+  db.prepare('DELETE FROM project_run_locks').run();
   const state = require('../src/services/runStateManager');
   const project = db.prepare('SELECT id FROM projects ORDER BY id ASC LIMIT 1').get();
+  const runA = db.prepare('INSERT INTO runs (project_id, status, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)').run(project.id, 'failed');
+  const runB = db.prepare('INSERT INTO runs (project_id, status, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)').run(project.id, 'failed');
+
+  state.acquireProjectLock(project.id, runA.lastInsertRowid, { owner: 'test-owner-a', ttlMs: 60_000 });
+  assert.match(db.prepare('SELECT lock_owner FROM (SELECT l.owner AS lock_owner FROM project_run_locks l WHERE l.project_id = ?)').get(project.id).lock_owner, /test-owner-a/);
+  assert.throws(
+    () => state.acquireProjectLock(project.id, runB.lastInsertRowid, { owner: 'test-owner-b', ttlMs: 60_000 }),
+    /locked by run/
+  );
+  assert.throws(
+    () => state.assertRunOwnsProjectLock(project.id, runB.lastInsertRowid),
+    /git operations are blocked/
+  );
+
+  db.prepare('UPDATE project_run_locks SET expires_at = ? WHERE project_id = ?').run(new Date(Date.now() - 1000).toISOString(), project.id);
+  assert.equal(state.cleanupStaleLocks(), 1);
+  state.acquireProjectLock(project.id, runB.lastInsertRowid, { owner: 'test-owner-b', ttlMs: 60_000 });
+  assert.equal(state.getProjectLock(project.id).run_id, runB.lastInsertRowid);
+
+  state.releaseProjectLock(project.id, runB.lastInsertRowid);
+  db.prepare('DELETE FROM runs WHERE id IN (?, ?)').run(runA.lastInsertRowid, runB.lastInsertRowid);
+});
+
+test('RunStateManager prevents concurrent active runs for one project and cancels active runs', async () => {
+  db.prepare('DELETE FROM project_run_locks').run();
+  const engine = require('../src/services/recipeRunEngine');
+  const state = require('../src/services/runStateManager');
+  const project = db.prepare(`
+    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run('Lock Project', process.cwd(), 'example/lock-project', 'main', 'node -e \"process.exit(0)\"', 'node -e \"process.exit(0)\"', 'node -e \"process.exit(0)\"');
   const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
-    .run(project.id, 'Lock Cake', '1.0.0', 'Exercise locks.');
+    .run(project.lastInsertRowid, 'Lock Cake', '1.0.0', 'Exercise locks.');
   db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
     .run(recipe.lastInsertRowid, 1, 'Only', 'Do only.');
 
   const run = await engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false });
   await assert.rejects(
     () => engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false }),
-    /already has active run/
+    /already has active run|locked by run/
   );
 
   const cancelled = state.cancelRun(run.id);
@@ -422,6 +454,7 @@ test('RunStateManager prevents concurrent active runs for one project and cancel
   assert.equal(db.prepare('SELECT status FROM run_steps WHERE run_id = ?').get(run.id).status, 'cancelled');
 
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
 
 test('failure recovery tools persist actions and expose reports, logs, and retry controls', async () => {

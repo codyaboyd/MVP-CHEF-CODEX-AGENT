@@ -10,20 +10,24 @@ function getProjects() {
 
 function getRuns() {
   return db.prepare(`
-    SELECT runs.*, recipes.name AS recipe_name, projects.name AS project_name
+    SELECT runs.*, recipes.name AS recipe_name, projects.name AS project_name,
+           project_run_locks.owner AS lock_owner, project_run_locks.expires_at AS lock_expires_at
     FROM runs
     LEFT JOIN recipes ON recipes.id = runs.recipe_id
     LEFT JOIN projects ON projects.id = runs.project_id
+    LEFT JOIN project_run_locks ON project_run_locks.project_id = runs.project_id AND project_run_locks.run_id = runs.id
     ORDER BY runs.created_at DESC, runs.id ASC
   `).all();
 }
 
 function getRunById(id) {
   const run = db.prepare(`
-    SELECT runs.*, recipes.name AS recipe_name, projects.name AS project_name
+    SELECT runs.*, recipes.name AS recipe_name, projects.name AS project_name,
+           project_run_locks.owner AS lock_owner, project_run_locks.expires_at AS lock_expires_at
     FROM runs
     LEFT JOIN recipes ON recipes.id = runs.recipe_id
     LEFT JOIN projects ON projects.id = runs.project_id
+    LEFT JOIN project_run_locks ON project_run_locks.project_id = runs.project_id AND project_run_locks.run_id = runs.id
     WHERE runs.id = ?
   `).get(id);
 

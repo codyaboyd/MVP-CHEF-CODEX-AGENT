@@ -95,9 +95,11 @@ function withHealth(project) {
 
 function getProjects() {
   return db.prepare(`
-    SELECT p.*, COUNT(r.id) AS recipe_count
+    SELECT p.*, COUNT(r.id) AS recipe_count,
+           l.run_id AS lock_run_id, l.owner AS lock_owner, l.expires_at AS lock_expires_at, l.heartbeat_at AS lock_heartbeat_at
     FROM projects p
     LEFT JOIN recipes r ON r.project_id = p.id
+    LEFT JOIN project_run_locks l ON l.project_id = p.id AND l.expires_at > datetime('now')
     GROUP BY p.id
     ORDER BY p.updated_at DESC, p.id ASC
   `).all().map(withHealth);

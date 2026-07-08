@@ -248,6 +248,26 @@ function runMigrations(db) {
         );
         CREATE INDEX IF NOT EXISTS idx_run_recovery_actions_run_id ON run_recovery_actions(run_id);
       `
+    },
+    {
+      version: 10,
+      name: 'add_project_run_locks',
+      sql: `
+        CREATE TABLE IF NOT EXISTS project_run_locks (
+          project_id INTEGER PRIMARY KEY,
+          run_id INTEGER NOT NULL,
+          owner TEXT NOT NULL,
+          acquired_at TEXT NOT NULL,
+          heartbeat_at TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+          FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_run_locks_expires_at ON project_run_locks(expires_at);
+      `
+
     }
   ];
 
