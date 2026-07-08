@@ -7,7 +7,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   defaultCooldownMinutes: '60',
   autoResumeAfterCooldown: 'true',
   maxRetriesAfterQuota: '3',
-  projectSafeModeDefault: 'false'
+  projectSafeModeDefault: 'false',
+  secretScannerAllowOverride: 'false'
 });
 
 function normalizeBoolean(value, fallback = false) {

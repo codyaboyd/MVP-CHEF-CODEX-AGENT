@@ -8,7 +8,7 @@
         <div class="row g-3">
           <div class="col-md-6"><label class="form-label">Default cooldown minutes</label><input class="form-control" type="number" min="0" name="defaultCooldownMinutes" value="<%= values.defaultCooldownMinutes || '60' %>"></div>
           <div class="col-md-6"><label class="form-label">Max retries after quota</label><input class="form-control" type="number" min="0" name="maxRetriesAfterQuota" value="<%= values.maxRetriesAfterQuota || '3' %>"></div>
-          <% [['autoResumeAfterCooldown','Auto-resume after cooldown'], ['autoMergeEnabled','Auto-merge enabled'], ['requireHumanApprovalBeforeMerge','Require approval before merge'], ['protectedMainMode','Protected main mode'], ['projectSafeModeDefault','Default project safe mode']].forEach(([key, label]) => { %>
+          <% [['autoResumeAfterCooldown','Auto-resume after cooldown'], ['autoMergeEnabled','Auto-merge enabled'], ['requireHumanApprovalBeforeMerge','Require approval before merge'], ['protectedMainMode','Protected main mode'], ['projectSafeModeDefault','Default project safe mode'], ['secretScannerAllowOverride','Allow secrets scanner manual override']].forEach(([key, label]) => { %>
             <div class="col-md-6"><label class="form-label"><%= label %></label><select class="form-select" name="<%= key %>"><option value="true" <%= values[key] !== 'false' ? 'selected' : '' %>>Enabled</option><option value="false" <%= values[key] === 'false' ? 'selected' : '' %>>Disabled</option></select></div>
           <% }) %>
         </div>

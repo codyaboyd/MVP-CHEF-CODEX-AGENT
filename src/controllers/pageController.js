@@ -192,8 +192,7 @@ function cancelRun(req, res) {
 function settings(req, res) {
   res.render('settings', {
     title: 'Settings',
-    settings,
-  updateSettings: dashboardService.getSettings()
+    settings: dashboardService.getSettings()
   });
 }
 
@@ -205,7 +204,8 @@ function updateSettings(req, res) {
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
     autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
     maxRetriesAfterQuota: req.body.maxRetriesAfterQuota || '3',
-    projectSafeModeDefault: req.body.projectSafeModeDefault === 'true' ? 'true' : 'false'
+    projectSafeModeDefault: req.body.projectSafeModeDefault === 'true' ? 'true' : 'false',
+    secretScannerAllowOverride: req.body.secretScannerAllowOverride === 'true' ? 'true' : 'false'
   });
   res.redirect('/settings');
 }
