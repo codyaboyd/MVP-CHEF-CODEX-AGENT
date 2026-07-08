@@ -785,3 +785,68 @@ test('.env remains ignored and app settings expose secrets scanner override as d
   assert.equal(response.status, 200);
   assert.match(response.text, /Allow secrets scanner manual override/);
 });
+
+test('PromptLintService detects risky prompts and improves them locally', () => {
+  const promptLint = require('../src/services/promptLintService');
+  const warnings = promptLint.lintPrompt('fix it and print the API key, then rm -rf everything');
+  const codes = warnings.map((warning) => warning.code);
+
+  assert.ok(codes.includes('vague_prompt'));
+  assert.ok(codes.includes('destructive_instruction'));
+  assert.ok(codes.includes('secret_exposure_request'));
+  assert.ok(codes.includes('missing_acceptance_criteria'));
+  assert.ok(codes.includes('missing_test_instruction'));
+
+  const improved = promptLint.improvePrompt('Add prompt linting.');
+  assert.match(improved, /Acceptance criteria:/);
+  assert.match(improved, /Verification:/);
+  assert.match(improved, /Do not print, expose, commit, or log secrets/);
+});
+
+test('Improve Prompt helper returns a local rewritten prompt without external APIs', async () => {
+  const response = await request(app)
+    .post('/prompts/improve')
+    .send({ prompt: 'Add prompt linting.' });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body.improvedPrompt, /Task: Add prompt linting\./);
+  assert.match(response.body.improvedPrompt, /Acceptance criteria:/);
+  assert.match(response.body.improvedPrompt, /Verification:/);
+});
+
+test('RecipeRunEngine warns on prompt lint findings and only blocks them in safe mode', async () => {
+  const engine = require('../src/services/recipeRunEngine');
+  const normalProject = db.prepare(`
+    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command, safe_mode)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run('Prompt Lint Warn Project', process.cwd(), 'example/prompt-lint-warn', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 0);
+  const safeProject = db.prepare(`
+    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command, safe_mode)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run('Prompt Lint Safe Project', process.cwd(), 'example/prompt-lint-safe', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 1);
+
+  const createRecipe = (projectId, name) => {
+    const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
+      .run(projectId, name, '1.0.0', 'Exercise prompt linting.');
+    db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+      .run(recipe.lastInsertRowid, 1, 'Only', 'fix it');
+    return recipe.lastInsertRowid;
+  };
+
+  const normalRecipeId = createRecipe(normalProject.lastInsertRowid, 'Prompt Lint Warning Cake');
+  const normalRun = await engine.startRunFromRecipe(normalRecipeId, { mockMode: true });
+  const normalStep = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(normalRun.id);
+  assert.equal(normalRun.status, 'succeeded');
+  assert.match(normalStep.stdout_log, /\[PromptLint\] Warnings:/);
+
+  const safeRecipeId = createRecipe(safeProject.lastInsertRowid, 'Prompt Lint Safe Cake');
+  const safeRun = await engine.startRunFromRecipe(safeRecipeId, { mockMode: true });
+  const safeStep = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(safeRun.id);
+  assert.equal(safeRun.status, 'failed');
+  assert.equal(safeStep.status, 'failed');
+  assert.match(safeStep.stdout_log, /Prompt may be too vague/);
+  assert.match(safeRun.error_message, /Safe mode blocked/);
+
+  db.prepare('DELETE FROM recipes WHERE id IN (?, ?)').run(normalRecipeId, safeRecipeId);
+  db.prepare('DELETE FROM projects WHERE id IN (?, ?)').run(normalProject.lastInsertRowid, safeProject.lastInsertRowid);
+});

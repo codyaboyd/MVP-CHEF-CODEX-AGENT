@@ -11,6 +11,7 @@ router.get('/recipes', pageController.recipes);
 router.get('/recipes/new', recipeController.newRecipeForm);
 router.get('/recipes/import', recipeController.importRecipeForm);
 router.post('/recipes/import', recipeController.importRecipe);
+router.post('/prompts/improve', recipeController.improvePrompt);
 router.post('/recipes', recipeController.createRecipe);
 router.get('/recipes/:id', recipeController.showRecipe);
 router.get('/recipes/:id/export', recipeController.exportRecipe);
