@@ -115,8 +115,42 @@ function pauseRun(req, res) {
 }
 
 function resumeRun(req, res, next) {
-  recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto', approved: true, quotaCooldownElapsed: req.body.ignoreQuotaCooldown === '1' }).catch(next);
+  recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto', approved: true, approvedPoint: req.body.approvalPoint, quotaCooldownElapsed: req.body.ignoreQuotaCooldown === '1' }).catch(next);
   redirectToRun(req, res);
+}
+
+function approveRunStep(req, res, next) {
+  recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto', approved: true, approvedPoint: req.body.approvalPoint }).catch(next);
+  redirectToRun(req, res);
+}
+
+function rejectRunStep(req, res, next) {
+  try {
+    recipeRunEngine.rejectRunStep(Number(req.params.id), Number(req.params.stepId), req.body.reason);
+    redirectToRun(req, res);
+  } catch (error) {
+    next(error);
+  }
+}
+
+function editPromptAndRetry(req, res, next) {
+  try {
+    recipeRunEngine.editPromptAndRetry(Number(req.params.id), Number(req.params.stepId), req.body.prompt);
+    recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto' }).catch(next);
+    redirectToRun(req, res);
+  } catch (error) {
+    next(error);
+  }
+}
+
+function skipRunStep(req, res, next) {
+  try {
+    recipeRunEngine.skipRunStep(Number(req.params.id), Number(req.params.stepId));
+    recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto' }).catch(next);
+    redirectToRun(req, res);
+  } catch (error) {
+    next(error);
+  }
 }
 
 function setQuotaRefill(req, res, next) {
@@ -170,7 +204,8 @@ function updateSettings(req, res) {
     protectedMainMode: req.body.protectedMainMode === 'true' ? 'true' : 'false',
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
     autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
-    maxRetriesAfterQuota: req.body.maxRetriesAfterQuota || '3'
+    maxRetriesAfterQuota: req.body.maxRetriesAfterQuota || '3',
+    projectSafeModeDefault: req.body.projectSafeModeDefault === 'true' ? 'true' : 'false'
   });
   res.redirect('/settings');
 }
@@ -186,6 +221,10 @@ module.exports = {
   pauseRun,
   resumeRun,
   overrideQualityGate,
+  approveRunStep,
+  rejectRunStep,
+  editPromptAndRetry,
+  skipRunStep,
   cancelRun,
   settings,
   updateSettings

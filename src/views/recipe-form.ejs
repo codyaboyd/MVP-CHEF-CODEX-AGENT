@@ -30,7 +30,16 @@
               <% }) %>
             </select>
           </div>
-          <div class="col-12">
+          <div class="col-md-6">
+            <label class="form-label" for="approvalMode">Recipe approval mode</label>
+            <select class="form-select" id="approvalMode" name="approvalMode">
+              <% [['manual_steps','Manual approval steps only'], ['none','No approvals'], ['before_step','Before every step'], ['after_codex','After Codex before checks'], ['before_commit','Before commit'], ['before_merge','Before PR merge'], ['all','All approval points']].forEach(([value, label]) => { %>
+                <option value="<%= value %>" <%= (values.approvalMode || values.approval_mode || 'manual_steps') === value ? 'selected' : '' %>><%= label %></option>
+              <% }) %>
+            </select>
+            <div class="form-text">Controls human approval checkpoints for this recipe.</div>
+          </div>
+          <div class="col-md-6">
             <label class="form-label" for="ingredients">Ingredients / inputs</label>
             <textarea class="form-control" id="ingredients" name="ingredients" rows="4"><%= values.ingredients || '' %></textarea>
             <div class="form-text">One ingredient or input per line.</div>
@@ -62,10 +71,18 @@
                     <input class="form-control" type="number" min="0" name="stepRetryCounts" value="<%= step.retryCount ?? step.retry_count ?? 0 %>">
                   </div>
                   <div class="col-md-2">
-                    <label class="form-label">Approval</label>
+                    <label class="form-label">Legacy approval</label>
                     <select class="form-select" name="stepHumanApprovals">
                       <option value="0" <%= !(step.humanApproval || step.human_approval) ? 'selected' : '' %>>No</option>
                       <option value="1" <%= (step.humanApproval || step.human_approval) ? 'selected' : '' %>>Yes</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Approval override</label>
+                    <select class="form-select" name="stepApprovalOverrides">
+                      <% [['inherit','Use recipe mode'], ['none','No approvals'], ['before_step','Before this step'], ['after_codex','After Codex'], ['before_commit','Before commit'], ['before_merge','Before PR merge'], ['all','All approval points']].forEach(([value, label]) => { %>
+                        <option value="<%= value %>" <%= (step.approvalOverride || step.approval_override || 'inherit') === value ? 'selected' : '' %>><%= label %></option>
+                      <% }) %>
                     </select>
                   </div>
                   <div class="col-12">

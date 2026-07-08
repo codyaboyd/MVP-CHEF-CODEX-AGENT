@@ -54,6 +54,40 @@ function nowSql() {
   return new Date().toISOString();
 }
 
+
+const APPROVAL_POINTS = Object.freeze({
+  BEFORE_STEP: 'before_step',
+  AFTER_CODEX: 'after_codex',
+  BEFORE_COMMIT: 'before_commit',
+  BEFORE_MERGE: 'before_merge'
+});
+
+function approvalModeForStep(recipe, recipeStep, project) {
+  if (project.safe_mode) return 'all';
+  if (recipeStep.approvalOverride && recipeStep.approvalOverride !== 'inherit') return recipeStep.approvalOverride;
+  if (recipeStep.humanApproval) return 'before_step';
+  return recipe.approvalMode || recipe.approval_mode || 'manual_steps';
+}
+
+function requiresApprovalAt(recipe, recipeStep, project, point) {
+  const mode = approvalModeForStep(recipe, recipeStep, project);
+  if (mode === 'none' || mode === 'manual_steps') return false;
+  return mode === 'all' || mode === point;
+}
+
+function waitForApproval(runId, runStepId, point, message) {
+  runStateManager.updateRunStep(runStepId, STATUSES.WAITING_FOR_APPROVAL, {
+    approval_point: point,
+    error_message: message,
+    started_at: nowSql()
+  });
+  return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: message });
+}
+
+function approvalSatisfied(nextStep, point, options) {
+  return nextStep.approval_point !== point || options.approvedPoint === point || options.approved === true;
+}
+
 function getProject(projectId) {
   if (!projectId) return null;
   return db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) || null;
@@ -68,7 +102,7 @@ async function completePendingMerge({ runStep, gitManager, githubManager, automa
   return { prUrl: runStep.pr_url, mergeCommitSha, pullResult };
 }
 
-async function createPrAndMaybeMerge({ runId, runStepId, branchName, title, body, gitManager, githubManager, automationSettings, squash, approved }) {
+async function createPrAndMaybeMerge({ runId, runStepId, branchName, title, body, gitManager, githubManager, automationSettings, squash, approved, requireApproval }) {
   if (!githubManager) return null;
   const { prUrl } = await githubManager.createPullRequestAfterChecks({ branchName, title, body });
   if (!prUrl) throw new Error('GitHub PR was not created successfully; auto-merge is blocked.');
@@ -76,9 +110,10 @@ async function createPrAndMaybeMerge({ runId, runStepId, branchName, title, body
   if (automationSettings.protectedMainMode && !githubManager) {
     throw new Error('Protected main mode requires GitHub PR automation before auto-merge.');
   }
-  if (automationSettings.requireHumanApprovalBeforeMerge && !approved) {
+  if ((automationSettings.requireHumanApprovalBeforeMerge || requireApproval) && !approved) {
     runStateManager.updateRunStep(runStepId, STATUSES.WAITING_FOR_APPROVAL, {
       pr_url: prUrl,
+      approval_point: APPROVAL_POINTS.BEFORE_MERGE,
       error_message: 'Waiting for human approval before merge.'
     });
     runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, {
@@ -125,6 +160,31 @@ function createRunRecords(recipe) {
 
 function findResumeStep(steps) {
   return steps.find((step) => [STATUSES.FAILED, STATUSES.PAUSED, STATUSES.PENDING, STATUSES.WAITING_FOR_QUOTA, STATUSES.WAITING_FOR_APPROVAL].includes(step.status));
+}
+
+function skipRunStep(runId, runStepId) {
+  runStateManager.updateRunStep(runStepId, STATUSES.SUCCEEDED, {
+    completed_at: nowSql(),
+    skipped_at: nowSql(),
+    error_message: 'Skipped by human reviewer.'
+  });
+  return runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: 'Step skipped by human reviewer.' });
+}
+
+function rejectRunStep(runId, runStepId, reason = '') {
+  const message = reason || 'Rejected by human reviewer.';
+  runStateManager.updateRunStep(runStepId, STATUSES.FAILED, { completed_at: nowSql(), error_message: message });
+  return runStateManager.updateRun(runId, STATUSES.FAILED, { completed_at: nowSql(), error_message: message });
+}
+
+function editPromptAndRetry(runId, runStepId, prompt) {
+  if (!prompt || !prompt.trim()) throw new Error('Edited prompt is required.');
+  runStateManager.updateRunStep(runStepId, STATUSES.PAUSED, {
+    prompt_override: prompt.trim(),
+    approval_point: null,
+    error_message: 'Prompt edited by human reviewer; ready to retry.'
+  });
+  return runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: 'Prompt edited by human reviewer; ready to retry.' });
 }
 
 async function executeRun(runId, options = {}) {
@@ -201,9 +261,17 @@ async function executeRun(runId, options = {}) {
       }
     }
 
-    if (recipeStep.humanApproval && nextStep.status === STATUSES.PENDING) {
-      runStateManager.updateRunStep(nextStep.id, STATUSES.WAITING_FOR_APPROVAL, { started_at: nowSql() });
-      return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: 'Waiting for human approval.' });
+    if (nextStep.status === STATUSES.WAITING_FOR_APPROVAL && nextStep.approval_point && !approvalSatisfied(nextStep, nextStep.approval_point, options)) {
+      return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: nextStep.error_message || 'Waiting for human approval.' });
+    }
+
+    if (requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.BEFORE_STEP) && nextStep.status === STATUSES.PENDING) {
+      return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.BEFORE_STEP, 'Waiting for approval before running step.');
+    }
+
+    if (nextStep.status === STATUSES.WAITING_FOR_APPROVAL) {
+      runStateManager.updateRunStep(nextStep.id, STATUSES.PAUSED, { approval_point: null, error_message: null });
+      nextStep = { ...nextStep, status: STATUSES.PAUSED, approval_point: null };
     }
 
     let branchName = null;
@@ -219,7 +287,7 @@ async function executeRun(runId, options = {}) {
         runId,
         runStepId: nextStep.id,
         repoPath: project.repo_path,
-        prompt: recipeStep.prompt,
+        prompt: nextStep.prompt_override || recipeStep.prompt,
         retries: recipeStep.retryCount,
         mockMode: options.mockMode ?? 'auto',
         codexCommand: options.codexCommand,
@@ -227,12 +295,20 @@ async function executeRun(runId, options = {}) {
         timeoutMs: options.timeoutMs
       });
 
+      if (requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.AFTER_CODEX) && !approvalSatisfied(nextStep, APPROVAL_POINTS.AFTER_CODEX, options)) {
+        return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.AFTER_CODEX, 'Waiting for approval after Codex before checks.');
+      }
+
       await qualityGateService.runQualityGates({
         runId,
         runStepId: nextStep.id,
         project,
         recipeStep
       });
+
+      if (requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.BEFORE_COMMIT) && !approvalSatisfied(nextStep, APPROVAL_POINTS.BEFORE_COMMIT, options)) {
+        return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.BEFORE_COMMIT, 'Waiting for approval before commit.');
+      }
 
       const gitResult = gitManager
         ? await gitManager.commitStep({ runId, stepId: nextStep.id, stepTitle: recipeStep.title })
@@ -257,7 +333,8 @@ ${gitResult.diffSummary || 'Automated MVP Chef step changes.'}`,
             githubManager,
             automationSettings,
             squash: options.githubSquashMerge !== false,
-            approved: options.approved
+            approved: options.approved,
+            requireApproval: requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.BEFORE_MERGE) && !approvalSatisfied(nextStep, APPROVAL_POINTS.BEFORE_MERGE, options)
           });
           if (githubResult?.waitingForApproval) return runStateManager.getRun(runId);
         }
@@ -332,15 +409,18 @@ async function resumeRun(runId, options = {}) {
   if (step.status === STATUSES.WAITING_FOR_APPROVAL && !options.approved) {
     return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: 'Waiting for human approval.' });
   }
-  if (step.status === STATUSES.WAITING_FOR_APPROVAL && options.approved && !step.pr_url) {
+  if (step.status === STATUSES.WAITING_FOR_APPROVAL && (options.approved || options.approvedPoint) && !step.pr_url) {
     runStateManager.updateRunStep(step.id, STATUSES.PAUSED, { error_message: null });
   }
   return executeRun(runId, options);
 }
 
 module.exports = {
-  RecipeRunEngine: { executeRun, resumeRun, startRunFromRecipe },
+  RecipeRunEngine: { editPromptAndRetry, executeRun, rejectRunStep, resumeRun, skipRunStep, startRunFromRecipe },
+  editPromptAndRetry,
   executeRun,
+  rejectRunStep,
   resumeRun,
+  skipRunStep,
   startRunFromRecipe
 };

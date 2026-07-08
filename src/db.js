@@ -218,6 +218,18 @@ function runMigrations(db) {
         ALTER TABLE run_steps ADD COLUMN quota_refill_at TEXT;
         ALTER TABLE run_steps ADD COLUMN quota_retry_count INTEGER NOT NULL DEFAULT 0;
       `
+    },
+    {
+      version: 8,
+      name: 'add_human_approval_controls',
+      sql: `
+        ALTER TABLE recipes ADD COLUMN approval_mode TEXT NOT NULL DEFAULT 'manual_steps';
+        ALTER TABLE recipe_steps ADD COLUMN approval_override TEXT NOT NULL DEFAULT 'inherit';
+        ALTER TABLE projects ADD COLUMN safe_mode INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE run_steps ADD COLUMN approval_point TEXT;
+        ALTER TABLE run_steps ADD COLUMN prompt_override TEXT;
+        ALTER TABLE run_steps ADD COLUMN skipped_at TEXT;
+      `
     }
   ];
 
@@ -304,6 +316,8 @@ function seedDatabase(db) {
   insertSetting.run('autoMergeEnabled', 'true');
   insertSetting.run('requireHumanApprovalBeforeMerge', 'false');
   insertSetting.run('protectedMainMode', 'true');
+    insertSetting.run('projectSafeModeDefault', 'false');
+  insertSetting.run('projectSafeModeDefault', 'false');
 
   const projectCount = db.prepare('SELECT COUNT(*) AS total FROM projects').get().total;
 

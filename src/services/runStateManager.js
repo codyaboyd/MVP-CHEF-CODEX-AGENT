@@ -89,6 +89,9 @@ function updateRunStep(runStepId, status, patch = {}) {
         completed_at = @completed_at,
         quota_refill_at = @quota_refill_at,
         quota_retry_count = @quota_retry_count,
+        approval_point = @approval_point,
+        prompt_override = @prompt_override,
+        skipped_at = @skipped_at,
         updated_at = @updated_at
     WHERE id = @id
   `).run({

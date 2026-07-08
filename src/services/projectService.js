@@ -19,7 +19,8 @@ function normalizeProjectInput(input) {
     testCommand: String(input.testCommand || input.test_command || DEFAULT_COMMANDS.testCommand).trim(),
     buildCommand: String(input.buildCommand || input.build_command || DEFAULT_COMMANDS.buildCommand).trim(),
     lintCommand: String(input.lintCommand || input.lint_command || DEFAULT_COMMANDS.lintCommand).trim(),
-    description: String(input.description || '').trim()
+    description: String(input.description || '').trim(),
+    safeMode: (input.safeMode === true || input.safeMode === 'true' || input.safe_mode === 1) ? 1 : 0
   };
 }
 
@@ -114,10 +115,10 @@ function createProject(input) {
   return db.prepare(`
     INSERT INTO projects (
       name, repo_path, github_repo_slug, default_branch,
-      package_manager_command, test_command, build_command, lint_command, description, github_repo_url
+      package_manager_command, test_command, build_command, lint_command, description, safe_mode, github_repo_url
     ) VALUES (
       @name, @repoPath, @githubRepoSlug, @defaultBranch,
-      @packageManagerCommand, @testCommand, @buildCommand, @lintCommand, @description, @githubRepoUrl
+      @packageManagerCommand, @testCommand, @buildCommand, @lintCommand, @description, @safeMode, @githubRepoUrl
     )
   `).run({ ...project, githubRepoUrl: `https://github.com/${project.githubRepoSlug}` });
 }
