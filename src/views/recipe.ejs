@@ -10,26 +10,27 @@
         <p class="text-muted mb-0">Project: <strong><%= recipe.projectName || 'No project assigned' %></strong></p>
       </div>
       <div class="action-row d-flex flex-wrap gap-2">
-        <a class="btn btn-primary rounded-pill" href="/recipes/<%= recipe.id %>/edit">Edit</a>
-        <a class="btn btn-outline-primary rounded-pill" href="/recipes/<%= recipe.id %>/export">Export JSON</a>
-        <form action="/recipes/<%= recipe.id %>/duplicate" method="post"><button class="btn btn-outline-primary rounded-pill" type="submit">Duplicate</button></form>
-        <form action="/recipes/<%= recipe.id %>/delete" method="post" onsubmit="return confirm('Delete this recipe?');"><button class="btn btn-outline-danger rounded-pill" type="submit">Delete</button></form>
+        <a class="btn btn-primary rounded-pill" href="/recipes/<%= recipe.id %>/edit">✏️ Edit</a>
+        <a class="btn btn-outline-primary rounded-pill" href="/recipes/<%= recipe.id %>/export">📦 Export JSON</a>
+        <form action="/recipes/<%= recipe.id %>/duplicate" method="post"><button class="btn btn-outline-primary rounded-pill" type="submit">🧬 Duplicate</button></form>
+        <form action="/recipes/<%= recipe.id %>/delete" method="post" onsubmit="return confirm('Delete this recipe?');"><button class="btn btn-outline-danger rounded-pill" type="submit">🗑️ Delete</button></form>
       </div>
     </div>
     <div class="row g-4 mt-3">
       <div class="col-lg-4">
         <div class="paper-panel h-100">
-          <h2 class="h4">Ingredients / inputs</h2>
+          <h2 class="h4">🥕 Ingredients / inputs</h2>
           <ul class="ingredient-list">
             <% recipe.ingredientsList.forEach((ingredient) => { %>
               <li><%= ingredient %></li>
             <% }) %>
+            <% if (!recipe.ingredientsList.length) { %><li class="text-muted">No inputs listed yet.</li><% } %>
           </ul>
         </div>
       </div>
       <div class="col-lg-8">
         <div class="paper-panel h-100">
-          <h2 class="h4">Prompt steps</h2>
+          <h2 class="h4">🥄 Prompt steps</h2>
           <div class="timeline">
             <% recipe.steps.forEach((step) => { %>
               <article class="timeline-item">

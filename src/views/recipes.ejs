@@ -3,20 +3,20 @@
   <div class="cookbook-title mb-4">
     <div><p class="eyebrow">🗂️ Cookbook shelf</p><h1>Recipes</h1><p class="text-muted">Reusable Codex workflows styled as warm kitchen cards.</p></div>
     <div class="d-flex flex-wrap gap-2">
-      <a class="btn btn-outline-primary rounded-pill chef-button" href="/recipes/import">Import JSON</a>
-      <a class="btn btn-primary rounded-pill chef-button" href="/recipes/new">New Recipe</a>
+      <a class="btn btn-outline-primary rounded-pill chef-button" href="/recipes/import">⬆️ Import JSON</a>
+      <a class="btn btn-primary rounded-pill chef-button" href="/recipes/new">✨ New Recipe</a>
     </div>
   </div>
-  <div class="row g-4">
+  <div class="row g-4 recipe-grid">
     <% recipes.forEach((recipe, index) => { %>
       <div class="col-md-6 col-xl-4">
         <article class="card recipe-card h-100 border-0 recipe-tilt-<%= index % 3 %>">
           <div class="card-body p-4">
             <div class="recipe-pin">📌</div>
-            <span class="badge rounded-pill phase-badge mb-3"><%= recipe.phase %></span>
+            <div class="d-flex flex-wrap gap-2 mb-3"><span class="badge rounded-pill phase-badge"><%= recipe.phase %></span><span class="badge rounded-pill chef-badge badge-soft"><%= recipe.projectName ? 'Stocked' : 'Needs pantry' %></span></div>
             <h2 class="h4"><%= recipe.title %></h2>
             <p class="text-muted"><%= recipe.summary %></p>
-            <p class="small fw-bold mb-2">Project: <%= recipe.projectName || 'Unassigned' %></p>
+            <p class="small fw-bold mb-2">🏷️ Project: <%= recipe.projectName || 'Unassigned' %></p>
             <div class="mini-meta"><span>🥕 <%= recipe.ingredientsList.length %> ingredients</span><span>🥄 <%= recipe.instructionSteps.length %> steps</span></div>
             <a class="stretched-link fw-bold" href="/recipes/<%= recipe.id %>">Read card →</a>
           </div>
@@ -24,5 +24,13 @@
       </div>
     <% }) %>
   </div>
+  <% if (!recipes.length) { %>
+    <div class="empty-state mt-4">
+      <div class="empty-state-icon">👨‍🍳</div>
+      <h2 class="fw-black">Your cookbook shelf is empty.</h2>
+      <p class="text-muted mb-4">Import a JSON recipe or write the first reusable Codex workflow card.</p>
+      <a class="btn btn-primary rounded-pill chef-button" href="/recipes/new">Create the first recipe</a>
+    </div>
+  <% } %>
 </section>
 <%- include('partials/footer') %>
