@@ -1,0 +1,102 @@
+{
+  "name": "Demo Node.js SaaS MVP",
+  "version": "1.0.0",
+  "description": "A realistic import-ready recipe for building a small Node.js SaaS MVP with authentication, dashboard, billing placeholder, admin tools, tests, UI polish, and documentation.",
+  "ingredients": [
+    "Node.js 20+ application repository",
+    "npm scripts for test and lint, or permission to add them",
+    "Express, Next.js, Remix, or comparable Node.js web framework",
+    "Persistent datastore such as SQLite, PostgreSQL, or the repository's existing database layer",
+    "Session or cookie support for authentication",
+    "Bootstrap, Tailwind, CSS modules, or the repository's existing design system",
+    "Billing provider credentials are optional; this recipe intentionally ships a safe placeholder first"
+  ],
+  "approvalMode": "manual_steps",
+  "steps": [
+    {
+      "title": "Scaffold app",
+      "prompt": "Inspect the repository and scaffold the smallest production-minded Node.js SaaS MVP foundation that fits the existing stack. If the repository is empty or minimal, create a conventional app structure with package scripts, server entry point, routing, views or frontend pages, configuration loading, a health check, and a simple persistence layer. If an app already exists, extend it instead of replacing it. Keep the first pass focused on a runnable foundation with clear setup defaults and no hard-coded secrets.",
+      "requiredChecks": [
+        "npm install",
+        "npm test",
+        "npm run lint"
+      ],
+      "maxRetries": 2,
+      "requiresApproval": false
+    },
+    {
+      "title": "Add auth",
+      "prompt": "Add pragmatic authentication for the MVP: registration, login, logout, password hashing, session or secure cookie handling, current-user loading, protected-route middleware, validation messages, and navigation states for signed-in and signed-out users. Store secrets in environment variables, avoid logging credentials, and include safe defaults for local development. Add tests for successful auth, invalid credentials, duplicate registration, protected route redirects, logout behavior, and password hash non-disclosure.",
+      "requiredChecks": [
+        "npm test",
+        "npm run lint"
+      ],
+      "maxRetries": 2,
+      "requiresApproval": true,
+      "approvalOverride": "before_commit"
+    },
+    {
+      "title": "Add dashboard",
+      "prompt": "Build the authenticated user dashboard for the SaaS MVP. Include an onboarding checklist, key product metrics, recent activity, an empty state for new accounts, and at least one persisted customer-facing resource or project object that demonstrates the core value loop. Reuse existing controller, service, route, and view conventions. Make the dashboard responsive and ensure all data is scoped to the signed-in user or workspace.",
+      "requiredChecks": [
+        "npm test",
+        "npm run lint"
+      ],
+      "maxRetries": 2,
+      "requiresApproval": false
+    },
+    {
+      "title": "Add billing placeholder",
+      "prompt": "Add a billing placeholder that is safe for local development and ready for a future Stripe or payment-provider integration. Create pricing-plan UI, account subscription state fields or documented stubs, billing settings routes, checkout and customer-portal placeholder actions, clear 'billing not configured' messaging, and environment variable documentation for future provider keys and price IDs. Do not require real payment credentials for tests or local startup.",
+      "requiredChecks": [
+        "npm test",
+        "npm run lint"
+      ],
+      "maxRetries": 2,
+      "requiresApproval": true
+    },
+    {
+      "title": "Add admin panel",
+      "prompt": "Add an admin panel for operators with guarded access, high-signal metrics, user or workspace management tables, recent signups or activity, subscription status visibility, and safe non-destructive actions first. If role-based access does not yet exist, add an admin flag or documented placeholder with secure defaults. Include empty states, pagination-friendly query structure, and tests proving normal users cannot access admin routes.",
+      "requiredChecks": [
+        "npm test",
+        "npm run lint"
+      ],
+      "maxRetries": 2,
+      "requiresApproval": true,
+      "approvalOverride": "before_commit"
+    },
+    {
+      "title": "Add tests",
+      "prompt": "Strengthen test coverage across the MVP. Add or improve unit, integration, and route tests for signup, login, logout, dashboard rendering, resource ownership, billing placeholder behavior, admin authorization, validation failures, and core happy paths. Ensure tests are deterministic, isolated from developer machines, and usable in CI. Update package scripts if the repository lacks a clear test command.",
+      "requiredChecks": [
+        "npm test",
+        "npm run lint"
+      ],
+      "maxRetries": 2,
+      "requiresApproval": false
+    },
+    {
+      "title": "Polish UI",
+      "prompt": "Polish the MVP UI into a cohesive SaaS experience. Improve layout, navigation, typography, spacing, responsive behavior, accessible labels, focus states, form errors, loading or empty states, and call-to-action copy. Keep dependencies lightweight and align with the existing design system. Verify key screens at mobile and desktop widths and fix obvious accessibility or contrast issues.",
+      "requiredChecks": [
+        "npm test",
+        "npm run lint"
+      ],
+      "maxRetries": 2,
+      "requiresApproval": false
+    },
+    {
+      "title": "Write docs",
+      "prompt": "Write launch-ready documentation for the SaaS MVP. Update README or docs with prerequisites, installation, environment variables, database setup, dev commands, test commands, demo credentials or seed instructions if applicable, architecture notes, auth behavior, billing-placeholder limitations, admin access, deployment notes, and a concise pre-launch checklist. Mention intentionally stubbed production integrations clearly.",
+      "requiredChecks": [
+        "npm test",
+        "npm run lint",
+        "npm run build"
+      ],
+      "maxRetries": 1,
+      "requiresApproval": true,
+      "approvalOverride": "before_merge"
+    }
+  ]
+}
