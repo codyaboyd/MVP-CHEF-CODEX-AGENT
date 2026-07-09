@@ -3,7 +3,7 @@
   <div class="container">
     <div class="row align-items-center g-4">
       <div class="col-lg-7">
-        <p class="badge rounded-pill text-bg-warning mb-3">🍞 Fresh from the Codex kitchen</p>
+        <p class="badge rounded-pill text-bg-warning mb-3 chef-badge">🍞 Fresh from the Codex kitchen</p>
         <h1 class="display-4 fw-black">Cook up your next MVP, one recipe card at a time.</h1>
         <p class="lead">Track projects, reusable prompt recipes, and Codex runs in a playful digital cookbook.</p>
         <div class="d-flex flex-wrap gap-2">
@@ -24,15 +24,15 @@
 
 <section class="container py-5">
   <div class="row g-4 mb-5">
-    <div class="col-md-4"><div class="stat-card"><span>📁</span><strong><%= stats.projects %></strong><small>Projects simmering</small></div></div>
-    <div class="col-md-4"><div class="stat-card"><span>🗂️</span><strong><%= stats.recipes %></strong><small>Recipe cards</small></div></div>
-    <div class="col-md-4"><div class="stat-card"><span>🔥</span><strong><%= stats.runs %></strong><small>Cook sessions</small></div></div>
+    <div class="col-md-4"><div class="stat-card dashboard-card"><span>📁</span><strong><%= stats.projects %></strong><small>Projects simmering</small></div></div>
+    <div class="col-md-4"><div class="stat-card dashboard-card"><span>🗂️</span><strong><%= stats.recipes %></strong><small>Recipe cards</small></div></div>
+    <div class="col-md-4"><div class="stat-card dashboard-card"><span>🔥</span><strong><%= stats.runs %></strong><small>Cook sessions</small></div></div>
   </div>
 
   <div class="row g-4">
     <div class="col-lg-8">
       <div class="section-heading"><h2>Today's recipe cards</h2><a href="/recipes">View all</a></div>
-      <div class="row g-4">
+      <div class="row g-4 recipe-grid">
         <% recipes.slice(0, 3).forEach((recipe) => { %>
           <div class="col-md-6">
             <article class="card recipe-card h-100 border-0">
@@ -45,6 +45,9 @@
             </article>
           </div>
         <% }) %>
+        <% if (!recipes.length) { %>
+          <div class="col-12"><div class="empty-state"><div class="empty-state-icon">📭</div><h3 class="fw-black">No recipe cards yet</h3><p class="text-muted">Start with a polished workflow template for Codex.</p><a class="btn btn-primary rounded-pill" href="/recipes/new">Write a recipe</a></div></div>
+        <% } %>
       </div>
     </div>
     <div class="col-lg-4">

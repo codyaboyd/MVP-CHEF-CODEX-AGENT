@@ -10,10 +10,10 @@
         <% if (run.lock_owner) { %><p class="badge text-bg-warning">Locked by <%= run.lock_owner %> for run #<%= run.id %> until <%= run.lock_expires_at %></p><% } %>
       </div>
       <div class="run-actions btn-group" role="group" aria-label="Run controls">
-        <form method="post" action="/runs/<%= run.id %>/pause"><button class="btn btn-warning" type="submit" data-run-pause>Pause</button></form>
-        <form method="post" action="/runs/<%= run.id %>/resume"><button class="btn btn-primary" type="submit" data-run-resume>Resume</button></form>
-        <form method="post" action="/runs/<%= run.id %>/cancel"><button class="btn btn-danger" type="submit" data-run-cancel>Cancel</button></form>
-        <form method="post" action="/runs/<%= run.id %>/rollback-last-step"><button class="btn btn-outline-danger" type="submit">Rollback last step</button></form>
+        <form method="post" action="/runs/<%= run.id %>/pause"><button class="btn btn-warning" type="submit" data-run-pause>⏸️ Pause</button></form>
+        <form method="post" action="/runs/<%= run.id %>/resume"><button class="btn btn-primary" type="submit" data-run-resume>▶️ Resume</button></form>
+        <form method="post" action="/runs/<%= run.id %>/cancel"><button class="btn btn-danger" type="submit" data-run-cancel>🛑 Cancel</button></form>
+        <form method="post" action="/runs/<%= run.id %>/rollback-last-step"><button class="btn btn-outline-danger" type="submit">↩️ Rollback last step</button></form>
       </div>
     </div>
 
@@ -50,9 +50,9 @@
         <h2 class="h4 m-0">Progress</h2>
         <strong data-run-progress-label><%= runSnapshot ? runSnapshot.progress : 0 %>%</strong>
       </div>
-      <div class="progress oven-progress" role="progressbar" aria-label="Run progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= runSnapshot ? runSnapshot.progress : 0 %>">
+      <div class="progress-stack"><div class="progress oven-progress loading-shimmer" role="progressbar" aria-label="Run progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= runSnapshot ? runSnapshot.progress : 0 %>">
         <div class="progress-bar" data-run-progress style="width: <%= runSnapshot ? runSnapshot.progress : 0 %>%"><%= runSnapshot ? runSnapshot.progress : 0 %>%</div>
-      </div>
+      </div><div class="progress-milestones"><span>Prep</span><span>Codex cooks</span><span>Checks</span><span>Plate PR</span></div></div>
     </div>
 
     <div class="paper-panel p-4 mb-4">
@@ -68,7 +68,7 @@
     </div>
 
     <div class="paper-panel p-4 mb-4">
-      <h2 class="h4">Cooking steps</h2>
+      <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="h4 mb-0">Cooking steps</h2><span class="chef-badge badge-soft rounded-pill px-3 py-1">Live mise en place</span></div>
       <div class="timeline" data-run-steps>
         <% (run.steps || []).forEach((step) => { %><div class="timeline-item" data-step-id="<%= step.id || step.step_order %>"><span><%= step.step_order %></span><div><strong><%= step.recipe_step_title || step.title || 'Recipe step' %></strong> <span class="status-badge"><%= step.status %></span><p><%= step.prompt || step.status %></p>
           <% if (['failed', 'paused', 'waiting_for_quota'].includes(step.status)) { %>
@@ -132,8 +132,8 @@
     </div>
 
     <div class="paper-panel p-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="h4 m-0">Live terminal logs</h2>
+      <div class="terminal-toolbar">
+        <div class="d-flex align-items-center gap-2"><span class="terminal-dots"><span></span><span></span><span></span></span><h2 class="h5 m-0">Live terminal logs</h2></div>
         <span class="status-badge" data-run-connection>Connecting</span>
       </div>
       <div class="terminal-panel" data-run-terminal aria-live="polite">
