@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_NAME="${APP_NAME:-mvp-chef-codex}"
+SERVICE_NAME="${SERVICE_NAME:-${APP_NAME}}"
+APP_DIR="${APP_DIR:-/opt/${APP_NAME}}"
+APP_USER="${APP_USER:-${SUDO_USER:-$USER}}"
+NODE_MAJOR="${NODE_MAJOR:-20}"
+PORT="${PORT:-3000}"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Please run this installer with sudo: sudo $0" >&2
+  exit 1
+fi
+
+export DEBIAN_FRONTEND=noninteractive
+
+echo "Installing system dependencies..."
+apt-get update
+apt-get install -y ca-certificates curl gnupg git build-essential rsync sqlite3
+
+if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.node.split(`.`)[0])')" -lt "${NODE_MAJOR}" ]]; then
+  echo "Installing Node.js ${NODE_MAJOR}.x..."
+  install -d -m 0755 /etc/apt/keyrings
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
+  apt-get update
+  apt-get install -y nodejs
+fi
+
+echo "Creating application directory at ${APP_DIR}..."
+install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}"
+rsync -a --delete \
+  --exclude '.git' \
+  --exclude 'node_modules' \
+  --exclude 'data' \
+  "${REPO_DIR}/" "${APP_DIR}/"
+chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
+
+if [[ ! -f "${APP_DIR}/.env" ]]; then
+  echo "Creating ${APP_DIR}/.env..."
+  if [[ -f "${APP_DIR}/.env.example" ]]; then
+    cp "${APP_DIR}/.env.example" "${APP_DIR}/.env"
+  else
+    cat > "${APP_DIR}/.env" <<ENVEOF
+NODE_ENV=production
+PORT=${PORT}
+DATABASE_PATH=./data/mvp-chef-codex.sqlite
+APP_NAME=MVP Chef Codex
+ENVEOF
+  fi
+  sed -i 's/^NODE_ENV=.*/NODE_ENV=production/' "${APP_DIR}/.env"
+  sed -i "s/^PORT=.*/PORT=${PORT}/" "${APP_DIR}/.env"
+  chown "${APP_USER}:${APP_USER}" "${APP_DIR}/.env"
+fi
+
+install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}/data" "${APP_DIR}/backups"
+
+echo "Installing npm packages..."
+sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}' && npm ci --omit=dev"
+
+"${APP_DIR}/scripts/create-systemd-service.sh" "${SERVICE_NAME}" "${APP_DIR}" "${APP_USER}"
+
+systemctl daemon-reload
+systemctl enable "${SERVICE_NAME}"
+systemctl restart "${SERVICE_NAME}"
+
+HOST_IP="$(hostname -I | awk '{print $1}')"
+echo "Deployment complete."
+echo "Local URL: http://localhost:${PORT}"
+if [[ -n "${HOST_IP}" ]]; then
+  echo "Network URL: http://${HOST_IP}:${PORT}"
+fi
