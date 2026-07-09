@@ -24,6 +24,27 @@ function normalizeProjectInput(input) {
   };
 }
 
+
+function validateRepoPath(repoPath) {
+  if (typeof repoPath !== 'string' || !repoPath.trim() || repoPath.includes('\0')) {
+    return { ok: false, message: 'Local repo path is required.' };
+  }
+  if (!path.isAbsolute(repoPath)) {
+    return { ok: false, message: 'Local repo path must be an absolute path.' };
+  }
+  const resolved = path.resolve(repoPath);
+  if (!fs.existsSync(resolved)) {
+    return { ok: false, message: 'Local repo path must exist.' };
+  }
+  if (!fs.statSync(resolved).isDirectory()) {
+    return { ok: false, message: 'Local repo path must be a directory.' };
+  }
+  if (!fs.existsSync(path.join(resolved, '.git'))) {
+    return { ok: false, message: 'Local repo path must be a git repository.' };
+  }
+  return { ok: true, repoPath: resolved };
+}
+
 function isGitHubRepoSlug(value) {
   return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value) && !value.includes('..');
 }
@@ -70,10 +91,11 @@ function validateProject(input) {
   const errors = [];
 
   if (!project.name) errors.push('Project name is required.');
-  if (!project.repoPath) errors.push('Local repo path is required.');
-  if (project.repoPath && !fs.existsSync(project.repoPath)) errors.push('Local repo path must exist.');
-  if (project.repoPath && fs.existsSync(project.repoPath) && !fs.existsSync(path.join(project.repoPath, '.git'))) {
-    errors.push('Local repo path must be a git repository.');
+  const repoPathValidation = validateRepoPath(project.repoPath);
+  if (!repoPathValidation.ok) {
+    errors.push(repoPathValidation.message);
+  } else {
+    project.repoPath = repoPathValidation.repoPath;
   }
   if (!project.githubRepoSlug) errors.push('GitHub repo slug is required.');
   if (project.githubRepoSlug && !isGitHubRepoSlug(project.githubRepoSlug)) errors.push('GitHub repo slug must use owner/repo format.');
@@ -131,6 +153,7 @@ module.exports = {
   getHealthChecks,
   getProjects,
   isGitHubRepoSlug,
+  validateRepoPath,
   normalizeProjectInput,
   validateProject
 };

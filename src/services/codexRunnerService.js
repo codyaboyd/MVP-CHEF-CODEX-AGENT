@@ -109,9 +109,17 @@ function createRedactor(repoPath) {
 }
 
 function validateRepoPath(repoPath) {
-  if (!repoPath || !fs.existsSync(repoPath) || !fs.statSync(repoPath).isDirectory()) {
+  if (typeof repoPath !== 'string' || !repoPath.trim() || repoPath.includes('\0')) {
     throw new Error('A valid project repository path is required.');
   }
+  const resolved = path.resolve(repoPath);
+  if (!path.isAbsolute(repoPath) || !fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+    throw new Error('A valid project repository path is required.');
+  }
+  if (!fs.existsSync(path.join(resolved, '.git'))) {
+    throw new Error('Project repository path must point to a git work tree.');
+  }
+  return resolved;
 }
 
 function shouldUseMock(mode) {
@@ -140,6 +148,7 @@ function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, red
     const child = spawn(command, args, {
       cwd: repoPath,
       shell: false,
+      detached: process.platform !== 'win32',
       stdio: ['pipe', 'pipe', 'pipe'],
       env: process.env
     });
@@ -148,9 +157,9 @@ function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, red
 
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGTERM');
+      terminateProcessTree(child, 'SIGTERM');
       setTimeout(() => {
-        if (!child.killed) child.kill('SIGKILL');
+        if (!child.killed) terminateProcessTree(child, 'SIGKILL');
       }, 5000).unref();
     }, timeoutMs);
     timer.unref();
@@ -200,7 +209,7 @@ async function executeStep(options) {
     mockMode = 'auto'
   } = options;
 
-  validateRepoPath(repoPath);
+  const safeRepoPath = validateRepoPath(repoPath);
   if (!runStepId) throw new Error('runStepId is required.');
   if (typeof prompt !== 'string' || !prompt.trim()) throw new Error('Prompt text is required.');
 
@@ -217,7 +226,7 @@ async function executeStep(options) {
     try {
       const result = shouldUseMock(mockMode)
         ? await runMock({ runStepId, prompt, redactor })
-        : await spawnCodex({ command: codexCommand, args, repoPath, prompt, timeoutMs, runStepId, redactor });
+        : await spawnCodex({ command: codexCommand, args, repoPath: safeRepoPath, prompt, timeoutMs, runStepId, redactor });
 
       if (detectQuotaLimit(result.stdout, result.stderr)) {
         const quotaError = new Error('Codex quota or rate limit detected.');
@@ -271,11 +280,24 @@ async function executeStep(options) {
   throw new Error('Codex runner ended unexpectedly.');
 }
 
+function terminateProcessTree(child, signal) {
+  if (!child || child.killed) return;
+  try {
+    if (process.platform !== 'win32' && child.pid) {
+      process.kill(-child.pid, signal);
+    } else {
+      child.kill(signal);
+    }
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+}
+
 function cancel(runStepId) {
   const child = activeProcesses.get(runStepId);
   if (!child) return false;
   cancelledSteps.add(runStepId);
-  child.kill('SIGTERM');
+  terminateProcessTree(child, 'SIGTERM');
   updateRunStep(runStepId, { status: 'cancelled', completed_at: nowSql(), error_message: 'Cancelled by user.' });
   return true;
 }
@@ -285,5 +307,6 @@ module.exports = {
   collectSecretValues,
   createRedactor,
   detectQuotaLimit,
+  validateRepoPath,
   executeStep
 };

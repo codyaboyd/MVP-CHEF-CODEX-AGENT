@@ -47,29 +47,17 @@ function recipes(req, res) {
   });
 }
 
-function getDisplayRun(id) {
-  const run = dashboardService.getRunById(id);
-  const fallback = dashboardService.getRuns()[0];
-  const demoRun = {
-    id,
-    recipe_name: 'Product Brief Soufflé',
-    project_name: 'Demo MVP Chef Project',
-    status: 'running',
-    commit_sha: null,
-    pr_url: null,
-    steps: [
-      { step_order: 1, recipe_step_title: 'Clarify the appetite', prompt: 'Gather constraints, target users, and measurable success signals.', status: 'succeeded' },
-      { step_order: 2, recipe_step_title: 'Plate the brief', prompt: 'Draft the MVP brief and prep it for review.', status: 'running' }
-    ]
-  };
-  return run || (fallback ? { ...fallback, steps: [] } : demoRun);
-}
-
-function runDetail(req, res) {
+function runDetail(req, res, next) {
+  const runId = Number(req.params.id);
+  const run = dashboardService.getRunById(runId);
+  if (!Number.isInteger(runId) || runId <= 0 || !run) {
+    next();
+    return;
+  }
   res.render('run-detail', {
     title: 'Run Detail',
-    run: getDisplayRun(Number(req.params.id)),
-    runSnapshot: dashboardService.getRunSnapshot(Number(req.params.id))
+    run,
+    runSnapshot: dashboardService.getRunSnapshot(runId)
   });
 }
 

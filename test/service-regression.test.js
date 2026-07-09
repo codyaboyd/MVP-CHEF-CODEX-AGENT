@@ -145,6 +145,7 @@ process.exit(23);
 
 test('CodexRunner auto mock mode falls back when the CLI command is unavailable', async () => {
   const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-auto-mock-'));
+  execFileSync('git', ['init'], { cwd: repoPath });
   const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('pending');
   const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'pending');
 
@@ -166,3 +167,31 @@ test('CodexRunner auto mock mode falls back when the CLI command is unavailable'
   fs.rmSync(repoPath, { recursive: true, force: true });
 });
 
+
+
+test('ProjectService and CodexRunner reject unsafe or non-git repository paths', () => {
+  const nonGitPath = fs.mkdtempSync(path.join(os.tmpdir(), 'non-git-repo-path-'));
+  try {
+    assert.deepEqual(projectService.validateRepoPath('relative/path').ok, false);
+    assert.match(projectService.validateRepoPath('relative/path').message, /absolute path/);
+    assert.deepEqual(projectService.validateRepoPath(nonGitPath).ok, false);
+    assert.match(projectService.validateRepoPath(nonGitPath).message, /git repository/);
+    assert.throws(() => codexRunner.validateRepoPath(nonGitPath), /git work tree/);
+  } finally {
+    fs.rmSync(nonGitPath, { recursive: true, force: true });
+  }
+});
+
+test('LogRedactionService redacts secret-like environment values from runtime errors', () => {
+  const logRedaction = require('../src/services/logRedactionService');
+  const previous = process.env.TEST_SECRET_TOKEN;
+  process.env.TEST_SECRET_TOKEN = 'super-sensitive-test-token';
+  try {
+    assert.equal(logRedaction.redact('value=super-sensitive-test-token'), 'value=[REDACTED:TEST_SECRET_TOKEN]');
+    const safeError = logRedaction.errorForView(new Error('failed with super-sensitive-test-token'));
+    assert.doesNotMatch(safeError.message, /super-sensitive-test-token/);
+  } finally {
+    if (previous === undefined) delete process.env.TEST_SECRET_TOKEN;
+    else process.env.TEST_SECRET_TOKEN = previous;
+  }
+});

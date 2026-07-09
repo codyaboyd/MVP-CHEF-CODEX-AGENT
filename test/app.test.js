@@ -34,6 +34,13 @@ test('missing recipes render a friendly 404 page', async () => {
   assert.match(response.text, /slipped behind the stove/);
 });
 
+test('missing run details render the 404 page instead of a demo fallback', async () => {
+  const response = await request(app).get('/runs/999999');
+
+  assert.equal(response.status, 404);
+  assert.match(response.text, /slipped behind the stove/);
+});
+
 test('recipe CRUD supports project association and step details', async () => {
   const project = db.prepare('SELECT id FROM projects ORDER BY id ASC LIMIT 1').get();
 
@@ -226,6 +233,7 @@ test('CodexRunner mock mode saves redacted run step logs', async () => {
   const path = require('node:path');
   const codexRunner = require('../src/services/codexRunnerService');
   const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-runner-repo-'));
+  require('node:child_process').execFileSync('git', ['init'], { cwd: repoPath });
   fs.writeFileSync(path.join(repoPath, '.env'), 'OPENAI_API_KEY=sk-test-secret-value\n');
   const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('queued');
   const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'queued');
@@ -255,6 +263,7 @@ test('CodexRunner spawns commands in repo path, streams logs, and captures exit 
   const path = require('node:path');
   const codexRunner = require('../src/services/codexRunnerService');
   const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-runner-retry-'));
+  require('node:child_process').execFileSync('git', ['init'], { cwd: repoPath });
   const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('queued');
   const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'queued');
 
@@ -286,6 +295,7 @@ test('CodexRunner can cancel an active spawned process', async () => {
   const path = require('node:path');
   const codexRunner = require('../src/services/codexRunnerService');
   const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-runner-cancel-'));
+  require('node:child_process').execFileSync('git', ['init'], { cwd: repoPath });
   const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('queued');
   const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'queued');
 
@@ -705,6 +715,7 @@ test('CodexRunner detects quota text and marks a step waiting_for_quota without 
   const path = require('node:path');
   const codexRunner = require('../src/services/codexRunnerService');
   const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-runner-quota-'));
+  require('node:child_process').execFileSync('git', ['init'], { cwd: repoPath });
   const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('queued');
   const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'queued');
 
