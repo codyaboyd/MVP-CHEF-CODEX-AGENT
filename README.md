@@ -7,7 +7,11 @@ MVP Chef Codex is a playful digital recipe book for repeatable Codex prompt work
 - Cartoonish recipe book theme with Bootstrap 5 styling.
 - Clean MVC-ish structure: routes, controllers, services, views, public assets, and database module.
 - SQLite persistence through `better-sqlite3` with automatic schema creation and starter recipe seeds.
-- Add and view prompt recipes from the browser.
+- Add, import, export, duplicate, and run prompt recipes from the browser.
+- Project management with absolute local git repository path validation and health checks.
+- Recipe run state persisted in SQLite, including paused, cancelled, approval, quota, and failure-recovery states.
+- Codex runner log redaction for configured secret-like environment values and `.env` values.
+- Run cancellation that terminates the spawned Codex process group so child processes do not continue in the background.
 - Development, production, test, and lint npm scripts.
 
 ## Requirements
@@ -36,6 +40,9 @@ Environment variables are loaded with `dotenv`.
 | `PORT` | `3000` | HTTP server port. |
 | `DATABASE_PATH` | `./data/mvp-chef-codex.sqlite` | SQLite database file path. |
 | `APP_NAME` | `MVP Chef Codex` | Human-readable application name. |
+| `CODEX_CLI_COMMAND` | `codex` | Codex CLI executable used by recipe runs. |
+| `CODEX_RUN_TIMEOUT_MS` | `600000` | Maximum runtime for a Codex step before it is terminated. |
+| `CODEX_RUNNER_MOCK` | unset | Set to `true` to use the local mock Codex runner. |
 
 ## Scripts
 
@@ -62,7 +69,18 @@ test/                Node test files
 
 ## Database
 
-The app creates the configured SQLite database and `recipes` table on boot. If the table is empty, it seeds three starter prompt recipes so the cookbook is useful immediately.
+The app creates and migrates the configured SQLite database on boot. It persists projects, recipes, recipe steps, runs, run steps, quality-gate checks, recovery actions, project locks, and app settings. If no projects exist, it seeds a demo project and starter recipe templates so the cookbook is useful immediately.
+
+Running steps are marked paused during server startup recovery so an app restart does not discard run history. Terminal run states are retained, and active project locks are released when runs finish or are cancelled.
+
+
+## Operational hardening notes
+
+- Project repository paths must be absolute paths to existing directories that contain a `.git` work tree. Relative paths, missing paths, files, and non-git directories are rejected before a project or runner step can use them.
+- HTTP request logging skips URLs that appear to include secret-bearing query strings and redacts secret-like environment variable values before writing application errors.
+- Codex runner stdout/stderr and saved error messages redact secret-like values from the environment and from the target repo's `.env` file.
+- Cancelling a run asks the active Codex process group to terminate, then marks active/pending run steps and the run as cancelled in SQLite.
+- On restart, interrupted `running` runs and steps are preserved and moved to `paused` with a restart message so they can be inspected or resumed instead of disappearing.
 
 ## Ubuntu deployment
 
