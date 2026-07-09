@@ -7,7 +7,6 @@ MVP Chef Codex is a local, Ubuntu-friendly web app for turning repeatable Codex 
 ## Table of contents
 
 - [What MVP Chef Codex does](#what-mvp-chef-codex-does)
-- [Screenshots](#screenshots)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Requirements](#requirements)
@@ -34,24 +33,6 @@ MVP Chef Codex is a recipe book for AI-assisted software work:
 6. **Coordinate GitHub automation** through `gh` when repository settings and safety checks allow it.
 
 Typical use cases include bootstrapping MVP features, applying recurring refactors, running repository hygiene tasks, producing review-ready PRs, and documenting proven prompting workflows for a team.
-
-## Screenshots
-
-Add real screenshots in `docs/screenshots/` when available. Suggested captures:
-
-| Screen | Placeholder | Notes |
-| --- | --- | --- |
-| Dashboard | `docs/screenshots/dashboard.png` | Overview of projects, recipes, and recent runs. |
-| Recipe detail | `docs/screenshots/recipe-detail.png` | Recipe metadata, steps, checks, and run button. |
-| Recipe editor | `docs/screenshots/recipe-editor.png` | Multi-step prompt authoring interface. |
-| Run detail | `docs/screenshots/run-detail.png` | Live run log, step timeline, approvals, quota controls, and recovery actions. |
-| Settings | `docs/screenshots/settings.png` | Codex, GitHub, approval, quota, and safety controls. |
-
-```text
-[ Screenshot placeholder: MVP Chef Codex dashboard ]
-[ Screenshot placeholder: recipe editor with multiple prompt steps ]
-[ Screenshot placeholder: run detail with logs and approval controls ]
-```
 
 ## Features
 
