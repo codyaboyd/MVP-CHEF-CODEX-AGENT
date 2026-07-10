@@ -196,13 +196,15 @@ test('LogRedactionService redacts secret-like environment values from runtime er
   }
 });
 
-test('systemd installer waits for an HTTP-ready service and writes a portable npm path', () => {
+test('systemd installer selects an open setup port, waits for HTTP readiness, and writes a portable npm path', () => {
   const installer = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'install-ubuntu.sh'), 'utf8');
   const serviceScript = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'create-systemd-service.sh'), 'utf8');
 
   assert.match(installer, /curl -fsS "http:\/\/127\.0\.0\.1:\$\{PORT\}\/healthz"/);
   assert.match(installer, /port_listeners\(\)/);
-  assert.match(installer, /ss -H -ltnp "sport = :\$\{PORT\}"/);
+  assert.match(installer, /select_available_port\(\)/);
+  assert.match(installer, /Port \$\{REQUESTED_PORT\} is already in use; using open port \$\{PORT\} instead\./);
+  assert.match(installer, /ss -H -ltnp "sport = :\$\{check_port\}"/);
   assert.match(installer, /journalctl -u "\$\{SERVICE_NAME\}" -n 80 --no-pager/);
   assert.match(installer, /NPM_BIN="\$\(command -v npm \|\| true\)"/);
   assert.match(serviceScript, /ExecStart=\$\{NPM_BIN\} start/);

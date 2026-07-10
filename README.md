@@ -317,7 +317,7 @@ Environment variables are loaded with `dotenv`.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `NODE_ENV` | `development` | Runtime environment. |
-| `PORT` | `3000` | HTTP server port. |
+| `PORT` | `3000` | HTTP server port. During Ubuntu setup, the installer automatically advances to the next open port if this one is occupied. |
 | `DATABASE_PATH` | `./data/mvp-chef-codex.sqlite` | SQLite database path. |
 | `APP_NAME` | `MVP Chef Codex` | Display name used by the app. |
 | `CODEX_CLI_COMMAND` | `codex` | Default Codex CLI executable used by recipe runs. |
@@ -447,7 +447,9 @@ Quota handling is intentionally conservative: the app pauses work, preserves con
 
 ### Port 3000 is already in use
 
-Change `PORT` in `.env`:
+The Ubuntu installer now checks the requested setup port and automatically chooses the next open port within the next 100 ports when the requested value is busy. The selected port is written to the generated `.env` and shown in the final local and network URLs.
+
+For manual development, change `PORT` in `.env` if your chosen port is occupied:
 
 ```bash
 PORT=3001
