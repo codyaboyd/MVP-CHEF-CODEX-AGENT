@@ -29,6 +29,40 @@ if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.n
   apt-get install -y nodejs
 fi
 
+if ! [[ "${PORT}" =~ ^[0-9]+$ ]] || [[ "${PORT}" -lt 1 || "${PORT}" -gt 65535 ]]; then
+  echo "PORT must be a number between 1 and 65535; got '${PORT}'." >&2
+  exit 1
+fi
+
+port_listeners() {
+  local check_port="${1:-${PORT}}"
+  ss -H -ltnp "sport = :${check_port}" 2>/dev/null || true
+}
+
+select_available_port() {
+  local start_port="${1}"
+  local check_port
+
+  for ((check_port = start_port; check_port <= 65535 && check_port < start_port + 100; check_port++)); do
+    if [[ -z "$(port_listeners "${check_port}")" ]]; then
+      echo "${check_port}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+REQUESTED_PORT="${PORT}"
+if ! PORT="$(select_available_port "${REQUESTED_PORT}")"; then
+  echo "Could not find an open port between ${REQUESTED_PORT} and $((REQUESTED_PORT + 99))." >&2
+  exit 1
+fi
+
+if [[ "${PORT}" != "${REQUESTED_PORT}" ]]; then
+  echo "Port ${REQUESTED_PORT} is already in use; using open port ${PORT} instead."
+fi
+
 echo "Creating application directory at ${APP_DIR}..."
 install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}"
 rsync -a --delete \
@@ -57,10 +91,6 @@ fi
 
 install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}/data" "${APP_DIR}/backups"
 
-port_listeners() {
-  ss -H -ltnp "sport = :${PORT}" 2>/dev/null || true
-}
-
 wait_for_port_release() {
   for _ in {1..10}; do
     if [[ -z "$(port_listeners)" ]]; then
@@ -78,11 +108,13 @@ if systemctl list-unit-files "${SERVICE_NAME}.service" >/dev/null 2>&1; then
 fi
 
 if [[ -n "$(port_listeners)" ]]; then
-  echo "Port ${PORT} is already in use, so ${SERVICE_NAME} cannot bind to it." >&2
-  echo "Listeners on port ${PORT}:" >&2
-  port_listeners >&2
-  echo "Stop the conflicting process or rerun with a different PORT value." >&2
-  exit 1
+  CONFLICTING_PORT="${PORT}"
+  if ! PORT="$(select_available_port "$((PORT + 1))")"; then
+    echo "Could not find an open fallback port after ${CONFLICTING_PORT}." >&2
+    exit 1
+  fi
+  sed -i "s/^PORT=.*/PORT=${PORT}/" "${APP_DIR}/.env"
+  echo "Port ${CONFLICTING_PORT} became unavailable during setup; using open port ${PORT} instead."
 fi
 
 echo "Installing npm packages..."
