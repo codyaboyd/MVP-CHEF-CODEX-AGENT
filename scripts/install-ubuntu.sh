@@ -18,7 +18,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 echo "Installing system dependencies..."
 apt-get update
-apt-get install -y ca-certificates curl gnupg git build-essential rsync sqlite3
+apt-get install -y ca-certificates curl gnupg git build-essential iproute2 rsync sqlite3
 
 if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.node.split(`.`)[0])')" -lt "${NODE_MAJOR}" ]]; then
   echo "Installing Node.js ${NODE_MAJOR}.x..."
@@ -57,6 +57,34 @@ fi
 
 install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}/data" "${APP_DIR}/backups"
 
+port_listeners() {
+  ss -H -ltnp "sport = :${PORT}" 2>/dev/null || true
+}
+
+wait_for_port_release() {
+  for _ in {1..10}; do
+    if [[ -z "$(port_listeners)" ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+if systemctl list-unit-files "${SERVICE_NAME}.service" >/dev/null 2>&1; then
+  echo "Stopping existing ${SERVICE_NAME} service before deployment..."
+  systemctl stop "${SERVICE_NAME}" || true
+  wait_for_port_release || true
+fi
+
+if [[ -n "$(port_listeners)" ]]; then
+  echo "Port ${PORT} is already in use, so ${SERVICE_NAME} cannot bind to it." >&2
+  echo "Listeners on port ${PORT}:" >&2
+  port_listeners >&2
+  echo "Stop the conflicting process or rerun with a different PORT value." >&2
+  exit 1
+fi
+
 echo "Installing npm packages..."
 sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}' && npm ci --omit=dev"
 
@@ -67,10 +95,10 @@ systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}"
 systemctl restart "${SERVICE_NAME}"
 
-echo "Waiting for ${SERVICE_NAME} to accept HTTP connections on port ${PORT}..."
+echo "Waiting for ${SERVICE_NAME} to report healthy on port ${PORT}..."
 SERVICE_READY=0
 for _ in {1..20}; do
-  if curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null; then
+  if curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null; then
     SERVICE_READY=1
     break
   fi
@@ -78,7 +106,7 @@ for _ in {1..20}; do
 done
 
 if [[ "${SERVICE_READY}" -ne 1 ]]; then
-  echo "${SERVICE_NAME} did not become reachable at http://127.0.0.1:${PORT}/." >&2
+  echo "${SERVICE_NAME} did not become healthy at http://127.0.0.1:${PORT}/healthz." >&2
   echo "Service status:" >&2
   systemctl status "${SERVICE_NAME}" --no-pager >&2 || true
   echo "Recent logs:" >&2

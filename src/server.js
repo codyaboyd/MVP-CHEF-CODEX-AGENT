@@ -25,6 +25,10 @@ app.use(express.json());
 app.use('/bootstrap', express.static(path.join(__dirname, '..', 'node_modules', 'bootstrap', 'dist')));
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({ status: 'ok', service: 'mvp-chef-codex' });
+});
+
 app.use(routes);
 
 app.use((req, res) => {
