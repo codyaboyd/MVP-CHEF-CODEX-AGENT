@@ -9,6 +9,7 @@ require('./services/runStateManager').recoverInterruptedRuns();
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
+const host = process.env.HOST || '0.0.0.0';
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -41,8 +42,9 @@ app.use((err, req, res, _next) => {
 });
 
 if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`🍳 MVP Chef Codex is simmering at http://localhost:${port}`);
+  app.listen(port, host, () => {
+    const displayHost = host === '0.0.0.0' ? 'localhost' : host;
+    console.log(`🍳 MVP Chef Codex is simmering at http://${displayHost}:${port}`);
   });
 }
 

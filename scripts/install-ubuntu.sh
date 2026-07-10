@@ -60,11 +60,31 @@ install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}/data" "${APP_DIR}/backu
 echo "Installing npm packages..."
 sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}' && npm ci --omit=dev"
 
-"${APP_DIR}/scripts/create-systemd-service.sh" "${SERVICE_NAME}" "${APP_DIR}" "${APP_USER}"
+NPM_BIN="$(command -v npm || true)"
+"${APP_DIR}/scripts/create-systemd-service.sh" "${SERVICE_NAME}" "${APP_DIR}" "${APP_USER}" "${NPM_BIN}"
 
 systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}"
 systemctl restart "${SERVICE_NAME}"
+
+echo "Waiting for ${SERVICE_NAME} to accept HTTP connections on port ${PORT}..."
+SERVICE_READY=0
+for _ in {1..20}; do
+  if curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null; then
+    SERVICE_READY=1
+    break
+  fi
+  sleep 1
+done
+
+if [[ "${SERVICE_READY}" -ne 1 ]]; then
+  echo "${SERVICE_NAME} did not become reachable at http://127.0.0.1:${PORT}/." >&2
+  echo "Service status:" >&2
+  systemctl status "${SERVICE_NAME}" --no-pager >&2 || true
+  echo "Recent logs:" >&2
+  journalctl -u "${SERVICE_NAME}" -n 80 --no-pager >&2 || true
+  exit 1
+fi
 
 HOST_IP="$(hostname -I | awk '{print $1}')"
 echo "Deployment complete."
