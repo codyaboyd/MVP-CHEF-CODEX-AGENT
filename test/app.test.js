@@ -12,6 +12,13 @@ test('home page renders seeded recipe book', async () => {
   assert.match(response.text, /Product Brief Soufflé/);
 });
 
+test('health endpoint reports service readiness', async () => {
+  const response = await request(app).get('/healthz');
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, { status: 'ok', service: 'mvp-chef-codex' });
+});
+
 test('database initializes project, recipe, run, and settings schema', () => {
   const tables = db.prepare(`
     SELECT name

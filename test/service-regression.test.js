@@ -200,7 +200,9 @@ test('systemd installer waits for an HTTP-ready service and writes a portable np
   const installer = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'install-ubuntu.sh'), 'utf8');
   const serviceScript = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'create-systemd-service.sh'), 'utf8');
 
-  assert.match(installer, /curl -fsS "http:\/\/127\.0\.0\.1:\$\{PORT\}\/"/);
+  assert.match(installer, /curl -fsS "http:\/\/127\.0\.0\.1:\$\{PORT\}\/healthz"/);
+  assert.match(installer, /port_listeners\(\)/);
+  assert.match(installer, /ss -H -ltnp "sport = :\$\{PORT\}"/);
   assert.match(installer, /journalctl -u "\$\{SERVICE_NAME\}" -n 80 --no-pager/);
   assert.match(installer, /NPM_BIN="\$\(command -v npm \|\| true\)"/);
   assert.match(serviceScript, /ExecStart=\$\{NPM_BIN\} start/);
