@@ -262,7 +262,24 @@ The app creates the SQLite database automatically at `DATABASE_PATH` when it boo
 MVP Chef Codex shells out to the configured Codex executable for real recipe runs. The default command is `codex`.
 
 1. Install the Codex CLI according to the official Codex/OpenAI instructions for your environment.
-2. Authenticate the CLI as required by your Codex installation.
+2. Authenticate the CLI as required by your Codex installation. For the standard browser-based ChatGPT/OpenAI sign-in flow, run:
+
+   ```bash
+   codex login
+   ```
+
+   If the environment cannot open a browser directly, use device authorization instead:
+
+   ```bash
+   codex login --device-auth
+   ```
+
+   Some automation environments may use an access token instead. Only do this in a trusted environment where the token is already provided securely:
+
+   ```bash
+   printenv CODEX_ACCESS_TOKEN | codex login --with-access-token
+   ```
+
 3. Confirm it is on the service user's `PATH`:
 
    ```bash
@@ -298,7 +315,18 @@ GitHub automation uses `gh`, not direct GitHub API tokens in the app.
    gh auth status
    ```
 
-3. Confirm the target project repository has a GitHub remote and that `gh` can see it:
+   During `gh auth login`, choose **GitHub.com** for normal GitHub repositories. Choose **HTTPS** unless your project remote uses SSH, and allow GitHub CLI to authenticate Git when prompted.
+
+3. Confirm whether the target project uses HTTPS or SSH remotes:
+
+   ```bash
+   cd /absolute/path/to/project
+   git remote -v
+   ```
+
+   If the remote starts with `https://github.com/`, GitHub CLI can usually manage Git credentials after `gh auth login`. If the remote starts with `git@github.com:`, make sure the service user has an SSH key added to GitHub.
+
+4. Confirm the target project repository has a GitHub remote and that `gh` can see it:
 
    ```bash
    cd /absolute/path/to/project
@@ -306,7 +334,7 @@ GitHub automation uses `gh`, not direct GitHub API tokens in the app.
    gh repo view
    ```
 
-4. In MVP Chef Codex, configure each project with an `owner/repo` GitHub slug and the correct default branch.
+5. In MVP Chef Codex, configure each project with an `owner/repo` GitHub slug and the correct default branch.
 
 If using systemd, run `gh auth status` as the service user. Authentication stored for your personal login shell will not automatically apply to another Linux user.
 
