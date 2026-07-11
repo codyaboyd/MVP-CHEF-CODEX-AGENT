@@ -239,6 +239,12 @@ function settings(req, res) {
 function updateSettings(req, res) {
   appSettingsService.updateSettings({
     codexCommandPath: req.body.codexCommandPath || 'codex',
+    codexAuthMode: ['environment', 'api_key', 'config_dir'].includes(req.body.codexAuthMode) ? req.body.codexAuthMode : 'environment',
+    codexApiKey: req.body.codexApiKey || '',
+    codexConfigDir: req.body.codexConfigDir || '',
+    codexModel: req.body.codexModel || '',
+    codexApprovalPolicy: req.body.codexApprovalPolicy || 'suggest',
+    codexSandboxMode: req.body.codexSandboxMode || 'workspace-write',
     mockRunnerMode: ['true', 'false', 'auto'].includes(req.body.mockRunnerMode) ? req.body.mockRunnerMode : 'auto',
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
     autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
@@ -247,6 +253,10 @@ function updateSettings(req, res) {
     maxParallelRuns: req.body.maxParallelRuns || '1',
     maxStepRuntimeMinutes: req.body.maxStepRuntimeMinutes || '30',
     defaultBranch: req.body.defaultBranch || 'main',
+    githubToken: req.body.githubToken || '',
+    githubUsername: req.body.githubUsername || '',
+    githubCliPath: req.body.githubCliPath || 'gh',
+    githubDefaultOrg: req.body.githubDefaultOrg || '',
     protectedMainMode: req.body.protectedMainMode === 'true' ? 'true' : 'false',
     compactUiMode: req.body.compactUiMode === 'true' ? 'true' : 'false',
     showAdvancedSettings: req.body.showAdvancedSettings === 'true' ? 'true' : 'false',

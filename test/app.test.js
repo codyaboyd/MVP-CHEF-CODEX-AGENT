@@ -48,6 +48,26 @@ test('missing run details render the 404 page instead of a demo fallback', async
   assert.match(response.text, /slipped behind the stove/);
 });
 
+test('recipe form accepts raw text blocks as prompt steps', async () => {
+  const createResponse = await request(app)
+    .post('/recipes')
+    .type('form')
+    .send({
+      title: 'Raw Block Gumbo',
+      phase: '1.0.0',
+      summary: 'A recipe built from raw text blocks.',
+      rawTextBlocks: 'First raw instruction.\n\n---\n\nSecond raw instruction.'
+    });
+
+  assert.equal(createResponse.status, 302);
+  const recipeId = Number(createResponse.headers.location.split('/').pop());
+  const steps = db.prepare('SELECT * FROM recipe_steps WHERE recipe_id = ? ORDER BY step_order').all(recipeId);
+  assert.deepEqual(steps.map((step) => step.title), ['Text block 1', 'Text block 2']);
+  assert.deepEqual(steps.map((step) => step.prompt), ['First raw instruction.', 'Second raw instruction.']);
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
+});
+
 test('recipe CRUD supports project association and step details', async () => {
   const project = db.prepare('SELECT id FROM projects ORDER BY id ASC LIMIT 1').get();
 
@@ -185,6 +205,52 @@ test('recipe import rejects malformed and schema-invalid JSON with useful errors
   assert.match(invalidResponse.text, /Step 1 title is required/);
   assert.match(invalidResponse.text, /Step 1 requiredChecks must be an array of strings/);
   assert.match(invalidResponse.text, /Step 1 maxRetries must be a non-negative integer/);
+});
+
+test('settings page saves GitHub and Codex auth configuration', async () => {
+  const settingsService = require('../src/services/appSettingsService');
+  try {
+    const response = await request(app)
+      .post('/settings')
+      .type('form')
+      .send({
+        codexCommandPath: '/usr/local/bin/codex',
+        codexAuthMode: 'api_key',
+        codexApiKey: 'sk-test-settings-key',
+        codexConfigDir: '/srv/.codex',
+        codexModel: 'gpt-test',
+        codexApprovalPolicy: 'never',
+        codexSandboxMode: 'danger-full-access',
+        mockRunnerMode: 'false',
+        defaultBranch: 'trunk',
+        githubCliPath: '/usr/bin/gh',
+        githubUsername: 'chef-user',
+        githubDefaultOrg: 'chef-org',
+        githubToken: 'ghp_test_settings_token',
+        autoMergeEnabled: 'false',
+        protectedMainMode: 'true'
+      });
+
+    assert.equal(response.status, 302);
+    const settings = db.prepare('SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?, ?, ?) ORDER BY key')
+      .all('codexAuthMode', 'codexApiKey', 'codexModel', 'githubCliPath', 'githubToken', 'githubUsername');
+    assert.deepEqual(settings, [
+      { key: 'codexApiKey', value: 'sk-test-settings-key' },
+      { key: 'codexAuthMode', value: 'api_key' },
+      { key: 'codexModel', value: 'gpt-test' },
+      { key: 'githubCliPath', value: '/usr/bin/gh' },
+      { key: 'githubToken', value: 'ghp_test_settings_token' },
+      { key: 'githubUsername', value: 'chef-user' }
+    ]);
+
+    const page = await request(app).get('/settings');
+    assert.equal(page.status, 200);
+    assert.match(page.text, /Codex \/ OpenAI API key/);
+    assert.match(page.text, /GitHub token/);
+    assert.match(page.text, /••••••••/);
+  } finally {
+    settingsService.updateSettings(settingsService.DEFAULT_SETTINGS);
+  }
 });
 
 test('projects page manages command defaults and validates project health', async () => {
