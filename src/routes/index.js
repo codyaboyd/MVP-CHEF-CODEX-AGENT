@@ -37,6 +37,7 @@ router.post('/runs/:id/steps/:stepId/skip', pageController.skipRunStep);
 router.post('/runs/:id/quota-refill', pageController.setQuotaRefill);
 router.post('/runs/:id/steps/:stepId/quality-gate-override', pageController.overrideQualityGate);
 router.post('/runs/:id/cancel', pageController.cancelRun);
+router.get('/help', pageController.help);
 router.get('/settings', pageController.settings);
 router.post('/settings', pageController.updateSettings);
 
