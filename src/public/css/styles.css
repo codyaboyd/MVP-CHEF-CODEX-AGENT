@@ -299,3 +299,26 @@ body::before {
   .terminal-panel { max-height: 20rem; padding: .75rem; }
   .progress-milestones { font-size: .68rem; }
 }
+
+.recipe-mode-tabs .nav-link {
+  border: 3px solid var(--chef-ink);
+  color: var(--chef-ink);
+  font-weight: 900;
+  margin-right: .5rem;
+}
+.recipe-mode-tabs .nav-link.active {
+  background: var(--chef-blue);
+  color: #fff;
+}
+.recipe-mode-content {
+  background: rgba(255,255,255,.46);
+  border: 3px dashed rgba(57,43,36,.22);
+  border-radius: 1.5rem;
+  padding: 1rem;
+}
+.help-page code {
+  background: rgba(255,217,90,.35);
+  border-radius: .4rem;
+  color: var(--chef-ink);
+  padding: .1rem .35rem;
+}

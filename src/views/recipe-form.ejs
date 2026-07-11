@@ -40,28 +40,32 @@
             <div class="form-text">Controls human approval checkpoints for this recipe.</div>
           </div>
           <div class="col-md-6">
-            <label class="form-label" for="ingredients">Ingredients / inputs</label>
-            <textarea class="form-control" id="ingredients" name="ingredients" rows="4"><%= values.ingredients || '' %></textarea>
-            <div class="form-text">One ingredient or input per line.</div>
+            <label class="form-label" for="ingredients">Context notes (optional)</label>
+            <textarea class="form-control" id="ingredients" name="ingredients" rows="4" placeholder="Optional repo notes, ticket links, constraints, or prerequisites"><%= values.ingredients || '' %></textarea>
+            <div class="form-text">Optional supporting context only. The actual Codex work is defined in the prompt steps or raw text blocks below.</div>
           </div>
 
-          <div class="col-12">
-            <div class="card border-dashed bg-light-subtle">
-              <div class="card-body">
-                <h2 class="h5 mb-2">Raw text block list</h2>
-                <p class="text-muted mb-3">Paste plain text entries when you do not need separate titles, retries, approvals, or required checks. Separate blocks with a blank line or a line containing <code>---</code>; each block becomes a prompt step named “Text block N”.</p>
-                <label class="form-label" for="rawTextBlocks">Raw text blocks</label>
-                <textarea class="form-control" id="rawTextBlocks" name="rawTextBlocks" rows="7" placeholder="First raw prompt block...&#10;&#10;Second raw prompt block..."><%= values.rawTextBlocks || '' %></textarea>
-                <div class="form-text">If this field contains blocks, it takes precedence over the structured prompt step editors below when saving.</div>
+          <div class="col-12 mt-4">
+            <ul class="nav nav-pills recipe-mode-tabs" id="recipeModeTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link <%= values.rawTextBlocks ? '' : 'active' %>" id="structured-tab" data-bs-toggle="tab" data-bs-target="#structuredRecipePane" type="button" role="tab" aria-controls="structuredRecipePane" aria-selected="<%= values.rawTextBlocks ? 'false' : 'true' %>">Structured steps</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link <%= values.rawTextBlocks ? 'active' : '' %>" id="raw-tab" data-bs-toggle="tab" data-bs-target="#rawRecipePane" type="button" role="tab" aria-controls="rawRecipePane" aria-selected="<%= values.rawTextBlocks ? 'true' : 'false' %>">Raw block sequence</button>
+              </li>
+            </ul>
+          </div>
+
+          <div class="col-12 tab-content recipe-mode-content">
+            <section class="tab-pane fade <%= values.rawTextBlocks ? '' : 'show active' %>" id="structuredRecipePane" role="tabpanel" aria-labelledby="structured-tab" tabindex="0">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h2 class="h4 mb-1">Structured prompt steps</h2>
+                  <p class="text-muted mb-0">Use this mode when you need step titles, retries, approvals, and required checks.</p>
+                </div>
+                <button class="btn btn-outline-primary rounded-pill" type="button" data-add-step>+ Add step</button>
               </div>
-            </div>
-          </div>
-
-          <div class="col-12 d-flex justify-content-between align-items-center mt-4">
-            <h2 class="h4 mb-0">Prompt steps</h2>
-            <button class="btn btn-outline-primary rounded-pill" type="button" data-add-step>+ Add step</button>
-          </div>
-          <div class="col-12 recipe-step-list" data-step-list>
+              <div class="recipe-step-list" data-step-list>
             <% const steps = values.steps && values.steps.length ? values.steps : [{ title: 'Step 1', prompt: '', requiredChecks: '', retryCount: 0, humanApproval: false }]; %>
             <% steps.forEach((step, index) => { %>
               <div class="recipe-step-editor" data-step-editor>
@@ -113,6 +117,19 @@
                 </div>
               </div>
             <% }) %>
+              </div>
+            </section>
+            <section class="tab-pane fade <%= values.rawTextBlocks ? 'show active' : '' %>" id="rawRecipePane" role="tabpanel" aria-labelledby="raw-tab" tabindex="0">
+              <div class="card border-dashed bg-light-subtle">
+                <div class="card-body">
+                  <h2 class="h5 mb-2">Raw text block sequence</h2>
+                  <p class="text-muted mb-3">Paste prompt blocks when you do not need separate titles, retries, approvals, or required checks. Separate blocks with a blank line or a line containing <code>---</code>; each block becomes a prompt step named “Text block N”.</p>
+                  <label class="form-label" for="rawTextBlocks">Raw prompt blocks</label>
+                  <textarea class="form-control" id="rawTextBlocks" name="rawTextBlocks" rows="10" placeholder="First raw prompt block...&#10;&#10;---&#10;&#10;Second raw prompt block..."><%= values.rawTextBlocks || '' %></textarea>
+                  <div class="form-text">Use either this raw sequence or structured steps. Raw blocks take precedence when this field contains text.</div>
+                </div>
+              </div>
+            </section>
           </div>
 
           <div class="col-12 d-flex gap-2">

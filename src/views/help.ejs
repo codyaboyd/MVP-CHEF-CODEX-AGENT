@@ -1,0 +1,67 @@
+<%- include('partials/layout') %>
+<section class="container py-5 help-page">
+  <div class="paper-panel p-4 p-lg-5 mb-4">
+    <p class="eyebrow">🧭 New user guide</p>
+    <h1 class="fw-black">How MVP Chef Codex works</h1>
+    <p class="lead text-muted mb-0">MVP Chef Codex is a local control room for repeatable Codex CLI workflows. You connect projects, write recipes as ordered prompts, run them safely, review logs and diffs, then prepare changes for pull requests.</p>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <section class="paper-panel p-4 h-100">
+        <h2 class="h4 fw-black">1. Projects are your workspaces</h2>
+        <p>Register each local Git repository on the Projects page. A project stores its repo path, default branch, quality-check commands, PR settings, and safe-mode preference.</p>
+        <ul class="prep-list mb-0">
+          <li>Use projects to point recipe runs at the right repository.</li>
+          <li>Keep each project on a branch that can safely receive Codex edits.</li>
+          <li>Safe mode can block vague or risky prompts before a run begins.</li>
+        </ul>
+      </section>
+    </div>
+    <div class="col-lg-6">
+      <section class="paper-panel p-4 h-100">
+        <h2 class="h4 fw-black">2. Recipes are reusable prompt playbooks</h2>
+        <p>A recipe is a saved sequence of Codex prompt steps. Use the structured editor when you need titles, retries, approvals, and required checks. Use raw text blocks when you simply want one prompt per block.</p>
+        <ul class="prep-list mb-0">
+          <li>Each prompt step is sent to the Codex CLI through stdin.</li>
+          <li>Required checks are commands or manual gates that must pass for a step.</li>
+          <li>Recipes can be imported, exported, duplicated, edited, and versioned.</li>
+        </ul>
+      </section>
+    </div>
+    <div class="col-lg-6">
+      <section class="paper-panel p-4 h-100">
+        <h2 class="h4 fw-black">3. Runs execute recipes through the Codex CLI</h2>
+        <p>When you start a recipe run, MVP Chef Codex creates ordered run steps, launches the configured <code>codex</code> command, captures stdout/stderr, and tracks status in the dashboard.</p>
+        <ul class="prep-list mb-0">
+          <li>Authentication normally comes from your local Codex CLI login or environment.</li>
+          <li>The app does not need an API key when the CLI is already authenticated.</li>
+          <li>Mock mode can demonstrate the workflow when the CLI is unavailable.</li>
+        </ul>
+      </section>
+    </div>
+    <div class="col-lg-6">
+      <section class="paper-panel p-4 h-100">
+        <h2 class="h4 fw-black">4. Review, recover, and approve</h2>
+        <p>Run detail pages show progress, live logs, quality gates, approval checkpoints, quota pauses, and recovery actions.</p>
+        <ul class="prep-list mb-0">
+          <li>Approve, reject, skip, retry, or edit a failed prompt before retrying.</li>
+          <li>Pause and resume runs without losing step history.</li>
+          <li>Export failure reports for debugging or team handoff.</li>
+        </ul>
+      </section>
+    </div>
+    <div class="col-12">
+      <section class="paper-panel p-4">
+        <h2 class="h4 fw-black">Suggested first batch</h2>
+        <ol class="instruction-list mb-0">
+          <li>Open <a href="/settings">Settings</a> and confirm the Codex command path is <code>codex</code> or your absolute CLI path.</li>
+          <li>Open <a href="/projects">Projects</a> and add a local Git repository.</li>
+          <li>Create a <a href="/recipes/new">New Recipe</a> with two or three small prompts and attach it to that project.</li>
+          <li>Run the recipe, watch the Run Detail page, review changes locally, and use GitHub automation only after checks pass.</li>
+        </ol>
+      </section>
+    </div>
+  </div>
+</section>
+<%- include('partials/footer') %>

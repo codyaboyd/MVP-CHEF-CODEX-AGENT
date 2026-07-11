@@ -229,6 +229,12 @@ function cancelRun(req, res) {
   redirectToRun(req, res);
 }
 
+function help(req, res) {
+  res.render('help', {
+    title: 'Help'
+  });
+}
+
 function settings(req, res) {
   res.render('settings', {
     title: 'Settings',
@@ -289,6 +295,7 @@ module.exports = {
   editPromptAndRetry,
   skipRunStep,
   cancelRun,
+  help,
   settings,
   updateSettings
 };

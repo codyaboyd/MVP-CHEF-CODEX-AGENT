@@ -53,16 +53,16 @@
             <div class="col-md-6">
               <label class="form-label fw-bold" for="codexAuthMode">Codex auth mode</label>
               <select class="form-select" id="codexAuthMode" name="codexAuthMode">
-                <% [['environment','Environment variables'], ['api_key','API key stored here'], ['config_dir','Config directory']].forEach(([value, label]) => { %>
+                <% [['environment','CLI login / environment'], ['config_dir','Config directory'], ['api_key','Legacy API key setting']].forEach(([value, label]) => { %>
                   <option value="<%= value %>" <%= valueFor('codexAuthMode', 'environment') === value ? 'selected' : '' %>><%= label %></option>
                 <% }) %>
               </select>
-              <div class="form-text">Choose how the web app should authenticate Codex CLI runs.</div>
+              <div class="form-text">Most installs should use the existing Codex CLI login or environment. An API key is not required when <code>codex</code> is already authenticated.</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label fw-bold" for="codexApiKey">Codex / OpenAI API key</label>
-              <input class="form-control" id="codexApiKey" name="codexApiKey" type="password" value="<%= valueFor('codexApiKey', '') %>" autocomplete="off" placeholder="sk-...">
-              <div class="form-text">Stored as an app setting for deployments that cannot use environment variables.</div>
+              <label class="form-label fw-bold" for="codexApiKey">Codex / OpenAI API key (legacy optional)</label>
+              <input class="form-control" id="codexApiKey" name="codexApiKey" type="password" value="<%= valueFor('codexApiKey', '') %>" autocomplete="off" placeholder="Leave blank for CLI login">
+              <div class="form-text">Only use this for unusual deployments that cannot rely on <code>codex login</code>, a config directory, or environment-managed credentials.</div>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-bold" for="codexConfigDir">Codex config directory</label>
