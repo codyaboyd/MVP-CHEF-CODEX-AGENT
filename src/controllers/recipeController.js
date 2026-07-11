@@ -88,8 +88,10 @@ function validate(values) {
     return 'Every recipe needs a title, version, and summary.';
   }
 
-  if (!values.steps.length) {
-    return 'Add at least one prompt step with a title and prompt text.';
+  const hasRawTextBlocks = recipeService.parseRawTextBlocks(values.rawTextBlocks || '').length > 0;
+  const hasStructuredStep = values.steps.some((step) => String(step.title || '').trim() && String(step.prompt || '').trim());
+  if (!hasStructuredStep && !hasRawTextBlocks) {
+    return 'Add at least one prompt step or paste one or more raw text blocks.';
   }
 
   return null;

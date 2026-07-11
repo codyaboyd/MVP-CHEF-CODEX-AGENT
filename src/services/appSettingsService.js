@@ -2,8 +2,18 @@ const db = require('../db');
 
 const DEFAULT_SETTINGS = Object.freeze({
   codexCommandPath: 'codex',
+  codexAuthMode: 'environment',
+  codexApiKey: '',
+  codexConfigDir: '',
+  codexModel: '',
+  codexApprovalPolicy: 'suggest',
+  codexSandboxMode: 'workspace-write',
   mockRunnerMode: 'auto',
   defaultBranch: 'main',
+  githubToken: '',
+  githubUsername: '',
+  githubCliPath: 'gh',
+  githubDefaultOrg: '',
   maxParallelRuns: '1',
   maxStepRuntimeMinutes: '30',
   compactUiMode: 'false',

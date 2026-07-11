@@ -45,6 +45,18 @@
             <div class="form-text">One ingredient or input per line.</div>
           </div>
 
+          <div class="col-12">
+            <div class="card border-dashed bg-light-subtle">
+              <div class="card-body">
+                <h2 class="h5 mb-2">Raw text block list</h2>
+                <p class="text-muted mb-3">Paste plain text entries when you do not need separate titles, retries, approvals, or required checks. Separate blocks with a blank line or a line containing <code>---</code>; each block becomes a prompt step named “Text block N”.</p>
+                <label class="form-label" for="rawTextBlocks">Raw text blocks</label>
+                <textarea class="form-control" id="rawTextBlocks" name="rawTextBlocks" rows="7" placeholder="First raw prompt block...&#10;&#10;Second raw prompt block..."><%= values.rawTextBlocks || '' %></textarea>
+                <div class="form-text">If this field contains blocks, it takes precedence over the structured prompt step editors below when saving.</div>
+              </div>
+            </div>
+          </div>
+
           <div class="col-12 d-flex justify-content-between align-items-center mt-4">
             <h2 class="h4 mb-0">Prompt steps</h2>
             <button class="btn btn-outline-primary rounded-pill" type="button" data-add-step>+ Add step</button>

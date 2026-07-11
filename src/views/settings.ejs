@@ -2,6 +2,8 @@
 <%
   const values = settings.reduce((all, setting) => ({ ...all, [setting.key]: setting.value }), {});
   const valueFor = (key, fallback = '') => values[key] ?? fallback;
+  const sensitiveKeys = new Set(['codexApiKey', 'githubToken']);
+  const displayValue = (setting) => sensitiveKeys.has(setting.key) && setting.value ? '••••••••' : setting.value;
   const boolSelect = (key, label, help) => { %>
     <div class="col-md-6">
       <label class="form-label fw-bold" for="<%= key %>"><%= label %></label>
@@ -41,12 +43,42 @@
       <div class="col-lg-6">
         <section class="paper-panel p-4 settings-section">
           <p class="eyebrow">🤖 Codex CLI settings</p>
-          <h2 class="h4 fw-black">Runner command</h2>
+          <h2 class="h4 fw-black">Runner command and auth</h2>
           <div class="row g-3">
             <div class="col-12">
               <label class="form-label fw-bold" for="codexCommandPath">Codex command path</label>
               <input class="form-control" id="codexCommandPath" name="codexCommandPath" value="<%= valueFor('codexCommandPath', 'codex') %>" placeholder="codex or /usr/local/bin/codex">
               <div class="form-text">Command or absolute path used to launch the Codex CLI.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="codexAuthMode">Codex auth mode</label>
+              <select class="form-select" id="codexAuthMode" name="codexAuthMode">
+                <% [['environment','Environment variables'], ['api_key','API key stored here'], ['config_dir','Config directory']].forEach(([value, label]) => { %>
+                  <option value="<%= value %>" <%= valueFor('codexAuthMode', 'environment') === value ? 'selected' : '' %>><%= label %></option>
+                <% }) %>
+              </select>
+              <div class="form-text">Choose how the web app should authenticate Codex CLI runs.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="codexApiKey">Codex / OpenAI API key</label>
+              <input class="form-control" id="codexApiKey" name="codexApiKey" type="password" value="<%= valueFor('codexApiKey', '') %>" autocomplete="off" placeholder="sk-...">
+              <div class="form-text">Stored as an app setting for deployments that cannot use environment variables.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="codexConfigDir">Codex config directory</label>
+              <input class="form-control" id="codexConfigDir" name="codexConfigDir" value="<%= valueFor('codexConfigDir', '') %>" placeholder="/home/app/.codex">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="codexModel">Default Codex model</label>
+              <input class="form-control" id="codexModel" name="codexModel" value="<%= valueFor('codexModel', '') %>" placeholder="Use CLI default">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="codexApprovalPolicy">Codex approval policy</label>
+              <input class="form-control" id="codexApprovalPolicy" name="codexApprovalPolicy" value="<%= valueFor('codexApprovalPolicy', 'suggest') %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="codexSandboxMode">Codex sandbox mode</label>
+              <input class="form-control" id="codexSandboxMode" name="codexSandboxMode" value="<%= valueFor('codexSandboxMode', 'workspace-write') %>">
             </div>
             <div class="col-12">
               <label class="form-label fw-bold" for="mockRunnerMode">Mock runner mode</label>
@@ -66,6 +98,22 @@
           <p class="eyebrow">🐙 GitHub settings</p>
           <h2 class="h4 fw-black">Branch and merge automation</h2>
           <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="githubCliPath">GitHub CLI path</label>
+              <input class="form-control" id="githubCliPath" name="githubCliPath" value="<%= valueFor('githubCliPath', 'gh') %>" placeholder="gh or /usr/local/bin/gh">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="githubUsername">GitHub username</label>
+              <input class="form-control" id="githubUsername" name="githubUsername" value="<%= valueFor('githubUsername', '') %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="githubDefaultOrg">Default GitHub org</label>
+              <input class="form-control" id="githubDefaultOrg" name="githubDefaultOrg" value="<%= valueFor('githubDefaultOrg', '') %>" placeholder="owner or organization">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="githubToken">GitHub token</label>
+              <input class="form-control" id="githubToken" name="githubToken" type="password" value="<%= valueFor('githubToken', '') %>" autocomplete="off" placeholder="ghp_...">
+            </div>
             <div class="col-md-6">
               <label class="form-label fw-bold" for="defaultBranch">Default branch</label>
               <input class="form-control" id="defaultBranch" name="defaultBranch" value="<%= valueFor('defaultBranch', 'main') %>">
@@ -145,7 +193,7 @@
     <h2 class="h4 fw-black">Current raw settings</h2>
     <div class="list-group list-group-flush settings-list">
       <% settings.forEach((setting) => { %>
-        <div class="list-group-item"><strong><%= setting.key %></strong><span><%= setting.value %></span></div>
+        <div class="list-group-item"><strong><%= setting.key %></strong><span><%= displayValue(setting) %></span></div>
       <% }) %>
     </div>
   </section>

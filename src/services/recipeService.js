@@ -16,6 +16,13 @@ function parseLines(value = '') {
   return value.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
+function parseRawTextBlocks(value = '') {
+  return String(value || '')
+    .split(/\n\s*(?:---+|\n)\s*/g)
+    .map((block) => block.trim())
+    .filter(Boolean);
+}
+
 function normalizeProjectId(projectId) {
   return projectId ? Number(projectId) : null;
 }
@@ -207,8 +214,9 @@ function getProjects() {
   return db.prepare('SELECT id, name FROM projects ORDER BY name ASC').all();
 }
 
-function createRecipe({ title, phase, summary, ingredients = '', projectId = null, approvalMode = 'manual_steps', steps = [], instructions = '' }) {
-  const normalizedSteps = normalizeSteps(steps.length ? steps : parseLines(instructions).map((prompt, index) => ({ title: `Step ${index + 1}`, prompt })));
+function createRecipe({ title, phase, summary, ingredients = '', projectId = null, approvalMode = 'manual_steps', steps = [], instructions = '', rawTextBlocks = '' }) {
+  const rawSteps = parseRawTextBlocks(rawTextBlocks).map((prompt, index) => ({ title: `Text block ${index + 1}`, prompt }));
+  const normalizedSteps = normalizeSteps(rawSteps.length ? rawSteps : (steps.length ? steps : parseLines(instructions).map((prompt, index) => ({ title: `Step ${index + 1}`, prompt }))));
   const ingredientList = parseLines(ingredients);
   const recipeJson = buildRecipeJson({ title, phase, summary, projectId: normalizeProjectId(projectId), approvalMode: normalizeApprovalMode(approvalMode) }, normalizedSteps, ingredientList);
 
@@ -282,8 +290,9 @@ function saveSteps(recipeId, steps) {
   });
 }
 
-function updateRecipe(id, { title, phase, summary, ingredients = '', projectId = null, approvalMode = 'manual_steps', steps = [] }) {
-  const normalizedSteps = normalizeSteps(steps);
+function updateRecipe(id, { title, phase, summary, ingredients = '', projectId = null, approvalMode = 'manual_steps', steps = [], rawTextBlocks = '' }) {
+  const rawSteps = parseRawTextBlocks(rawTextBlocks).map((prompt, index) => ({ title: `Text block ${index + 1}`, prompt }));
+  const normalizedSteps = normalizeSteps(rawSteps.length ? rawSteps : steps);
   const ingredientList = parseLines(ingredients);
   const recipeJson = buildRecipeJson({ title, phase, summary, projectId: normalizeProjectId(projectId), approvalMode: normalizeApprovalMode(approvalMode) }, normalizedSteps, ingredientList);
 
@@ -328,6 +337,7 @@ module.exports = {
   getRecipeById,
   getRecipeExport,
   importRecipeFromJson,
+  parseRawTextBlocks,
   parseRecipeJson,
   normalizeApprovalMode,
   normalizeStepApprovalOverride,
