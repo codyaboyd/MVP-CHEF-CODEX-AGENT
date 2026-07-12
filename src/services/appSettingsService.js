@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   githubUsername: '',
   githubCliPath: 'gh',
   githubDefaultOrg: '',
+  githubAutomationEnabled: 'true',
   maxParallelRuns: '1',
   maxStepRuntimeMinutes: '30',
   compactUiMode: 'false',
@@ -92,7 +93,8 @@ function getAutomationSettings(overrides = {}) {
   return {
     autoMergeEnabled: normalizeBoolean(overrides.autoMergeEnabled ?? rows.autoMergeEnabled, true),
     requireHumanApprovalBeforeMerge: normalizeBoolean(overrides.requireHumanApprovalBeforeMerge ?? rows.requireHumanApprovalBeforeMerge, false),
-    protectedMainMode: normalizeBoolean(overrides.protectedMainMode ?? rows.protectedMainMode, true)
+    protectedMainMode: normalizeBoolean(overrides.protectedMainMode ?? rows.protectedMainMode, true),
+    githubAutomationEnabled: normalizeBoolean(overrides.githubAutomationEnabled ?? rows.githubAutomationEnabled, true)
   };
 }
 

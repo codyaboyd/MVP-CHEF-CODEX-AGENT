@@ -47,7 +47,7 @@ Typical use cases include bootstrapping MVP features, applying recurring refacto
 
 - Register local Git repositories with absolute path validation.
 - Reject missing paths, relative paths, files, and non-Git directories before a runner can use them.
-- Track project details such as repository slug, default branch, install/test/build commands, safe mode, and automation settings.
+- Track project details such as optional repository slug, default branch, install/test/build commands, safe mode, and automation settings.
 - Prevent overlapping runs through project run locks.
 
 ### Codex run orchestration
@@ -69,7 +69,9 @@ Typical use cases include bootstrapping MVP features, applying recurring refacto
 
 ### GitHub automation
 
-- Uses the GitHub CLI (`gh`) for authentication checks, PR creation, PR check monitoring, squash/merge actions, and branch cleanup.
+- GitHub automation can be disabled in Settings with **Use GitHub automation** for local-only operation.
+- When disabled, runs do not require `gh`, do not push branches, do not create pull requests, and do not merge through GitHub.
+- When enabled, uses the GitHub CLI (`gh`) for authentication checks, PR creation, PR check monitoring, squash/merge actions, and branch cleanup.
 - Supports protected-main style workflows where work happens on branches and merges only after checks and approvals.
 - Includes secret-scanning safety controls before PR automation proceeds.
 
@@ -150,7 +152,7 @@ test/                Node test files
 - npm.
 - Git.
 - Codex CLI for real recipe execution.
-- GitHub CLI (`gh`) for GitHub automation.
+- GitHub CLI (`gh`) for optional GitHub automation. Local-only runs do not require `gh`.
 - A local Git repository for each project you want MVP Chef Codex to modify.
 
 ## Ubuntu install
@@ -297,6 +299,8 @@ For systemd deployments, remember that the service user and interactive shell ma
 
 ## GitHub CLI setup
 
+GitHub setup is optional. To keep all code manipulation on the local machine, open Settings and disable **Use GitHub automation**. In that mode, MVP Chef Codex skips `gh` validation and does not push branches, create pull requests, or merge through GitHub.
+
 GitHub automation uses `gh`, not direct GitHub API tokens in the app.
 
 1. Install GitHub CLI:
@@ -339,6 +343,8 @@ GitHub automation uses `gh`, not direct GitHub API tokens in the app.
 If using systemd, run `gh auth status` as the service user. Authentication stored for your personal login shell will not automatically apply to another Linux user.
 
 ## Configuration
+
+The Settings page includes setup validation checks for Codex and GitHub readiness. Codex checks verify the configured command and look for an auth signal from environment credentials, an API key setting, or a Codex config directory. GitHub checks verify `gh --version` and `gh auth status` only when GitHub automation is enabled.
 
 Environment variables are loaded with `dotenv`.
 

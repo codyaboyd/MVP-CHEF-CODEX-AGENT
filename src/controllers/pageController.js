@@ -5,6 +5,7 @@ const recipeRunEngine = require('../services/recipeRunEngine');
 const runStateManager = require('../services/runStateManager');
 const appSettingsService = require('../services/appSettingsService');
 const failureRecoveryService = require('../services/failureRecoveryService');
+const setupValidationService = require('../services/setupValidationService');
 
 function dashboard(req, res) {
   res.render('dashboard', {
@@ -235,11 +236,16 @@ function help(req, res) {
   });
 }
 
-function settings(req, res) {
-  res.render('settings', {
-    title: 'Settings',
-    settings: dashboardService.getSettings()
-  });
+async function settings(req, res, next) {
+  try {
+    res.render('settings', {
+      title: 'Settings',
+      settings: dashboardService.getSettings(),
+      setupValidation: await setupValidationService.validateSetup()
+    });
+  } catch (error) {
+    next(error);
+  }
 }
 
 function updateSettings(req, res) {
@@ -263,6 +269,7 @@ function updateSettings(req, res) {
     githubUsername: req.body.githubUsername || '',
     githubCliPath: req.body.githubCliPath || 'gh',
     githubDefaultOrg: req.body.githubDefaultOrg || '',
+    githubAutomationEnabled: req.body.githubAutomationEnabled === 'true' ? 'true' : 'false',
     protectedMainMode: req.body.protectedMainMode === 'true' ? 'true' : 'false',
     compactUiMode: req.body.compactUiMode === 'true' ? 'true' : 'false',
     showAdvancedSettings: req.body.showAdvancedSettings === 'true' ? 'true' : 'false',

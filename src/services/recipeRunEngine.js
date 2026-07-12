@@ -234,8 +234,11 @@ async function executeRun(runId, options = {}) {
   runStateManager.updateRun(runId, STATUSES.RUNNING, { started_at: run.started_at || nowSql(), completed_at: null, error_message: null });
 
   const automationSettings = appSettingsService.getAutomationSettings(options);
+  const githubAutomationEnabled = options.githubAutomation !== undefined
+    ? options.githubAutomation !== false
+    : automationSettings.githubAutomationEnabled;
   const gitManager = options.gitEnabled ? new GitManager({ repoPath: project.repo_path, mainBranch: project.default_branch }) : null;
-  const githubManager = gitManager && options.githubAutomation !== false
+  const githubManager = gitManager && githubAutomationEnabled
     ? new GitHubManager({
       repoPath: project.repo_path,
       mainBranch: project.default_branch,
@@ -247,8 +250,10 @@ async function executeRun(runId, options = {}) {
   if (gitManager) {
     runStateManager.assertRunOwnsProjectLock(run.project_id, runId);
     await gitManager.assertCleanWorkingTree();
-    if (githubManager) await githubManager.verifyCli();
-    await gitManager.pullLatestMain();
+    if (githubManager) {
+      await githubManager.verifyCli();
+      await gitManager.pullLatestMain();
+    }
   }
 
   while (nextStep) {
@@ -356,7 +361,7 @@ async function executeRun(runId, options = {}) {
       if (gitManager && gitResult.committed) {
         await gitManager.assertNoSecretsInCommit(gitResult.commitSha);
       }
-      if (gitManager && gitResult.committed && options.gitPush !== false) {
+      if (gitManager && gitResult.committed && options.gitPush !== false && githubManager) {
         await gitManager.pushBranch(branchName);
         if (githubManager) {
           githubResult = await createPrAndMaybeMerge({
@@ -411,11 +416,6 @@ Rollback failed: ${rollbackError.message}`;
 
     runSteps = runStateManager.getRunSteps(runId);
     nextStep = findResumeStep(runSteps);
-  }
-
-  if (gitManager && !githubManager) {
-    runStateManager.assertRunOwnsProjectLock(run.project_id, runId);
-    await gitManager.pullLatestMain();
   }
 
   const succeeded = runStateManager.updateRun(runId, STATUSES.SUCCEEDED, { completed_at: nowSql(), error_message: null });

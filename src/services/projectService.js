@@ -53,6 +53,7 @@ function getHealthChecks(project) {
   const checks = [];
   const repoPath = project.repo_path || project.repoPath;
   const githubRepoSlug = project.github_repo_slug || project.githubRepoSlug;
+  const githubEnabled = project.githubAutomationEnabled !== false && project.github_automation_enabled !== 0;
   const defaultBranch = project.default_branch || project.defaultBranch;
 
   checks.push({
@@ -72,8 +73,8 @@ function getHealthChecks(project) {
   checks.push({
     key: 'github_repo_slug_valid',
     label: 'GitHub repo slug is valid',
-    ok: Boolean(githubRepoSlug && isGitHubRepoSlug(githubRepoSlug)),
-    detail: githubRepoSlug || 'Use owner/repo format.'
+    ok: !githubEnabled || !githubRepoSlug || isGitHubRepoSlug(githubRepoSlug),
+    detail: githubRepoSlug || (githubEnabled ? 'Optional unless GitHub automation is used.' : 'GitHub automation disabled for local-only use.')
   });
 
   checks.push({
@@ -97,7 +98,6 @@ function validateProject(input) {
   } else {
     project.repoPath = repoPathValidation.repoPath;
   }
-  if (!project.githubRepoSlug) errors.push('GitHub repo slug is required.');
   if (project.githubRepoSlug && !isGitHubRepoSlug(project.githubRepoSlug)) errors.push('GitHub repo slug must use owner/repo format.');
   if (!project.defaultBranch) errors.push('Default branch is required.');
 
@@ -144,7 +144,7 @@ function createProject(input) {
       @name, @repoPath, @githubRepoSlug, @defaultBranch,
       @packageManagerCommand, @testCommand, @buildCommand, @lintCommand, @description, @safeMode, @githubRepoUrl
     )
-  `).run({ ...project, githubRepoUrl: `https://github.com/${project.githubRepoSlug}` });
+  `).run({ ...project, githubRepoUrl: project.githubRepoSlug ? `https://github.com/${project.githubRepoSlug}` : '' });
 }
 
 module.exports = {
