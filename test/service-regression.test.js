@@ -94,7 +94,7 @@ test('AppSettingsService loads defaults and normalizes overrides for quota and a
   assert.deepEqual(quota, { defaultCooldownMinutes: 15, autoResumeAfterCooldown: false, maxRetriesAfterQuota: 4 });
 
   const automation = settingsService.getAutomationSettings({ autoMergeEnabled: '0', requireHumanApprovalBeforeMerge: 'yes', protectedMainMode: 'enabled' });
-  assert.deepEqual(automation, { autoMergeEnabled: false, requireHumanApprovalBeforeMerge: true, protectedMainMode: true });
+  assert.deepEqual(automation, { autoMergeEnabled: false, requireHumanApprovalBeforeMerge: true, protectedMainMode: true, githubAutomationEnabled: true });
 });
 
 test('ProjectService validates repo health and normalizes safe-mode defaults', () => {
@@ -103,6 +103,9 @@ test('ProjectService validates repo health and normalizes safe-mode defaults', (
   assert.deepEqual(valid.errors, []);
   assert.equal(valid.project.safeMode, 1);
   assert.equal(projectService.getHealthChecks(valid.project).every((check) => check.ok), true);
+
+  const localOnly = projectService.validateProject({ name: 'Local Project', repoPath, githubRepoSlug: '', defaultBranch: 'main' });
+  assert.deepEqual(localOnly.errors, []);
 
   const invalid = projectService.validateProject({ name: '', repoPath: path.join(repoPath, 'missing'), githubRepoSlug: 'bad slug', defaultBranch: '' });
   assert.ok(invalid.errors.includes('Project name is required.'));
@@ -209,4 +212,12 @@ test('systemd installer selects an open setup port, waits for HTTP readiness, an
   assert.match(installer, /NPM_BIN="\$\(command -v npm \|\| true\)"/);
   assert.match(serviceScript, /ExecStart=\$\{NPM_BIN\} start/);
   assert.match(serviceScript, /Environment=HOST=0\.0\.0\.0/);
+});
+
+test('SetupValidationService treats GitHub as optional when local-only mode is enabled', async () => {
+  const setupValidationService = require('../src/services/setupValidationService');
+  const github = await setupValidationService.validateGitHubSetup({ githubAutomationEnabled: 'false', githubCliPath: '/definitely/missing/gh' });
+  assert.equal(github.ok, true);
+  assert.equal(github.checks[0].skipped, true);
+  assert.match(github.checks[0].detail, /disabled/);
 });

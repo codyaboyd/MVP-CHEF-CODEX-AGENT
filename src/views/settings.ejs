@@ -33,6 +33,7 @@
           <span>Codex: <strong><%= valueFor('codexCommandPath', 'codex') %></strong></span>
           <span>Cooldown: <strong><%= valueFor('defaultCooldownMinutes', '60') %> min</strong></span>
           <span>Parallel runs: <strong><%= valueFor('maxParallelRuns', '1') %></strong></span>
+          <span>GitHub: <strong><%= valueFor('githubAutomationEnabled', 'true') === 'true' ? 'Optional enabled' : 'Local only' %></strong></span>
         </div>
       </div>
     </div>
@@ -96,8 +97,9 @@
       <div class="col-lg-6">
         <section class="paper-panel p-4 settings-section">
           <p class="eyebrow">🐙 GitHub settings</p>
-          <h2 class="h4 fw-black">Branch and merge automation</h2>
+          <h2 class="h4 fw-black">Optional branch and merge automation</h2>
           <div class="row g-3">
+            <% boolSelect('githubAutomationEnabled', 'Use GitHub automation', 'Disable for local-only runs. When disabled, MVP Chef will not require gh, push branches, create PRs, or merge via GitHub.'); %>
             <div class="col-md-6">
               <label class="form-label fw-bold" for="githubCliPath">GitHub CLI path</label>
               <input class="form-control" id="githubCliPath" name="githubCliPath" value="<%= valueFor('githubCliPath', 'gh') %>" placeholder="gh or /usr/local/bin/gh">
@@ -188,6 +190,28 @@
       <button class="btn btn-primary btn-lg rounded-pill" type="submit">Save settings</button>
     </div>
   </form>
+
+  <% if (setupValidation) { %>
+    <section class="paper-panel p-4 mt-4">
+      <h2 class="h4 fw-black">Setup validation</h2>
+      <p class="text-muted">These readiness checks verify whether Codex and optional GitHub automation are ready before runs depend on them.</p>
+      <div class="row g-3">
+        <% [['Codex', setupValidation.codex], ['GitHub', setupValidation.github]].forEach(([groupName, group]) => { %>
+          <div class="col-lg-6">
+            <div class="list-group list-group-flush settings-list">
+              <div class="list-group-item"><strong><%= groupName %></strong><span><%= group.ok ? '✅ Ready' : '🛠️ Needs attention' %></span></div>
+              <% group.checks.forEach((check) => { %>
+                <div class="list-group-item">
+                  <strong><%= check.ok ? '✅' : (check.skipped ? '➖' : '❌') %> <%= check.label %></strong>
+                  <span><%= check.detail %></span>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+  <% } %>
 
   <section class="paper-panel p-4 mt-4">
     <h2 class="h4 fw-black">Current raw settings</h2>

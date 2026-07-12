@@ -228,16 +228,18 @@ test('settings page saves GitHub and Codex auth configuration', async () => {
         githubDefaultOrg: 'chef-org',
         githubToken: 'ghp_test_settings_token',
         autoMergeEnabled: 'false',
-        protectedMainMode: 'true'
+        protectedMainMode: 'true',
+        githubAutomationEnabled: 'false'
       });
 
     assert.equal(response.status, 302);
-    const settings = db.prepare('SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?, ?, ?) ORDER BY key')
-      .all('codexAuthMode', 'codexApiKey', 'codexModel', 'githubCliPath', 'githubToken', 'githubUsername');
+    const settings = db.prepare('SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?, ?, ?, ?) ORDER BY key')
+      .all('codexAuthMode', 'codexApiKey', 'codexModel', 'githubAutomationEnabled', 'githubCliPath', 'githubToken', 'githubUsername');
     assert.deepEqual(settings, [
       { key: 'codexApiKey', value: 'sk-test-settings-key' },
       { key: 'codexAuthMode', value: 'api_key' },
       { key: 'codexModel', value: 'gpt-test' },
+      { key: 'githubAutomationEnabled', value: 'false' },
       { key: 'githubCliPath', value: '/usr/bin/gh' },
       { key: 'githubToken', value: 'ghp_test_settings_token' },
       { key: 'githubUsername', value: 'chef-user' }
@@ -247,6 +249,7 @@ test('settings page saves GitHub and Codex auth configuration', async () => {
     assert.equal(page.status, 200);
     assert.match(page.text, /Codex \/ OpenAI API key/);
     assert.match(page.text, /GitHub token/);
+    assert.match(page.text, /Setup validation/);
     assert.match(page.text, /••••••••/);
   } finally {
     settingsService.updateSettings(settingsService.DEFAULT_SETTINGS);
@@ -618,13 +621,14 @@ test('app settings include auto-merge safety controls', () => {
   assert.equal(settings.autoMergeEnabled, true);
   assert.equal(settings.requireHumanApprovalBeforeMerge, false);
   assert.equal(settings.protectedMainMode, true);
+  assert.equal(settings.githubAutomationEnabled, true);
 
   const keys = db.prepare(`
     SELECT key FROM app_settings
-    WHERE key IN ('autoMergeEnabled', 'requireHumanApprovalBeforeMerge', 'protectedMainMode')
+    WHERE key IN ('autoMergeEnabled', 'requireHumanApprovalBeforeMerge', 'protectedMainMode', 'githubAutomationEnabled')
     ORDER BY key
   `).all().map((row) => row.key);
-  assert.deepEqual(keys, ['autoMergeEnabled', 'protectedMainMode', 'requireHumanApprovalBeforeMerge']);
+  assert.deepEqual(keys, ['autoMergeEnabled', 'githubAutomationEnabled', 'protectedMainMode', 'requireHumanApprovalBeforeMerge']);
 });
 
 test('GitManager blocks PR automation when committed changes contain known secrets', async () => {
