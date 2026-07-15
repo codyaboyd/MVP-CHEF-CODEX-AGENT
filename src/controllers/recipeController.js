@@ -1,5 +1,6 @@
 const recipeService = require('../services/recipeService');
 const promptLintService = require('../services/promptLintService');
+const recipeRunEngine = require('../services/recipeRunEngine');
 
 function parseSteps(body) {
   const titles = Array.isArray(body.stepTitles) ? body.stepTitles : [body.stepTitles];
@@ -178,6 +179,18 @@ function duplicateRecipe(req, res, next) {
   res.redirect(`/recipes/${recipe.id}/edit`);
 }
 
+
+function runRecipe(req, res, next) {
+  recipeRunEngine.startRunFromRecipe(Number(req.params.id), {
+    mockMode: 'auto',
+    gitEnabled: req.body.gitEnabled === '1',
+    githubAutomation: false,
+    gitPush: false
+  })
+    .then((run) => res.redirect(`/runs/${run.id}`))
+    .catch(next);
+}
+
 function deleteRecipe(req, res, next) {
   if (!recipeService.deleteRecipe(Number(req.params.id))) {
     next();
@@ -198,6 +211,7 @@ module.exports = {
   importRecipeForm,
   improvePrompt,
   newRecipeForm,
+  runRecipe,
   showRecipe,
   updateRecipe
 };

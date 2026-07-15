@@ -109,7 +109,7 @@ test('ProjectService validates repo health and normalizes safe-mode defaults', (
 
   const invalid = projectService.validateProject({ name: '', repoPath: path.join(repoPath, 'missing'), githubRepoSlug: 'bad slug', defaultBranch: '' });
   assert.ok(invalid.errors.includes('Project name is required.'));
-  assert.ok(invalid.errors.includes('Local repo path must exist.'));
+  assert.ok(invalid.errors.includes('Local project folder path must exist.'));
   assert.ok(invalid.errors.includes('GitHub repo slug must use owner/repo format.'));
   assert.ok(invalid.errors.includes('Default branch is required.'));
 
@@ -172,14 +172,13 @@ test('CodexRunner auto mock mode falls back when the CLI command is unavailable'
 
 
 
-test('ProjectService and CodexRunner reject unsafe or non-git repository paths', () => {
+test('ProjectService and CodexRunner allow local folders while rejecting unsafe paths', () => {
   const nonGitPath = fs.mkdtempSync(path.join(os.tmpdir(), 'non-git-repo-path-'));
   try {
     assert.deepEqual(projectService.validateRepoPath('relative/path').ok, false);
     assert.match(projectService.validateRepoPath('relative/path').message, /absolute path/);
-    assert.deepEqual(projectService.validateRepoPath(nonGitPath).ok, false);
-    assert.match(projectService.validateRepoPath(nonGitPath).message, /git repository/);
-    assert.throws(() => codexRunner.validateRepoPath(nonGitPath), /git work tree/);
+    assert.deepEqual(projectService.validateRepoPath(nonGitPath).ok, true);
+    assert.equal(codexRunner.validateRepoPath(nonGitPath), nonGitPath);
   } finally {
     fs.rmSync(nonGitPath, { recursive: true, force: true });
   }

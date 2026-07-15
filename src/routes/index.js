@@ -18,6 +18,7 @@ router.get('/recipes/:id/export', recipeController.exportRecipe);
 router.get('/recipes/:id/export/preview', recipeController.exportRecipePreview);
 router.get('/recipes/:id/edit', recipeController.editRecipeForm);
 router.post('/recipes/:id', recipeController.updateRecipe);
+router.post('/recipes/:id/run', recipeController.runRecipe);
 router.post('/recipes/:id/duplicate', recipeController.duplicateRecipe);
 router.post('/recipes/:id/delete', recipeController.deleteRecipe);
 router.get('/runs/:id', pageController.runDetail);
