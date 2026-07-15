@@ -35,7 +35,7 @@
           <label class="btn btn-outline-primary mb-0" for="projectFolderSelector">Choose folder</label>
         </div>
         <input class="visually-hidden" id="projectFolderSelector" type="file" webkitdirectory directory multiple data-project-folder-selector>
-        <div class="form-text" data-project-folder-status>Select a local folder when supported, or paste its absolute path. Git is optional unless you enable the git workflow before running.</div>
+        <div class="form-text" data-project-folder-status>Select a local folder when supported, or paste its absolute path. Commands are detected from the server-side project folder.</div>
       </div>
       <div class="col-md-4">
         <label class="form-label fw-bold" for="defaultBranch">Default branch</label>
@@ -43,19 +43,19 @@
       </div>
       <div class="col-md-6 col-lg-3">
         <label class="form-label fw-bold" for="packageManagerCommand">Package manager</label>
-        <input class="form-control" id="packageManagerCommand" name="packageManagerCommand" value="<%= form.packageManagerCommand %>">
+        <input class="form-control" id="packageManagerCommand" name="packageManagerCommand" value="<%= form.packageManagerCommand %>" data-detected-command="packageManagerCommand">
       </div>
       <div class="col-md-6 col-lg-3">
         <label class="form-label fw-bold" for="testCommand">Test command</label>
-        <input class="form-control" id="testCommand" name="testCommand" value="<%= form.testCommand %>">
+        <input class="form-control" id="testCommand" name="testCommand" value="<%= form.testCommand %>" data-detected-command="testCommand">
       </div>
       <div class="col-md-6 col-lg-3">
         <label class="form-label fw-bold" for="buildCommand">Build command</label>
-        <input class="form-control" id="buildCommand" name="buildCommand" value="<%= form.buildCommand %>">
+        <input class="form-control" id="buildCommand" name="buildCommand" value="<%= form.buildCommand %>" data-detected-command="buildCommand">
       </div>
       <div class="col-md-6 col-lg-3">
         <label class="form-label fw-bold" for="lintCommand">Lint command</label>
-        <input class="form-control" id="lintCommand" name="lintCommand" value="<%= form.lintCommand %>">
+        <input class="form-control" id="lintCommand" name="lintCommand" value="<%= form.lintCommand %>" data-detected-command="lintCommand">
       </div>
       <div class="col-md-4">
         <label class="form-label fw-bold" for="safeMode">Safe mode</label>
@@ -69,7 +69,7 @@
         <label class="form-label fw-bold" for="description">Description</label>
         <textarea class="form-control" id="description" name="description" rows="2"><%= form.description %></textarea>
       </div>
-      <div class="col-12"><button class="btn btn-primary rounded-pill chef-button" type="submit">+ Add project</button></div>
+      <div class="col-12 d-flex flex-wrap gap-2 align-items-center"><button class="btn btn-outline-secondary rounded-pill" type="button" data-detect-project-commands>Detect commands</button><button class="btn btn-primary rounded-pill chef-button" type="submit">+ Add project</button></div>
     </form>
   </article>
 

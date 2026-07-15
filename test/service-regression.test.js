@@ -221,3 +221,31 @@ test('SetupValidationService treats GitHub as optional when local-only mode is e
   assert.equal(github.checks[0].skipped, true);
   assert.match(github.checks[0].detail, /disabled/);
 });
+
+test('ProjectService detects package manager and command defaults from project files', () => {
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'detect-node-commands-'));
+  try {
+    fs.writeFileSync(path.join(repoPath, 'package.json'), JSON.stringify({
+      scripts: {
+        test: 'node --test',
+        build: 'vite build',
+        lint: 'eslint .'
+      }
+    }));
+    fs.writeFileSync(path.join(repoPath, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
+
+    const detected = projectService.detectProjectCommands(repoPath);
+    assert.equal(detected.ok, true);
+    assert.equal(detected.repoPath, repoPath);
+    assert.equal(detected.packageManagerName, 'pnpm');
+    assert.deepEqual(detected.commands, {
+      packageManagerCommand: 'pnpm install',
+      testCommand: 'pnpm test',
+      buildCommand: 'pnpm build',
+      lintCommand: 'pnpm lint'
+    });
+    assert.deepEqual(detected.availableScripts, ['build', 'lint', 'test']);
+  } finally {
+    fs.rmSync(repoPath, { recursive: true, force: true });
+  }
+});
