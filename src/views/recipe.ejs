@@ -7,9 +7,15 @@
         <span class="badge rounded-pill phase-badge mb-3"><%= recipe.phase %></span>
         <h1 class="display-5 fw-bold"><%= recipe.title %></h1>
         <p class="lead"><%= recipe.summary %></p>
-        <p class="text-muted mb-0">Project: <strong><%= recipe.projectName || 'No project assigned' %></strong></p>
+        <p class="text-muted mb-0">Project: <strong><%= recipe.projectName || 'No project assigned' %></strong><% if (recipe.projectRepoPath) { %> · <code><%= recipe.projectRepoPath %></code><% } %></p>
       </div>
       <div class="action-row d-flex flex-wrap gap-2">
+        <% if (recipe.projectId) { %>
+          <form action="/recipes/<%= recipe.id %>/run" method="post" class="d-flex flex-column gap-1">
+            <button class="btn btn-success rounded-pill" type="submit">▶️ Run on project</button>
+            <label class="small text-muted"><input type="checkbox" name="gitEnabled" value="1"> Use git branch/commit workflow</label>
+          </form>
+        <% } %>
         <a class="btn btn-primary rounded-pill" href="/recipes/<%= recipe.id %>/edit">✏️ Edit</a>
         <a class="btn btn-outline-primary rounded-pill" href="/recipes/<%= recipe.id %>/export">📦 Export JSON</a>
         <form action="/recipes/<%= recipe.id %>/duplicate" method="post"><button class="btn btn-outline-primary rounded-pill" type="submit">🧬 Duplicate</button></form>

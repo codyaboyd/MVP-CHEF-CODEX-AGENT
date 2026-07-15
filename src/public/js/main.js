@@ -31,6 +31,31 @@ function createStep(list) {
   return step;
 }
 
+
+document.querySelectorAll('[data-project-form]').forEach((form) => {
+  const folderInput = form.querySelector('[data-project-folder-selector]');
+  const pathInput = form.querySelector('[data-project-path]');
+  const status = form.querySelector('[data-project-folder-status]');
+  if (!folderInput || !pathInput) return;
+
+  folderInput.addEventListener('change', () => {
+    const [firstFile] = folderInput.files || [];
+    if (!firstFile) return;
+
+    if (firstFile.path) {
+      const relativeParts = (firstFile.webkitRelativePath || firstFile.name).split('/').filter(Boolean);
+      const absoluteParts = firstFile.path.split(/[\\/]/);
+      const folderPartCount = Math.max(relativeParts.length - 1, 0);
+      pathInput.value = absoluteParts.slice(0, absoluteParts.length - folderPartCount - 1).join(firstFile.path.includes('\\') ? '\\' : '/');
+      if (status) status.textContent = `✅ Selected ${pathInput.value}`;
+      return;
+    }
+
+    const folderName = (firstFile.webkitRelativePath || firstFile.name).split('/')[0];
+    if (status) status.textContent = `Selected “${folderName}”. Your browser does not expose absolute paths, so paste the full server path before saving.`;
+  });
+});
+
 document.querySelectorAll('[data-recipe-form]').forEach((form) => {
   const list = form.querySelector('[data-step-list]');
 

@@ -276,9 +276,29 @@ test('projects page manages command defaults and validates project health', asyn
     });
 
   assert.equal(invalidResponse.status, 400);
-  assert.match(invalidResponse.text, /Local repo path must exist/);
+  assert.match(invalidResponse.text, /Local project folder path must exist/);
   assert.match(invalidResponse.text, /GitHub repo slug must use owner\/repo format/);
   assert.match(invalidResponse.text, /Default branch is required/);
+
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const localOnlyPath = fs.mkdtempSync(path.join(os.tmpdir(), 'mvp-chef-local-project-'));
+  const localOnlyResponse = await request(app)
+    .post('/projects')
+    .type('form')
+    .send({
+      name: 'Local Folder Project',
+      repoPath: localOnlyPath,
+      githubRepoSlug: '',
+      defaultBranch: 'main'
+    });
+
+  assert.equal(localOnlyResponse.status, 302);
+  const localOnly = db.prepare('SELECT * FROM projects WHERE repo_path = ?').get(localOnlyPath);
+  assert.equal(localOnly.github_repo_slug, '');
+  db.prepare('DELETE FROM projects WHERE id = ?').run(localOnly.id);
+  fs.rmSync(localOnlyPath, { recursive: true, force: true });
 
   const createResponse = await request(app)
     .post('/projects')

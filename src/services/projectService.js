@@ -25,24 +25,21 @@ function normalizeProjectInput(input) {
 }
 
 
-function validateRepoPath(repoPath) {
+function validateProjectPath(repoPath) {
   if (typeof repoPath !== 'string' || !repoPath.trim() || repoPath.includes('\0')) {
-    return { ok: false, message: 'Local repo path is required.' };
+    return { ok: false, message: 'Local project folder path is required.' };
   }
   if (!path.isAbsolute(repoPath)) {
-    return { ok: false, message: 'Local repo path must be an absolute path.' };
+    return { ok: false, message: 'Local project folder path must be an absolute path.' };
   }
   const resolved = path.resolve(repoPath);
   if (!fs.existsSync(resolved)) {
-    return { ok: false, message: 'Local repo path must exist.' };
+    return { ok: false, message: 'Local project folder path must exist.' };
   }
   if (!fs.statSync(resolved).isDirectory()) {
-    return { ok: false, message: 'Local repo path must be a directory.' };
+    return { ok: false, message: 'Local project folder path must be a directory.' };
   }
-  if (!fs.existsSync(path.join(resolved, '.git'))) {
-    return { ok: false, message: 'Local repo path must be a git repository.' };
-  }
-  return { ok: true, repoPath: resolved };
+  return { ok: true, repoPath: resolved, isGitRepository: fs.existsSync(path.join(resolved, '.git')) };
 }
 
 function isGitHubRepoSlug(value) {
@@ -65,9 +62,9 @@ function getHealthChecks(project) {
 
   checks.push({
     key: 'repo_path_git_repository',
-    label: 'Repo path is a git repository',
-    ok: Boolean(repoPath && fs.existsSync(path.join(repoPath, '.git'))),
-    detail: repoPath ? path.join(repoPath, '.git') : 'No repository path configured.'
+    label: 'Git repository available',
+    ok: true,
+    detail: repoPath && fs.existsSync(path.join(repoPath, '.git')) ? path.join(repoPath, '.git') : 'Not required for local-only runs.'
   });
 
   checks.push({
@@ -92,7 +89,7 @@ function validateProject(input) {
   const errors = [];
 
   if (!project.name) errors.push('Project name is required.');
-  const repoPathValidation = validateRepoPath(project.repoPath);
+  const repoPathValidation = validateProjectPath(project.repoPath);
   if (!repoPathValidation.ok) {
     errors.push(repoPathValidation.message);
   } else {
@@ -153,7 +150,8 @@ module.exports = {
   getHealthChecks,
   getProjects,
   isGitHubRepoSlug,
-  validateRepoPath,
+  validateProjectPath,
+  validateRepoPath: validateProjectPath,
   normalizeProjectInput,
   validateProject
 };

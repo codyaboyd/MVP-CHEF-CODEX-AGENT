@@ -178,6 +178,7 @@ function serializeRecipe(row) {
   return {
     ...row,
     projectName: row.project_name,
+    projectRepoPath: row.project_repo_path,
     projectId: row.project_id,
     title: row.name,
     approvalMode: row.approval_mode || 'manual_steps',
@@ -193,7 +194,7 @@ function serializeRecipe(row) {
 
 function getAllRecipes() {
   return db.prepare(`
-    SELECT recipes.*, projects.name AS project_name
+    SELECT recipes.*, projects.name AS project_name, projects.repo_path AS project_repo_path
     FROM recipes
     LEFT JOIN projects ON projects.id = recipes.project_id
     ORDER BY recipes.id ASC
@@ -202,7 +203,7 @@ function getAllRecipes() {
 
 function getRecipeById(id) {
   const recipe = db.prepare(`
-    SELECT recipes.*, projects.name AS project_name
+    SELECT recipes.*, projects.name AS project_name, projects.repo_path AS project_repo_path
     FROM recipes
     LEFT JOIN projects ON projects.id = recipes.project_id
     WHERE recipes.id = ?

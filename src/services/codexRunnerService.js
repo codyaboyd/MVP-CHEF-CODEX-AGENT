@@ -110,14 +110,11 @@ function createRedactor(repoPath) {
 
 function validateRepoPath(repoPath) {
   if (typeof repoPath !== 'string' || !repoPath.trim() || repoPath.includes('\0')) {
-    throw new Error('A valid project repository path is required.');
+    throw new Error('A valid project folder path is required.');
   }
   const resolved = path.resolve(repoPath);
   if (!path.isAbsolute(repoPath) || !fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
-    throw new Error('A valid project repository path is required.');
-  }
-  if (!fs.existsSync(path.join(resolved, '.git'))) {
-    throw new Error('Project repository path must point to a git work tree.');
+    throw new Error('A valid project folder path is required.');
   }
   return resolved;
 }

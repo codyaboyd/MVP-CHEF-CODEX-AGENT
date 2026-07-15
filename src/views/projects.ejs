@@ -4,7 +4,7 @@
     <div>
       <p class="eyebrow">📁 Project pantry</p>
       <h1>Projects</h1>
-      <p class="text-muted">Manage local repos, optional GitHub slugs, default branches, and command recipes for Codex runs.</p>
+      <p class="text-muted">Manage local project folders, optional GitHub slugs, default branches, and command recipes for Codex runs.</p>
     </div>
   </div>
 
@@ -18,7 +18,7 @@
         </ul>
       </div>
     <% } %>
-    <form action="/projects" method="post" class="row g-3">
+    <form action="/projects" method="post" class="row g-3" data-project-form>
       <div class="col-md-6">
         <label class="form-label fw-bold" for="name">Name</label>
         <input class="form-control" id="name" name="name" value="<%= form.name %>" required>
@@ -29,8 +29,13 @@
         <div class="form-text">Leave blank for local-only projects that should not use GitHub.</div>
       </div>
       <div class="col-md-8">
-        <label class="form-label fw-bold" for="repoPath">Local repo path</label>
-        <input class="form-control" id="repoPath" name="repoPath" placeholder="/workspace/my-repo" value="<%= form.repoPath %>" required>
+        <label class="form-label fw-bold" for="repoPath">Local project folder path</label>
+        <div class="input-group">
+          <input class="form-control" id="repoPath" name="repoPath" placeholder="/workspace/my-project" value="<%= form.repoPath %>" required data-project-path>
+          <label class="btn btn-outline-primary mb-0" for="projectFolderSelector">Choose folder</label>
+        </div>
+        <input class="visually-hidden" id="projectFolderSelector" type="file" webkitdirectory directory multiple data-project-folder-selector>
+        <div class="form-text" data-project-folder-status>Select a local folder when supported, or paste its absolute path. Git is optional unless you enable the git workflow before running.</div>
       </div>
       <div class="col-md-4">
         <label class="form-label fw-bold" for="defaultBranch">Default branch</label>
@@ -79,7 +84,7 @@
             </div>
             <div class="project-badge"><%= project.health_status === 'healthy' ? '✅' : '🛠️' %></div>
           </div>
-          <div class="pantry-row"><span>Repo path</span><code><%= project.repo_path %></code></div>
+          <div class="pantry-row"><span>Project folder</span><code><%= project.repo_path %></code></div>
           <div class="pantry-row"><span>GitHub repo</span><% if (project.github_repo_slug) { %><a href="<%= project.github_repo_url %>"><%= project.github_repo_slug %></a><% } else { %><strong>Local only</strong><% } %></div>
           <div class="pantry-row"><span>Default branch</span><code><%= project.default_branch %></code></div>
           <div class="pantry-row"><span>Safe mode</span><strong><%= project.safe_mode ? 'Enabled' : 'Disabled' %></strong></div>
