@@ -6,6 +6,9 @@ const runStateManager = require('../services/runStateManager');
 const appSettingsService = require('../services/appSettingsService');
 const failureRecoveryService = require('../services/failureRecoveryService');
 const setupValidationService = require('../services/setupValidationService');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 function dashboard(req, res) {
   res.render('dashboard', {
@@ -21,6 +24,36 @@ function projects(req, res) {
     form: projectService.normalizeProjectInput({}),
     errors: []
   });
+}
+
+function candidateProjectRoots() {
+  return [...new Set([
+    process.cwd(),
+    path.dirname(process.cwd()),
+    '/workspace',
+    os.homedir()
+  ].filter(Boolean))];
+}
+
+function resolveProjectFolder(req, res) {
+  const folderName = path.basename(String(req.query.name || '').trim());
+  if (!folderName || folderName === '.' || folderName === path.sep) {
+    res.status(400).json({ ok: false, message: 'Folder name is required.' });
+    return;
+  }
+
+  const matches = candidateProjectRoots()
+    .map((root) => path.resolve(root, folderName))
+    .filter((candidate, index, candidates) => candidates.indexOf(candidate) === index)
+    .filter((candidate) => {
+      try {
+        return fs.statSync(candidate).isDirectory();
+      } catch {
+        return false;
+      }
+    });
+
+  res.json({ ok: matches.length === 1, path: matches.length === 1 ? matches[0] : '', matches });
 }
 
 function createProject(req, res) {
@@ -284,6 +317,7 @@ module.exports = {
   dashboard,
   projects,
   createProject,
+  resolveProjectFolder,
   recipes,
   runDetail,
   runEvents,

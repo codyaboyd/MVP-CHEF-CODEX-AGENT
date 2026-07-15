@@ -38,7 +38,11 @@ document.querySelectorAll('[data-project-form]').forEach((form) => {
   const status = form.querySelector('[data-project-folder-status]');
   if (!folderInput || !pathInput) return;
 
-  folderInput.addEventListener('change', () => {
+  function setStatus(message) {
+    if (status) status.textContent = message;
+  }
+
+  folderInput.addEventListener('change', async () => {
     const [firstFile] = folderInput.files || [];
     if (!firstFile) return;
 
@@ -47,12 +51,30 @@ document.querySelectorAll('[data-project-form]').forEach((form) => {
       const absoluteParts = firstFile.path.split(/[\\/]/);
       const folderPartCount = Math.max(relativeParts.length - 1, 0);
       pathInput.value = absoluteParts.slice(0, absoluteParts.length - folderPartCount - 1).join(firstFile.path.includes('\\') ? '\\' : '/');
-      if (status) status.textContent = `✅ Selected ${pathInput.value}`;
+      setStatus(`✅ Selected ${pathInput.value}`);
       return;
     }
 
     const folderName = (firstFile.webkitRelativePath || firstFile.name).split('/')[0];
-    if (status) status.textContent = `Selected “${folderName}”. Your browser does not expose absolute paths, so paste the full server path before saving.`;
+    setStatus(`Resolving “${folderName}” on the server…`);
+
+    try {
+      const response = await fetch(`/projects/resolve-folder?name=${encodeURIComponent(folderName)}`);
+      const result = response.ok ? await response.json() : null;
+      if (result && result.ok && result.path) {
+        pathInput.value = result.path;
+        setStatus(`✅ Selected ${result.path}`);
+        return;
+      }
+      if (result && result.matches && result.matches.length > 1) {
+        setStatus(`Selected “${folderName}”. Multiple matching server folders were found; paste the full path before saving.`);
+        return;
+      }
+    } catch {
+      // Fall through to the manual-path guidance below.
+    }
+
+    setStatus(`Selected “${folderName}”. Your browser does not expose absolute paths and the server could not resolve it automatically, so paste the full server path before saving.`);
   });
 });
 
