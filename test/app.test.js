@@ -1077,3 +1077,18 @@ test('database seeds built-in recipe templates with ordered Codex prompts', () =
     assert.ok(steps.every((step) => step.prompt.length > 80));
   }
 });
+
+test('project path inspector returns detected commands for absolute server paths', async () => {
+  const response = await request(app).get('/projects/inspect-path').query({ path: process.cwd() });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.ok, true);
+  assert.equal(response.body.repoPath, process.cwd());
+  assert.equal(response.body.packageManagerName, 'npm');
+  assert.deepEqual(response.body.commands, {
+    packageManagerCommand: 'npm install',
+    testCommand: 'npm test',
+    buildCommand: 'npm run build',
+    lintCommand: 'npm run lint'
+  });
+});

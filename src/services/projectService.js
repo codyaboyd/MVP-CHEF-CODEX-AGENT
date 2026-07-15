@@ -9,6 +9,110 @@ const DEFAULT_COMMANDS = {
   lintCommand: 'npm run lint'
 };
 
+const NODE_PACKAGE_MANAGERS = [
+  { lockfile: 'pnpm-lock.yaml', name: 'pnpm', install: 'pnpm install', run: (script) => `pnpm ${script}` },
+  { lockfile: 'yarn.lock', name: 'yarn', install: 'yarn install', run: (script) => `yarn ${script}` },
+  { lockfile: 'bun.lockb', name: 'bun', install: 'bun install', run: (script) => `bun run ${script}` },
+  { lockfile: 'bun.lock', name: 'bun', install: 'bun install', run: (script) => `bun run ${script}` },
+  { lockfile: 'package-lock.json', name: 'npm', install: 'npm install', run: (script) => script === 'test' ? 'npm test' : `npm run ${script}` }
+];
+
+function fileExists(repoPath, fileName) {
+  return fs.existsSync(path.join(repoPath, fileName));
+}
+
+function readJsonFile(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function detectNodeCommands(repoPath) {
+  if (!fileExists(repoPath, 'package.json')) return null;
+
+  const packageJson = readJsonFile(path.join(repoPath, 'package.json')) || {};
+  const scripts = packageJson.scripts && typeof packageJson.scripts === 'object' ? packageJson.scripts : {};
+  const manager = NODE_PACKAGE_MANAGERS.find((candidate) => fileExists(repoPath, candidate.lockfile)) || {
+    name: 'npm',
+    install: DEFAULT_COMMANDS.packageManagerCommand,
+    run: (script) => script === 'test' ? 'npm test' : `npm run ${script}`
+  };
+
+  return {
+    detectedType: 'node',
+    packageManagerName: manager.name,
+    packageManagerCommand: manager.install,
+    testCommand: scripts.test ? manager.run('test') : DEFAULT_COMMANDS.testCommand,
+    buildCommand: scripts.build ? manager.run('build') : DEFAULT_COMMANDS.buildCommand,
+    lintCommand: scripts.lint ? manager.run('lint') : DEFAULT_COMMANDS.lintCommand,
+    availableScripts: Object.keys(scripts).sort()
+  };
+}
+
+function detectPythonCommands(repoPath) {
+  const hasPyproject = fileExists(repoPath, 'pyproject.toml');
+  const hasRequirements = fileExists(repoPath, 'requirements.txt');
+  const hasUvLock = fileExists(repoPath, 'uv.lock');
+  const hasPoetryLock = fileExists(repoPath, 'poetry.lock');
+  if (!hasPyproject && !hasRequirements && !hasUvLock && !hasPoetryLock) return null;
+
+  const packageManagerCommand = hasUvLock ? 'uv sync' : hasPoetryLock ? 'poetry install' : hasRequirements ? 'python -m pip install -r requirements.txt' : 'python -m pip install -e .';
+  const runner = hasUvLock ? 'uv run ' : hasPoetryLock ? 'poetry run ' : '';
+  return {
+    detectedType: 'python',
+    packageManagerName: hasUvLock ? 'uv' : hasPoetryLock ? 'poetry' : 'pip',
+    packageManagerCommand,
+    testCommand: `${runner}pytest`.trim(),
+    buildCommand: hasPyproject ? 'python -m build' : '',
+    lintCommand: `${runner}ruff check .`.trim(),
+    availableScripts: []
+  };
+}
+
+function detectMakeCommands(repoPath) {
+  if (!fileExists(repoPath, 'Makefile') && !fileExists(repoPath, 'makefile')) return null;
+  return {
+    detectedType: 'make',
+    packageManagerName: 'make',
+    packageManagerCommand: '',
+    testCommand: 'make test',
+    buildCommand: 'make build',
+    lintCommand: 'make lint',
+    availableScripts: []
+  };
+}
+
+function detectProjectCommands(repoPath) {
+  const validation = validateProjectPath(repoPath);
+  if (!validation.ok) {
+    return { ok: false, message: validation.message, commands: { ...DEFAULT_COMMANDS } };
+  }
+
+  const detected = detectNodeCommands(validation.repoPath) || detectPythonCommands(validation.repoPath) || detectMakeCommands(validation.repoPath) || {
+    detectedType: 'generic',
+    packageManagerName: 'npm',
+    ...DEFAULT_COMMANDS,
+    availableScripts: []
+  };
+
+  return {
+    ok: true,
+    repoPath: validation.repoPath,
+    isGitRepository: validation.isGitRepository,
+    commands: {
+      packageManagerCommand: detected.packageManagerCommand,
+      testCommand: detected.testCommand,
+      buildCommand: detected.buildCommand,
+      lintCommand: detected.lintCommand
+    },
+    detectedType: detected.detectedType,
+    packageManagerName: detected.packageManagerName,
+    availableScripts: detected.availableScripts || []
+  };
+}
+
 function normalizeProjectInput(input) {
   return {
     name: String(input.name || '').trim(),
@@ -23,7 +127,6 @@ function normalizeProjectInput(input) {
     safeMode: (input.safeMode === true || input.safeMode === 'true' || input.safe_mode === 1) ? 1 : 0
   };
 }
-
 
 function validateProjectPath(repoPath) {
   if (typeof repoPath !== 'string' || !repoPath.trim() || repoPath.includes('\0')) {
@@ -45,7 +148,6 @@ function validateProjectPath(repoPath) {
 function isGitHubRepoSlug(value) {
   return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value) && !value.includes('..');
 }
-
 function getHealthChecks(project) {
   const checks = [];
   const repoPath = project.repo_path || project.repoPath;
@@ -147,6 +249,7 @@ function createProject(input) {
 module.exports = {
   DEFAULT_COMMANDS,
   createProject,
+  detectProjectCommands,
   getHealthChecks,
   getProjects,
   isGitHubRepoSlug,

@@ -42,6 +42,27 @@ document.querySelectorAll('[data-project-form]').forEach((form) => {
     if (status) status.textContent = message;
   }
 
+  async function inspectPath() {
+    const repoPath = pathInput.value.trim();
+    if (!repoPath) return;
+    setStatus(`Inspecting ${repoPath}…`);
+    try {
+      const response = await fetch(`/projects/inspect-path?path=${encodeURIComponent(repoPath)}`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        setStatus(result.message || 'Unable to inspect that project folder.');
+        return;
+      }
+      Object.entries(result.commands || {}).forEach(([name, value]) => {
+        const field = form.querySelector(`[data-detected-command="${name}"]`);
+        if (field && value) field.value = value;
+      });
+      setStatus(`✅ Using ${result.repoPath}; detected ${result.packageManagerName || 'project'} commands.`);
+    } catch {
+      setStatus('Unable to inspect that project folder. Paste an absolute server path and try again.');
+    }
+  }
+
   folderInput.addEventListener('change', async () => {
     const [firstFile] = folderInput.files || [];
     if (!firstFile) return;
@@ -51,7 +72,7 @@ document.querySelectorAll('[data-project-form]').forEach((form) => {
       const absoluteParts = firstFile.path.split(/[\\/]/);
       const folderPartCount = Math.max(relativeParts.length - 1, 0);
       pathInput.value = absoluteParts.slice(0, absoluteParts.length - folderPartCount - 1).join(firstFile.path.includes('\\') ? '\\' : '/');
-      setStatus(`✅ Selected ${pathInput.value}`);
+      await inspectPath();
       return;
     }
 
@@ -63,7 +84,7 @@ document.querySelectorAll('[data-project-form]').forEach((form) => {
       const result = response.ok ? await response.json() : null;
       if (result && result.ok && result.path) {
         pathInput.value = result.path;
-        setStatus(`✅ Selected ${result.path}`);
+        await inspectPath();
         return;
       }
       if (result && result.matches && result.matches.length > 1) {
@@ -76,6 +97,10 @@ document.querySelectorAll('[data-project-form]').forEach((form) => {
 
     setStatus(`Selected “${folderName}”. Your browser does not expose absolute paths and the server could not resolve it automatically, so paste the full server path before saving.`);
   });
+
+  pathInput.addEventListener('blur', inspectPath);
+  const detectButton = form.querySelector('[data-detect-project-commands]');
+  if (detectButton) detectButton.addEventListener('click', inspectPath);
 });
 
 document.querySelectorAll('[data-recipe-form]').forEach((form) => {

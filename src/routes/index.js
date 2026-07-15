@@ -7,6 +7,7 @@ const router = express.Router();
 router.get('/', pageController.dashboard);
 router.get('/projects', pageController.projects);
 router.get('/projects/resolve-folder', pageController.resolveProjectFolder);
+router.get('/projects/inspect-path', pageController.inspectProjectPath);
 router.post('/projects', pageController.createProject);
 router.get('/recipes', pageController.recipes);
 router.get('/recipes/new', recipeController.newRecipeForm);

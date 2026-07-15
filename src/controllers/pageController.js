@@ -35,7 +35,23 @@ function candidateProjectRoots() {
   ].filter(Boolean))];
 }
 
+function inspectProjectPath(req, res) {
+  const result = projectService.detectProjectCommands(String(req.query.path || ''));
+  res.status(result.ok ? 200 : 400).json(result);
+}
+
 function resolveProjectFolder(req, res) {
+  const requestedPath = String(req.query.path || '').trim();
+  if (requestedPath) {
+    const validation = projectService.validateProjectPath(requestedPath);
+    if (!validation.ok) {
+      res.status(400).json({ ok: false, message: validation.message, path: '', matches: [] });
+      return;
+    }
+    res.json({ ok: true, path: validation.repoPath, matches: [validation.repoPath] });
+    return;
+  }
+
   const folderName = path.basename(String(req.query.name || '').trim());
   if (!folderName || folderName === '.' || folderName === path.sep) {
     res.status(400).json({ ok: false, message: 'Folder name is required.' });
@@ -318,6 +334,7 @@ module.exports = {
   projects,
   createProject,
   resolveProjectFolder,
+  inspectProjectPath,
   recipes,
   runDetail,
   runEvents,
