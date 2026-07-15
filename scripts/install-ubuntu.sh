@@ -39,29 +39,7 @@ port_listeners() {
   ss -H -ltnp "sport = :${check_port}" 2>/dev/null || true
 }
 
-select_available_port() {
-  local start_port="${1}"
-  local check_port
-
-  for ((check_port = start_port; check_port <= 65535 && check_port < start_port + 100; check_port++)); do
-    if [[ -z "$(port_listeners "${check_port}")" ]]; then
-      echo "${check_port}"
-      return 0
-    fi
-  done
-
-  return 1
-}
-
 REQUESTED_PORT="${PORT}"
-if ! PORT="$(select_available_port "${REQUESTED_PORT}")"; then
-  echo "Could not find an open port between ${REQUESTED_PORT} and $((REQUESTED_PORT + 99))." >&2
-  exit 1
-fi
-
-if [[ "${PORT}" != "${REQUESTED_PORT}" ]]; then
-  echo "Port ${REQUESTED_PORT} is already in use; using open port ${PORT} instead."
-fi
 
 echo "Creating application directory at ${APP_DIR}..."
 install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}"
@@ -107,15 +85,13 @@ if systemctl list-unit-files "${SERVICE_NAME}.service" >/dev/null 2>&1; then
   wait_for_port_release || true
 fi
 
-if [[ -n "$(port_listeners)" ]]; then
-  CONFLICTING_PORT="${PORT}"
-  if ! PORT="$(select_available_port "$((PORT + 1))")"; then
-    echo "Could not find an open fallback port after ${CONFLICTING_PORT}." >&2
-    exit 1
-  fi
-  sed -i "s/^PORT=.*/PORT=${PORT}/" "${APP_DIR}/.env"
-  echo "Port ${CONFLICTING_PORT} became unavailable during setup; using open port ${PORT} instead."
+if [[ -n "$(port_listeners "${REQUESTED_PORT}")" ]]; then
+  echo "Port ${REQUESTED_PORT} is still in use after stopping ${SERVICE_NAME}; refusing to deploy on a different port." >&2
+  echo "Stop the conflicting process or set PORT explicitly for a separate installation." >&2
+  exit 1
 fi
+PORT="${REQUESTED_PORT}"
+sed -i "s/^PORT=.*/PORT=${PORT}/" "${APP_DIR}/.env"
 
 echo "Installing npm packages..."
 sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}' && npm ci --omit=dev"

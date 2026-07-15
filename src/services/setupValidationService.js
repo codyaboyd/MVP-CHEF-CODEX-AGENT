@@ -12,6 +12,21 @@ function runCommand(command, args = [], options = {}) {
   });
 }
 
+
+const CODEX_COMMAND_CANDIDATES = Object.freeze(['codex', '/snap/bin/codex', '/usr/local/bin/codex', '/usr/bin/codex']);
+
+async function findUsableCodexCommand(preferredCommand = 'codex') {
+  const candidates = [preferredCommand, ...CODEX_COMMAND_CANDIDATES].filter(Boolean);
+  const seen = new Set();
+  for (const candidate of candidates) {
+    if (seen.has(candidate)) continue;
+    seen.add(candidate);
+    const version = await runCommand(candidate, ['--version']);
+    if (version.ok) return { command: candidate, version };
+  }
+  return null;
+}
+
 function rowsByKey() {
   appSettingsService.ensureDefaultSettings();
   return appSettingsService.getSettings().reduce((all, row) => ({ ...all, [row.key]: row.value }), {});
@@ -28,12 +43,23 @@ async function validateCodexSetup(overrides = {}) {
   const settings = { ...rowsByKey(), ...overrides };
   const command = settings.codexCommandPath || 'codex';
   const checks = [];
-  const version = await runCommand(command, ['--version']);
+  let version = await runCommand(command, ['--version']);
+  let resolvedCommand = command;
+  if (!version.ok) {
+    const discovered = await findUsableCodexCommand(command);
+    if (discovered) {
+      resolvedCommand = discovered.command;
+      version = discovered.version;
+      if (resolvedCommand !== command) {
+        appSettingsService.updateSettings({ codexCommandPath: resolvedCommand });
+      }
+    }
+  }
   checks.push({
     key: 'codex_cli_available',
     label: 'Codex CLI is available',
     ok: version.ok,
-    detail: version.ok ? (version.stdout || version.stderr || `${command} responded`) : (version.error?.code === 'ENOENT' ? `${command} was not found on PATH.` : version.stderr || version.error?.message || 'Codex command failed.')
+    detail: version.ok ? `${version.stdout || version.stderr || `${resolvedCommand} responded`} (${resolvedCommand})` : (version.error?.code === 'ENOENT' ? `${command} was not found on PATH or common install locations such as /snap/bin/codex.` : version.stderr || version.error?.message || 'Codex command failed.')
   });
 
   const authMode = settings.codexAuthMode || 'environment';
@@ -92,4 +118,4 @@ async function validateSetup(overrides = {}) {
   return { ok: codex.ok && github.ok, codex, github };
 }
 
-module.exports = { validateCodexSetup, validateGitHubSetup, validateSetup };
+module.exports = { findUsableCodexCommand, validateCodexSetup, validateGitHubSetup, validateSetup };
