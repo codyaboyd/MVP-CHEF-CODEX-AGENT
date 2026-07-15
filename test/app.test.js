@@ -48,6 +48,15 @@ test('missing run details render the 404 page instead of a demo fallback', async
   assert.match(response.text, /slipped behind the stove/);
 });
 
+test('project folder resolver expands selected folder names to server paths', async () => {
+  const response = await request(app).get('/projects/resolve-folder').query({ name: 'MVP-CHEF-CODEX-AGENT' });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.ok, true);
+  assert.equal(response.body.path, process.cwd());
+  assert.deepEqual(response.body.matches, [process.cwd()]);
+});
+
 test('recipe form accepts raw text blocks as prompt steps', async () => {
   const createResponse = await request(app)
     .post('/recipes')
