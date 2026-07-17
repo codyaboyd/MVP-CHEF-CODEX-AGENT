@@ -120,8 +120,9 @@ function validateRepoPath(repoPath) {
 }
 
 function buildCodexArgs(prompt, extraArgs = []) {
-  // `codex exec -` reads the prompt from stdin without interpolating it into argv.
-  return extraArgs.length ? extraArgs : ['exec', '-'];
+  // Recipe projects may be new local folders rather than trusted Git repositories.
+  // Read the prompt from stdin and explicitly allow Codex to run in those folders.
+  return extraArgs.length ? extraArgs : ['exec', '--skip-git-repo-check', '-'];
 }
 
 function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, redactor }) {

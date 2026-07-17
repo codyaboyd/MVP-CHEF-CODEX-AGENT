@@ -195,7 +195,7 @@ test('CodexRunner reports a missing CLI and marks the run step failed', async ()
   fs.rmSync(repoPath, { recursive: true, force: true });
 });
 
-test('CodexRunner uses the supported Codex stdin prompt argument by default', async () => {
+test('CodexRunner uses stdin and permits non-Git project folders by default', async () => {
   const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-stdin-argument-'));
   const mockCodexPath = path.join(repoPath, 'mock-codex');
   fs.writeFileSync(mockCodexPath, `#!${process.execPath}
@@ -219,7 +219,7 @@ process.stdin.on('end', () => {
     });
 
     const output = JSON.parse(result.stdout);
-    assert.deepEqual(output.args, ['exec', '-']);
+    assert.deepEqual(output.args, ['exec', '--skip-git-repo-check', '-']);
     assert.equal(output.prompt, 'Prompt provided through standard input.');
   } finally {
     db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
