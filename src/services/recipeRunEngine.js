@@ -333,6 +333,7 @@ async function executeRun(runId, options = {}) {
         retries: recipeStep.retryCount,
         codexCommand: options.codexCommand ?? appSettingsService.getSetting('codexCommandPath')?.value,
         codexArgs: options.codexArgs,
+        codexModel: options.codexModel ?? appSettingsService.getSetting('codexModel')?.value,
         timeoutMs: options.timeoutMs
       });
 

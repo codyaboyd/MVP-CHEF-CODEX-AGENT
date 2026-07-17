@@ -119,10 +119,14 @@ function validateRepoPath(repoPath) {
   return resolved;
 }
 
-function buildCodexArgs(prompt, extraArgs = []) {
+function buildCodexArgs(prompt, extraArgs = [], model = '') {
   // Recipe projects may be new local folders rather than trusted Git repositories.
   // Read the prompt from stdin and explicitly allow Codex to run in those folders.
-  return extraArgs.length ? extraArgs : ['exec', '--skip-git-repo-check', '-'];
+  if (extraArgs.length) return extraArgs;
+  const args = ['exec', '--skip-git-repo-check'];
+  if (typeof model === 'string' && model.trim()) args.push('--model', model.trim());
+  args.push('-');
+  return args;
 }
 
 function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, redactor }) {
@@ -190,6 +194,7 @@ async function executeStep(options) {
     prompt,
     codexCommand = DEFAULT_CODEX_COMMAND,
     codexArgs = [],
+    codexModel = '',
     timeoutMs = DEFAULT_TIMEOUT_MS,
     retries = 0
   } = options;
@@ -200,7 +205,7 @@ async function executeStep(options) {
 
   const redactor = createRedactor(repoPath);
   const maxAttempts = Math.max(1, Number.parseInt(retries, 10) + 1);
-  const args = buildCodexArgs(prompt, codexArgs);
+  const args = buildCodexArgs(prompt, codexArgs, codexModel);
 
   updateRunStatus(runId, 'running', { started_at: nowSql() });
   updateRunStep(runStepId, { status: 'running', started_at: nowSql(), completed_at: null, error_message: null });
