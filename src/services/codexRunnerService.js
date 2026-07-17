@@ -7,7 +7,6 @@ const db = require('../db');
 const DEFAULT_CODEX_COMMAND = process.env.CODEX_CLI_COMMAND || 'codex';
 const DEFAULT_TIMEOUT_MS = Number.parseInt(process.env.CODEX_RUN_TIMEOUT_MS || '600000', 10);
 const DEFAULT_SANDBOX_MODE = 'workspace-write';
-const SUPPORTED_SANDBOX_MODES = new Set(['workspace-write', 'read-only', 'danger-full-access']);
 const SECRET_KEY_PATTERN = /(SECRET|TOKEN|KEY|PASSWORD|PASS|PWD|AUTH|COOKIE|SESSION|PRIVATE|CREDENTIAL)/i;
 const activeProcesses = new Map();
 const cancelledSteps = new Set();
@@ -121,14 +120,21 @@ function validateRepoPath(repoPath) {
   return resolved;
 }
 
-function buildCodexArgs(prompt, extraArgs = [], model = '', sandboxMode = DEFAULT_SANDBOX_MODE) {
+function buildCodexArgs(prompt, extraArgs = [], model = '', repoPath) {
   // Recipe projects may be new local folders rather than trusted Git repositories.
   // Read the prompt from stdin and explicitly allow Codex to run in those folders.
   if (extraArgs.length) return extraArgs;
-  const normalizedSandboxMode = SUPPORTED_SANDBOX_MODES.has(sandboxMode)
-    ? sandboxMode
-    : DEFAULT_SANDBOX_MODE;
-  const args = ['exec', '--sandbox', normalizedSandboxMode, '--skip-git-repo-check'];
+  const args = [
+    'exec',
+    '--cd', repoPath,
+    '--sandbox', DEFAULT_SANDBOX_MODE,
+    '--ask-for-approval', 'never',
+    '--search',
+    '--json',
+    '--strict-config',
+    '-c', 'sandbox_workspace_write.network_access=true',
+    '--skip-git-repo-check'
+  ];
   if (typeof model === 'string' && model.trim()) args.push('--model', model.trim());
   args.push('-');
   return args;
@@ -200,7 +206,6 @@ async function executeStep(options) {
     codexCommand = DEFAULT_CODEX_COMMAND,
     codexArgs = [],
     codexModel = '',
-    codexSandboxMode = DEFAULT_SANDBOX_MODE,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     retries = 0
   } = options;
@@ -211,7 +216,7 @@ async function executeStep(options) {
 
   const redactor = createRedactor(repoPath);
   const maxAttempts = Math.max(1, Number.parseInt(retries, 10) + 1);
-  const args = buildCodexArgs(prompt, codexArgs, codexModel, codexSandboxMode);
+  const args = buildCodexArgs(prompt, codexArgs, codexModel, safeRepoPath);
 
   updateRunStatus(runId, 'running', { started_at: nowSql() });
   updateRunStep(runStepId, { status: 'running', started_at: nowSql(), completed_at: null, error_message: null });
