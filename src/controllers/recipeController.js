@@ -181,7 +181,6 @@ function duplicateRecipe(req, res, next) {
 function runRecipe(req, res, next) {
   recipeRunEngine.startRunFromRecipe(Number(req.params.id), {
     gitEnabled: req.body.gitEnabled === '1',
-    githubAutomation: false,
     gitPush: false
   })
     .then((run) => res.redirect(`/runs/${run.id}`))

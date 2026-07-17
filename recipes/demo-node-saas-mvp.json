@@ -96,7 +96,7 @@
       ],
       "maxRetries": 1,
       "requiresApproval": true,
-      "approvalOverride": "before_merge"
+      "approvalOverride": "before_commit"
     }
   ]
 }

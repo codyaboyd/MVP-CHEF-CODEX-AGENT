@@ -51,10 +51,17 @@ function countAttempts(step) {
   return matches ? matches.length : 0;
 }
 
-function calculateProgress(steps = []) {
-  if (!steps.length) return 0;
-  const completed = steps.filter((step) => ['succeeded', 'failed', 'cancelled'].includes(step.status)).length;
-  return Math.round((completed / steps.length) * 100);
+function calculateProgress(steps = [], runStatus = '') {
+  if (runStatus === 'succeeded') return 100;
+  const logs = steps.map((step) => step.stdout || step.stdout_log || '').join('\n');
+  const completedItems = logs.split(/\r?\n/).reduce((count, line) => {
+    try {
+      return count + (JSON.parse(line).type === 'item.completed' ? 1 : 0);
+    } catch {
+      return count;
+    }
+  }, 0);
+  return Math.min(completedItems * 3, 99);
 }
 
 function getCurrentStep(steps = []) {
@@ -98,7 +105,6 @@ function getRunSnapshot(id) {
     projectName: run.project_name || 'a project pantry',
     status: run.status,
     commitSha: run.commit_sha,
-    prUrl: run.pr_url,
     errorMessage: run.error_message || '',
     quotaStatus: {
       waiting: run.status === 'waiting_for_quota',
@@ -106,7 +112,7 @@ function getRunSnapshot(id) {
       retryCount: Number(run.quota_retry_count || 0),
       message: run.status === 'waiting_for_quota' ? (run.error_message || 'Waiting for quota refill.') : ''
     },
-    progress: calculateProgress(steps),
+    progress: calculateProgress(steps, run.status),
     currentStep,
     stdout: [run.stdout_log || '', ...steps.map((step) => step.stdout)].filter(Boolean).join('\n'),
     stderr: [run.stderr_log || '', ...steps.map((step) => step.stderr)].filter(Boolean).join('\n'),
@@ -141,6 +147,7 @@ function getDashboard() {
 }
 
 module.exports = {
+  calculateProgress,
   getDashboard,
   getProjects,
   getRunById,

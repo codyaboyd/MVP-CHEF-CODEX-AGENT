@@ -50,7 +50,6 @@ function runMigrations(db) {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
           repo_path TEXT NOT NULL,
-          github_repo_url TEXT,
           description TEXT,
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -89,7 +88,6 @@ function runMigrations(db) {
           stdout_log TEXT,
           stderr_log TEXT,
           commit_sha TEXT,
-          pr_url TEXT,
           error_message TEXT,
           started_at TEXT,
           completed_at TEXT,
@@ -146,19 +144,11 @@ function runMigrations(db) {
       version: 3,
       name: 'add_project_management_fields',
       sql: `
-        ALTER TABLE projects ADD COLUMN github_repo_slug TEXT NOT NULL DEFAULT '';
         ALTER TABLE projects ADD COLUMN default_branch TEXT NOT NULL DEFAULT 'main';
         ALTER TABLE projects ADD COLUMN package_manager_command TEXT NOT NULL DEFAULT 'npm install';
         ALTER TABLE projects ADD COLUMN test_command TEXT NOT NULL DEFAULT 'npm test';
         ALTER TABLE projects ADD COLUMN build_command TEXT NOT NULL DEFAULT 'npm run build';
         ALTER TABLE projects ADD COLUMN lint_command TEXT NOT NULL DEFAULT 'npm run lint';
-        UPDATE projects
-        SET github_repo_slug = CASE
-          WHEN github_repo_url LIKE 'https://github.com/%' THEN substr(github_repo_url, length('https://github.com/') + 1)
-          ELSE github_repo_slug
-        END
-        WHERE github_repo_slug = '';
-        CREATE INDEX IF NOT EXISTS idx_projects_github_repo_slug ON projects(github_repo_slug);
       `
     },
     {
@@ -204,11 +194,8 @@ function runMigrations(db) {
     },
     {
       version: 6,
-      name: 'add_run_step_github_automation_fields',
-      sql: `
-        ALTER TABLE run_steps ADD COLUMN pr_url TEXT;
-        ALTER TABLE run_steps ADD COLUMN merge_commit_sha TEXT;
-      `
+      name: 'reserved_schema_version',
+      sql: 'SELECT 1;'
     },
     {
       version: 7,
@@ -395,9 +382,6 @@ function seedDatabase(db) {
     VALUES (?, ?)
     ON CONFLICT(key) DO NOTHING
   `);
-  insertSetting.run('autoMergeEnabled', 'true');
-  insertSetting.run('requireHumanApprovalBeforeMerge', 'false');
-  insertSetting.run('protectedMainMode', 'true');
     insertSetting.run('projectSafeModeDefault', 'false');
   insertSetting.run('projectSafeModeDefault', 'false');
 
@@ -411,18 +395,16 @@ function seedDatabase(db) {
   const seed = db.transaction(() => {
     const project = db.prepare(`
       INSERT INTO projects (
-        name, repo_path, github_repo_url, github_repo_slug, default_branch,
+        name, repo_path, default_branch,
         package_manager_command, test_command, build_command, lint_command, description
       )
       VALUES (
-        @name, @repoPath, @githubRepoUrl, @githubRepoSlug, @defaultBranch,
+        @name, @repoPath, @defaultBranch,
         @packageManagerCommand, @testCommand, @buildCommand, @lintCommand, @description
       )
     `).run({
       name: 'Demo MVP Chef Project',
       repoPath: process.cwd(),
-      githubRepoUrl: 'https://github.com/example/demo-mvp-chef-project',
-      githubRepoSlug: 'example/demo-mvp-chef-project',
       defaultBranch: 'main',
       packageManagerCommand: 'npm install',
       testCommand: 'npm test',
@@ -492,7 +474,7 @@ function seedDatabase(db) {
       VALUES (?, ?)
       ON CONFLICT(key) DO NOTHING
     `);
-    insertSetting.run('autoMergeEnabled', 'true');
+
     insertSetting.run('requireHumanApprovalBeforeMerge', 'false');
     insertSetting.run('protectedMainMode', 'true');
   });

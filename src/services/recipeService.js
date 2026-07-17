@@ -27,8 +27,8 @@ function normalizeProjectId(projectId) {
   return projectId ? Number(projectId) : null;
 }
 
-const APPROVAL_MODES = new Set(['manual_steps', 'none', 'before_step', 'after_codex', 'before_commit', 'before_merge', 'all']);
-const STEP_APPROVAL_OVERRIDES = new Set(['inherit', 'none', 'before_step', 'after_codex', 'before_commit', 'before_merge', 'all']);
+const APPROVAL_MODES = new Set(['manual_steps', 'none', 'before_step', 'after_codex', 'before_commit', 'all']);
+const STEP_APPROVAL_OVERRIDES = new Set(['inherit', 'none', 'before_step', 'after_codex', 'before_commit', 'all']);
 
 function normalizeApprovalMode(value = 'manual_steps') {
   return APPROVAL_MODES.has(value) ? value : 'manual_steps';
@@ -149,7 +149,7 @@ function validateRecipeJson(recipe) {
       errors.push(`${label} requiresApproval must be true or false.`);
     }
     if (step.approvalOverride !== undefined && !STEP_APPROVAL_OVERRIDES.has(step.approvalOverride)) {
-      errors.push(`${label} approvalOverride must be inherit, none, before_step, after_codex, before_commit, before_merge, or all.`);
+      errors.push(`${label} approvalOverride must be inherit, none, before_step, after_codex, before_commit, or all.`);
     }
   });
 

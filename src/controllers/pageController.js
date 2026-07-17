@@ -61,7 +61,7 @@ async function quickRun(req, res, next) {
       steps: prompts.map((prompt, index) => ({ title: `Prompt ${index + 1}`, prompt }))
     });
     const run = await recipeRunEngine.startRunFromRecipe(recipe.id, { autoExecute: false });
-    recipeRunEngine.resumeRun(run.id, { gitEnabled: false, githubAutomation: false }).catch((error) => console.error(error));
+    recipeRunEngine.resumeRun(run.id, { gitEnabled: false }).catch((error) => console.error(error));
     res.redirect(`/runs/${run.id}`);
   } catch (error) {
     if (error.code === 'PROJECT_RUN_LOCKED') {
@@ -356,17 +356,9 @@ function updateSettings(req, res) {
     codexSandboxMode: ['workspace-write', 'read-only', 'danger-full-access'].includes(req.body.codexSandboxMode) ? req.body.codexSandboxMode : 'workspace-write',
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
     autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
-    autoMergeEnabled: req.body.autoMergeEnabled === 'true' ? 'true' : 'false',
-    requireHumanApprovalBeforeMerge: req.body.requireHumanApprovalBeforeMerge === 'true' ? 'true' : 'false',
     maxParallelRuns: req.body.maxParallelRuns || '1',
     maxStepRuntimeMinutes: req.body.maxStepRuntimeMinutes || '30',
     defaultBranch: req.body.defaultBranch || 'main',
-    githubToken: req.body.githubToken || '',
-    githubUsername: req.body.githubUsername || '',
-    githubCliPath: req.body.githubCliPath || 'gh',
-    githubDefaultOrg: req.body.githubDefaultOrg || '',
-    githubAutomationEnabled: req.body.githubAutomationEnabled === 'true' ? 'true' : 'false',
-    protectedMainMode: req.body.protectedMainMode === 'true' ? 'true' : 'false',
     compactUiMode: req.body.compactUiMode === 'true' ? 'true' : 'false',
     showAdvancedSettings: req.body.showAdvancedSettings === 'true' ? 'true' : 'false',
     maxRetriesAfterQuota: req.body.maxRetriesAfterQuota || '3',

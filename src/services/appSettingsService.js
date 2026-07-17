@@ -9,18 +9,10 @@ const DEFAULT_SETTINGS = Object.freeze({
   codexApprovalPolicy: 'suggest',
   codexSandboxMode: 'workspace-write',
   defaultBranch: 'main',
-  githubToken: '',
-  githubUsername: '',
-  githubCliPath: 'gh',
-  githubDefaultOrg: '',
-  githubAutomationEnabled: 'true',
   maxParallelRuns: '1',
   maxStepRuntimeMinutes: '30',
   compactUiMode: 'false',
   showAdvancedSettings: 'true',
-  autoMergeEnabled: 'true',
-  requireHumanApprovalBeforeMerge: 'false',
-  protectedMainMode: 'true',
   defaultCooldownMinutes: '60',
   autoResumeAfterCooldown: 'true',
   maxRetriesAfterQuota: '3',
@@ -86,21 +78,9 @@ function getQuotaSettings(overrides = {}) {
   };
 }
 
-function getAutomationSettings(overrides = {}) {
-  ensureDefaultSettings();
-  const rows = getSettings().reduce((settings, row) => ({ ...settings, [row.key]: row.value }), {});
-  return {
-    autoMergeEnabled: normalizeBoolean(overrides.autoMergeEnabled ?? rows.autoMergeEnabled, true),
-    requireHumanApprovalBeforeMerge: normalizeBoolean(overrides.requireHumanApprovalBeforeMerge ?? rows.requireHumanApprovalBeforeMerge, false),
-    protectedMainMode: normalizeBoolean(overrides.protectedMainMode ?? rows.protectedMainMode, true),
-    githubAutomationEnabled: normalizeBoolean(overrides.githubAutomationEnabled ?? rows.githubAutomationEnabled, true)
-  };
-}
-
 module.exports = {
   DEFAULT_SETTINGS,
   ensureDefaultSettings,
-  getAutomationSettings,
   getQuotaSettings,
   getSetting,
   getSettings,

@@ -281,53 +281,7 @@ test('recipe import rejects malformed and schema-invalid JSON with useful errors
   assert.match(invalidResponse.text, /Step 1 maxRetries must be a non-negative integer/);
 });
 
-test('settings page saves GitHub and Codex auth configuration', async () => {
-  const settingsService = require('../src/services/appSettingsService');
-  try {
-    const response = await request(app)
-      .post('/settings')
-      .type('form')
-      .send({
-        codexCommandPath: '/usr/local/bin/codex',
-        codexAuthMode: 'api_key',
-        codexApiKey: 'sk-test-settings-key',
-        codexConfigDir: '/srv/.codex',
-        codexModel: 'gpt-test',
-        codexApprovalPolicy: 'never',
-        codexSandboxMode: 'danger-full-access',
-        defaultBranch: 'trunk',
-        githubCliPath: '/usr/bin/gh',
-        githubUsername: 'chef-user',
-        githubDefaultOrg: 'chef-org',
-        githubToken: 'ghp_test_settings_token',
-        autoMergeEnabled: 'false',
-        protectedMainMode: 'true',
-        githubAutomationEnabled: 'false'
-      });
 
-    assert.equal(response.status, 302);
-    const settings = db.prepare('SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?, ?, ?, ?) ORDER BY key')
-      .all('codexAuthMode', 'codexApiKey', 'codexModel', 'githubAutomationEnabled', 'githubCliPath', 'githubToken', 'githubUsername');
-    assert.deepEqual(settings, [
-      { key: 'codexApiKey', value: 'sk-test-settings-key' },
-      { key: 'codexAuthMode', value: 'api_key' },
-      { key: 'codexModel', value: 'gpt-test' },
-      { key: 'githubAutomationEnabled', value: 'false' },
-      { key: 'githubCliPath', value: '/usr/bin/gh' },
-      { key: 'githubToken', value: 'ghp_test_settings_token' },
-      { key: 'githubUsername', value: 'chef-user' }
-    ]);
-
-    const page = await request(app).get('/settings');
-    assert.equal(page.status, 200);
-    assert.match(page.text, /Codex \/ OpenAI API key/);
-    assert.match(page.text, /GitHub token/);
-    assert.match(page.text, /Setup validation/);
-    assert.match(page.text, /••••••••/);
-  } finally {
-    settingsService.updateSettings(settingsService.DEFAULT_SETTINGS);
-  }
-});
 
 test('projects page manages project metadata and validates project health', async () => {
   const projectsResponse = await request(app).get('/projects');
@@ -335,7 +289,6 @@ test('projects page manages project metadata and validates project health', asyn
   assert.equal(projectsResponse.status, 200);
   assert.match(projectsResponse.text, /Stock a new project/);
   assert.match(projectsResponse.text, /Project health/);
-  assert.match(projectsResponse.text, /GitHub repo slug/);
   assert.doesNotMatch(projectsResponse.text, /Test command/);
 
   const invalidResponse = await request(app)
@@ -344,13 +297,11 @@ test('projects page manages project metadata and validates project health', asyn
     .send({
       name: 'Invalid Project',
       repoPath: '/path/that/does/not/exist',
-      githubRepoSlug: 'not-a-slug',
       defaultBranch: ''
     });
 
   assert.equal(invalidResponse.status, 400);
   assert.match(invalidResponse.text, /Local project folder path must exist/);
-  assert.match(invalidResponse.text, /GitHub repo slug must use owner\/repo format/);
   assert.match(invalidResponse.text, /Default branch is required/);
 
   const os = require('node:os');
@@ -363,13 +314,11 @@ test('projects page manages project metadata and validates project health', asyn
     .send({
       name: 'Local Folder Project',
       repoPath: localOnlyPath,
-      githubRepoSlug: '',
       defaultBranch: 'main'
     });
 
   assert.equal(localOnlyResponse.status, 302);
   const localOnly = db.prepare('SELECT * FROM projects WHERE repo_path = ?').get(localOnlyPath);
-  assert.equal(localOnly.github_repo_slug, '');
   db.prepare('DELETE FROM projects WHERE id = ?').run(localOnly.id);
   fs.rmSync(localOnlyPath, { recursive: true, force: true });
 
@@ -379,7 +328,6 @@ test('projects page manages project metadata and validates project health', asyn
     .send({
       name: 'Managed Project',
       repoPath: process.cwd(),
-      githubRepoSlug: 'example/managed-project',
       defaultBranch: 'main',
       packageManagerCommand: 'npm ci',
       testCommand: 'npm test',
@@ -389,7 +337,7 @@ test('projects page manages project metadata and validates project health', asyn
     });
 
   assert.equal(createResponse.status, 302);
-  const project = db.prepare('SELECT * FROM projects WHERE github_repo_slug = ?').get('example/managed-project');
+  const project = db.prepare('SELECT * FROM projects WHERE name = ?').get('Managed Project');
   assert.equal(project.default_branch, 'main');
   assert.equal(project.package_manager_command, 'npm ci');
 
@@ -491,9 +439,9 @@ test('CodexRunner can cancel an active spawned process', async () => {
 test('RecipeRunEngine starts a recipe run, creates pending steps, and executes them in order', async () => {
   const engine = require('../src/services/recipeRunEngine');
   const project = db.prepare(`
-    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run('Quality Pass Project', process.cwd(), 'example/quality-pass', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
+    INSERT INTO projects (name, repo_path, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('Quality Pass Project', process.cwd(), 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
   const recipe = db.prepare(`
     INSERT INTO recipes (project_id, name, version, description)
     VALUES (?, ?, ?, ?)
@@ -520,9 +468,9 @@ test('RecipeRunEngine starts a recipe run, creates pending steps, and executes t
 test('RecipeRunEngine stops on failure and resumes from the failed step', async () => {
   const engine = require('../src/services/recipeRunEngine');
   const project = db.prepare(`
-    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run('Resume Project', process.cwd(), 'example/resume-project', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
+    INSERT INTO projects (name, repo_path, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('Resume Project', process.cwd(), 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
   const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
     .run(project.lastInsertRowid, 'Resume Cake', '1.0.0', 'Exercise resume.');
   db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
@@ -552,9 +500,9 @@ test('RecipeRunEngine stops on failure and resumes from the failed step', async 
 test('RecipeRunEngine leaves testing to Codex instead of running configured gates', async () => {
   const engine = require('../src/services/recipeRunEngine');
   const project = db.prepare(`
-    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run('Quality Fail Project', process.cwd(), 'example/quality-fail', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(5)"', 'node -e "process.exit(0)"');
+    INSERT INTO projects (name, repo_path, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('Quality Fail Project', process.cwd(), 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(5)"', 'node -e "process.exit(0)"');
   const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
     .run(project.lastInsertRowid, 'Gate Cake', '1.0.0', 'Exercise gates.');
   db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt, required_checks) VALUES (?, ?, ?, ?, ?)')
@@ -604,9 +552,9 @@ test('RunStateManager prevents concurrent active runs for one project and cancel
   const engine = require('../src/services/recipeRunEngine');
   const state = require('../src/services/runStateManager');
   const project = db.prepare(`
-    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run('Lock Project', process.cwd(), 'example/lock-project', 'main', 'node -e \"process.exit(0)\"', 'node -e \"process.exit(0)\"', 'node -e \"process.exit(0)\"');
+    INSERT INTO projects (name, repo_path, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('Lock Project', process.cwd(), 'main', 'node -e \"process.exit(0)\"', 'node -e \"process.exit(0)\"', 'node -e \"process.exit(0)\"');
   const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
     .run(project.lastInsertRowid, 'Lock Cake', '1.0.0', 'Exercise locks.');
   db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
@@ -629,9 +577,9 @@ test('RunStateManager prevents concurrent active runs for one project and cancel
 test('failure recovery tools persist actions and expose reports, logs, and retry controls', async () => {
   const engine = require('../src/services/recipeRunEngine');
   const project = db.prepare(`
-    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run('Failure Recovery Project', process.cwd(), 'example/failure-recovery', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
+    INSERT INTO projects (name, repo_path, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('Failure Recovery Project', process.cwd(), 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
   const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
     .run(project.lastInsertRowid, 'Recovery Cake', '1.0.0', 'Exercise failure recovery tools.');
   db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
@@ -698,22 +646,9 @@ test('run events stream live run snapshots with progress, logs, and retries', as
 });
 
 
-test('app settings include auto-merge safety controls', () => {
-  const settings = require('../src/services/appSettingsService').getAutomationSettings();
-  assert.equal(settings.autoMergeEnabled, true);
-  assert.equal(settings.requireHumanApprovalBeforeMerge, false);
-  assert.equal(settings.protectedMainMode, true);
-  assert.equal(settings.githubAutomationEnabled, true);
 
-  const keys = db.prepare(`
-    SELECT key FROM app_settings
-    WHERE key IN ('autoMergeEnabled', 'requireHumanApprovalBeforeMerge', 'protectedMainMode', 'githubAutomationEnabled')
-    ORDER BY key
-  `).all().map((row) => row.key);
-  assert.deepEqual(keys, ['autoMergeEnabled', 'githubAutomationEnabled', 'protectedMainMode', 'requireHumanApprovalBeforeMerge']);
-});
 
-test('GitManager blocks PR automation when committed changes contain known secrets', async () => {
+test('GitManager blocks unsafe committed changes when committed changes contain known secrets', async () => {
   const os = require('node:os');
   const fs = require('node:fs');
   const path = require('node:path');
@@ -794,79 +729,9 @@ test('GitManager enforces a clean tree, branches, summarizes, commits, pushes, p
   fs.rmSync(repoPath, { recursive: true, force: true });
 });
 
-test('GitHubManager verifies gh, creates PRs, waits for checks, squash merges, and records merge SHA', async () => {
-  const os = require('node:os');
-  const fs = require('node:fs');
-  const path = require('node:path');
-  const { GitHubManager } = require('../src/services/githubManagerService');
-  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'github-manager-repo-'));
-  const ghPath = path.join(repoPath, 'fake-gh.js');
-  const callsPath = path.join(repoPath, 'calls.log');
 
-  fs.writeFileSync(ghPath, `#!/usr/bin/env node
-const fs = require('node:fs');
-const path = require('node:path');
-const callsPath = path.join(process.cwd(), 'calls.log');
-const args = process.argv.slice(2);
-fs.appendFileSync(callsPath, args.join(' ') + '\\n');
-if (args[0] === '--version') {
-  console.log('gh version 2.0.0');
-  process.exit(0);
-}
-if (args[0] === 'auth' && args[1] === 'status') process.exit(0);
-if (args[0] === 'pr' && args[1] === 'create') {
-  console.log('https://github.com/example/repo/pull/12');
-  process.exit(0);
-}
-if (args[0] === 'pr' && args[1] === 'checks') process.exit(0);
-if (args[0] === 'pr' && args[1] === 'merge') process.exit(0);
-if (args[0] === 'pr' && args[1] === 'view') {
-  console.log(JSON.stringify({ mergeCommit: { oid: 'abc123merge' } }));
-  process.exit(0);
-}
-console.error('unexpected gh args: ' + args.join(' '));
-process.exit(1);
-`);
-  fs.chmodSync(ghPath, 0o755);
 
-  const manager = new GitHubManager({ repoPath, mainBranch: 'main', ghCommand: process.execPath, checkPollIntervalMs: 1, checkTimeoutMs: 1000 });
-  manager.ghCommand = process.execPath;
-  manager.run = (args, options) => require('../src/services/githubManagerService').runGh(repoPath, [ghPath, ...args], { ...options, ghCommand: process.execPath });
 
-  const verification = await manager.verifyCli();
-  assert.equal(verification.authenticated, true);
-  const result = await manager.createMergeAfterChecks({
-    branchName: 'mvp-chef/run-1/step-2-test',
-    title: 'Step PR',
-    body: 'Body',
-    squash: true
-  });
-
-  assert.deepEqual(result, { prUrl: 'https://github.com/example/repo/pull/12', mergeCommitSha: 'abc123merge' });
-  const calls = fs.readFileSync(callsPath, 'utf8');
-  assert.match(calls, /pr create --base main --head mvp-chef\/run-1\/step-2-test/);
-  assert.match(calls, /pr checks https:\/\/github.com\/example\/repo\/pull\/12 --watch --fail-fast/);
-  assert.match(calls, /pr merge https:\/\/github.com\/example\/repo\/pull\/12 --delete-branch --squash/);
-
-  fs.rmSync(repoPath, { recursive: true, force: true });
-});
-
-test('GitHubManager fails gracefully when gh is missing', async () => {
-  const os = require('node:os');
-  const fs = require('node:fs');
-  const path = require('node:path');
-  const { GitHubManager } = require('../src/services/githubManagerService');
-  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'github-manager-missing-'));
-  const manager = new GitHubManager({ repoPath, ghCommand: path.join(repoPath, 'missing-gh') });
-
-  await assert.rejects(() => manager.verifyCli(), (error) => {
-    assert.equal(error.code, 'GH_CLI_MISSING');
-    assert.match(error.message, /GitHub CLI \(gh\) is not installed/);
-    return true;
-  });
-
-  fs.rmSync(repoPath, { recursive: true, force: true });
-});
 
 test('CodexRunner detects quota text and marks a step waiting_for_quota without normal retries', async () => {
   const os = require('node:os');
@@ -934,9 +799,9 @@ test('CodexRunner trusts a successful JSON turn even when an agent message menti
 test('RecipeRunEngine pauses on quota and does not start the next prompt until cooldown is cleared', async () => {
   const engine = require('../src/services/recipeRunEngine');
   const project = db.prepare(`
-    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run('Quota Project', process.cwd(), 'example/quota-project', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
+    INSERT INTO projects (name, repo_path, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('Quota Project', process.cwd(), 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
   const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
     .run(project.lastInsertRowid, 'Quota Cake', '1.0.0', 'Exercise quota pause.');
   db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
@@ -976,9 +841,9 @@ test('RecipeRunEngine pauses on quota and does not start the next prompt until c
 test('human approval modes pause before a step and expose approval actions', async () => {
   const engine = require('../src/services/recipeRunEngine');
   const project = db.prepare(`
-    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run('Approval Project', process.cwd(), 'example/approval-project', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
+    INSERT INTO projects (name, repo_path, default_branch, lint_command, test_command, build_command)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('Approval Project', process.cwd(), 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
   const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description, approval_mode) VALUES (?, ?, ?, ?, ?)')
     .run(project.lastInsertRowid, 'Approval Cake', '1.0.0', 'Exercise human approval.', 'before_step');
   db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
@@ -1094,13 +959,13 @@ test('Improve Prompt helper returns a local rewritten prompt without external AP
 test('RecipeRunEngine warns on prompt lint findings and only blocks them in safe mode', async () => {
   const engine = require('../src/services/recipeRunEngine');
   const normalProject = db.prepare(`
-    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command, safe_mode)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run('Prompt Lint Warn Project', process.cwd(), 'example/prompt-lint-warn', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 0);
+    INSERT INTO projects (name, repo_path, default_branch, lint_command, test_command, build_command, safe_mode)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run('Prompt Lint Warn Project', process.cwd(), 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 0);
   const safeProject = db.prepare(`
-    INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command, safe_mode)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run('Prompt Lint Safe Project', process.cwd(), 'example/prompt-lint-safe', 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 1);
+    INSERT INTO projects (name, repo_path, default_branch, lint_command, test_command, build_command, safe_mode)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run('Prompt Lint Safe Project', process.cwd(), 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 1);
 
   const createRecipe = (projectId, name) => {
     const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')

@@ -4,7 +4,7 @@
     <div>
       <p class="eyebrow">📁 Project pantry</p>
       <h1>Projects</h1>
-      <p class="text-muted">Manage local project folders, optional GitHub slugs, default branches, and command recipes for Codex runs.</p>
+      <p class="text-muted">Manage local project folders, default branches, and command recipes for Codex runs.</p>
     </div>
   </div>
 
@@ -24,20 +24,6 @@
         <input class="form-control" id="name" name="name" value="<%= form.name %>" required>
       </div>
       <div class="col-md-6">
-        <label class="form-label fw-bold" for="githubRepoSlug">GitHub repo slug <span class="text-muted">(optional)</span></label>
-        <input class="form-control" id="githubRepoSlug" name="githubRepoSlug" placeholder="owner/repo" value="<%= form.githubRepoSlug %>">
-        <div class="form-text">Leave blank for local-only projects that should not use GitHub.</div>
-      </div>
-      <div class="col-md-8">
-        <label class="form-label fw-bold" for="repoPath">Local project folder path</label>
-        <div class="input-group">
-          <input class="form-control" id="repoPath" name="repoPath" placeholder="/workspace/my-project" value="<%= form.repoPath %>" required data-project-path>
-          <button class="btn btn-outline-primary" type="button" data-folder-browser-button>Browse folders</button>
-        </div>
-        <select class="form-select form-select-sm folder-browser mt-2" aria-label="Server project folders" hidden data-folder-browser></select>
-        <div class="form-text" data-project-folder-status>Browse server folders or paste an absolute path. Commands are detected from the selected folder.</div>
-      </div>
-      <div class="col-md-4">
         <label class="form-label fw-bold" for="defaultBranch">Default branch</label>
         <input class="form-control" id="defaultBranch" name="defaultBranch" value="<%= form.defaultBranch %>" required>
       </div>
@@ -73,7 +59,6 @@
             <div class="project-badge"><%= project.health_status === 'healthy' ? '✅' : '🛠️' %></div>
           </div>
           <div class="pantry-row"><span>Project folder</span><code><%= project.repo_path %></code></div>
-          <div class="pantry-row"><span>GitHub repo</span><% if (project.github_repo_slug) { %><a href="<%= project.github_repo_url %>"><%= project.github_repo_slug %></a><% } else { %><strong>Local only</strong><% } %></div>
           <div class="pantry-row"><span>Default branch</span><code><%= project.default_branch %></code></div>
           <div class="pantry-row"><span>Safe mode</span><strong><%= project.safe_mode ? 'Enabled' : 'Disabled' %></strong></div>
           <div class="pantry-row"><span>Run lock</span><strong><%= project.lock_run_id ? `Run #${project.lock_run_id}` : 'Available' %></strong><% if (project.lock_owner) { %><small class="text-muted d-block">Owner: <%= project.lock_owner %> · expires <%= project.lock_expires_at %></small><% } %></div>
