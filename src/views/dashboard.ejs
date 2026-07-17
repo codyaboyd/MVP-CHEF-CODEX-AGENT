@@ -18,6 +18,7 @@
       <input class="folder-path-input" name="folderPath" value="<%= composer.folderPath %>" placeholder="Select a folder or paste its absolute path" required data-project-path>
       <button class="btn btn-light btn-sm" type="button" data-folder-browser-button>Browse folders</button>
     </div>
+    <input class="form-control form-control-sm folder-browser-search" type="search" placeholder="Type to search folders…" aria-label="Search server project folders" hidden data-folder-browser-search>
     <select class="form-select form-select-sm folder-browser" aria-label="Server project folders" hidden data-folder-browser></select>
     <p class="folder-hint" data-quick-folder-status>Codex works directly in this folder. Git is optional.</p>
 

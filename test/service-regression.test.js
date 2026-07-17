@@ -234,6 +234,7 @@ process.stdin.on('end', () => {
       '--cd', repoPath,
       '--sandbox', 'workspace-write',
       '--json',
+      '--search',
       '-c', 'sandbox_workspace_write.network_access=true',
       '--skip-git-repo-check',
       '--model', 'account-supported-model',
@@ -272,6 +273,7 @@ process.stdin.on('end', () => process.stdout.write(JSON.stringify(process.argv.s
       '--cd', repoPath,
       '--sandbox', 'workspace-write',
       '--json',
+      '--search',
       '-c', 'sandbox_workspace_write.network_access=true',
       '--skip-git-repo-check',
       '-'

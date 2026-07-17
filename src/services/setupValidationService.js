@@ -5,7 +5,7 @@ const appSettingsService = require('./appSettingsService');
 
 function runCommand(command, args = [], options = {}) {
   return new Promise((resolve) => {
-    execFile(command, args, { timeout: options.timeoutMs || 5000, maxBuffer: 1024 * 1024, env: options.env || process.env }, (error, stdout, stderr) => {
+    execFile(command, args, { maxBuffer: 1024 * 1024, env: options.env || process.env }, (error, stdout, stderr) => {
       resolve({ ok: !error, error, stdout: stdout.trim(), stderr: stderr.trim() });
     });
   });

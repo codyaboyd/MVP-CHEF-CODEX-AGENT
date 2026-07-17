@@ -357,7 +357,6 @@ function updateSettings(req, res) {
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
     autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
     maxParallelRuns: req.body.maxParallelRuns || '1',
-    maxStepRuntimeMinutes: req.body.maxStepRuntimeMinutes || '30',
     defaultBranch: req.body.defaultBranch || 'main',
     compactUiMode: req.body.compactUiMode === 'true' ? 'true' : 'false',
     showAdvancedSettings: req.body.showAdvancedSettings === 'true' ? 'true' : 'false',
