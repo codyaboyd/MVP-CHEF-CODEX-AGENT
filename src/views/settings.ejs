@@ -134,16 +134,11 @@
       <div class="col-lg-6">
         <section class="paper-panel p-4 settings-section">
           <p class="eyebrow">🏃 Runner limits</p>
-          <h2 class="h4 fw-black">Concurrency and timeouts</h2>
+          <h2 class="h4 fw-black">Concurrency</h2>
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label fw-bold" for="maxParallelRuns">Max parallel runs</label>
               <input class="form-control" id="maxParallelRuns" type="number" min="1" name="maxParallelRuns" value="<%= valueFor('maxParallelRuns', '1') %>">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-bold" for="maxStepRuntimeMinutes">Max step runtime</label>
-              <input class="form-control" id="maxStepRuntimeMinutes" type="number" min="1" name="maxStepRuntimeMinutes" value="<%= valueFor('maxStepRuntimeMinutes', '30') %>">
-              <div class="form-text">Minutes before a Codex step is considered timed out.</div>
             </div>
           </div>
         </section>

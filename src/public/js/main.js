@@ -3,7 +3,22 @@ document.documentElement.classList.add('js-enabled');
 function attachFolderBrowser(container, onSelect, setStatus) {
   const button = container.querySelector('[data-folder-browser-button]');
   const selector = container.querySelector('[data-folder-browser]');
-  if (!button || !selector) return;
+  const search = container.querySelector('[data-folder-browser-search]');
+  if (!button || !selector || !search) return;
+
+  let folders = [];
+  function showFolders(query = '') {
+    const normalizedQuery = query.trim().toLowerCase();
+    const matches = folders.filter((folder) => {
+      return !normalizedQuery || `${folder.name} ${folder.path}`.toLowerCase().includes(normalizedQuery);
+    });
+    selector.replaceChildren(new Option(matches.length ? 'Choose a server folder…' : 'No matching folders', ''));
+    matches.forEach((folder) => {
+      const indent = folder.depth ? `${'— '.repeat(folder.depth)}` : '';
+      selector.add(new Option(`${indent}${folder.name}  (${folder.path})`, folder.path));
+    });
+    return matches.length;
+  }
 
   button.addEventListener('click', async () => {
     button.disabled = true;
@@ -12,13 +27,11 @@ function attachFolderBrowser(container, onSelect, setStatus) {
       const response = await fetch('/projects/browse-folders');
       const result = await response.json();
       if (!response.ok) throw new Error('Folder scan failed.');
-      selector.replaceChildren(new Option('Choose a server folder…', ''));
-      (result.folders || []).forEach((folder) => {
-        const indent = folder.depth ? `${'— '.repeat(folder.depth)}` : '';
-        selector.add(new Option(`${indent}${folder.name}  (${folder.path})`, folder.path));
-      });
+      folders = result.folders || [];
+      showFolders();
+      search.hidden = false;
       selector.hidden = false;
-      selector.focus();
+      search.focus();
       setStatus(result.folders.length
         ? `Found ${result.folders.length} folders. Select one below.`
         : 'No folders were found in the configured server locations. You can still paste an absolute path.');
@@ -31,6 +44,13 @@ function attachFolderBrowser(container, onSelect, setStatus) {
 
   selector.addEventListener('change', () => {
     if (selector.value) onSelect(selector.value);
+  });
+
+  search.addEventListener('input', () => {
+    const matchCount = showFolders(search.value);
+    setStatus(matchCount
+      ? `${matchCount} matching folder${matchCount === 1 ? '' : 's'}.`
+      : 'No matching folders. You can still paste an absolute path.');
   });
 }
 

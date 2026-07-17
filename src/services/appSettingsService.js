@@ -10,7 +10,6 @@ const DEFAULT_SETTINGS = Object.freeze({
   codexSandboxMode: 'workspace-write',
   defaultBranch: 'main',
   maxParallelRuns: '1',
-  maxStepRuntimeMinutes: '30',
   compactUiMode: 'false',
   showAdvancedSettings: 'true',
   defaultCooldownMinutes: '60',

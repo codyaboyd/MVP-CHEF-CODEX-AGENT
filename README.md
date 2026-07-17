@@ -55,7 +55,7 @@ codex login
 codex login status
 ```
 
-The Settings page can select a command path, auth mode, model, approval policy, sandbox, timeout, quota cooldown, safe-mode default, and display preferences. A normal signed-in CLI does not need an API key stored in the app.
+The Settings page can select a command path, auth mode, model, approval policy, sandbox, quota cooldown, safe-mode default, and display preferences. A normal signed-in CLI does not need an API key stored in the app.
 
 ## Configuration
 
@@ -67,7 +67,6 @@ Copy `.env.example` to `.env`. Supported environment values are:
 | `HOST` | Listen address | `127.0.0.1` |
 | `DATABASE_PATH` | SQLite file | `data/mvp-chef-codex.sqlite` |
 | `CODEX_CLI_COMMAND` | Codex executable | `codex` |
-| `CODEX_RUN_TIMEOUT_MS` | Per-attempt timeout | `600000` |
 
 Do not commit `.env` or place credentials in recipes. Logs redact values from secret-like environment variables and the target folder's `.env` file.
 

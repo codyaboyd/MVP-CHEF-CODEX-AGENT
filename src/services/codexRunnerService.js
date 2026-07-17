@@ -5,7 +5,6 @@ const dotenv = require('dotenv');
 const db = require('../db');
 
 const DEFAULT_CODEX_COMMAND = process.env.CODEX_CLI_COMMAND || 'codex';
-const DEFAULT_TIMEOUT_MS = Number.parseInt(process.env.CODEX_RUN_TIMEOUT_MS || '600000', 10);
 const DEFAULT_SANDBOX_MODE = 'workspace-write';
 const SECRET_KEY_PATTERN = /(SECRET|TOKEN|KEY|PASSWORD|PASS|PWD|AUTH|COOKIE|SESSION|PRIVATE|CREDENTIAL)/i;
 const activeProcesses = new Map();
@@ -13,7 +12,6 @@ const cancelledSteps = new Set();
 
 const QUOTA_LIMIT_PATTERN = /(quota|rate[ -]?limit|usage[ -]?limit|refill|too many requests|exhausted)/i;
 const QUOTA_REMAINING_PATTERN = /(?:^|\s)(100|\d{1,2})%\s+left\b/i;
-const QUOTA_PROBE_TIMEOUT_MS = 5000;
 
 function detectQuotaLimit(...parts) {
   const text = parts.filter(Boolean).join('\n');
@@ -26,49 +24,6 @@ function parseQuotaRemaining(output = '') {
   const plainText = String(output).replace(/\x1B(?:[@-_][0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))/g, '');
   const match = plainText.match(QUOTA_REMAINING_PATTERN);
   return match ? Number.parseInt(match[1], 10) : null;
-}
-
-function shellQuote(value) {
-  const quote = String.fromCharCode(39);
-  return quote + String(value).replaceAll(quote, `${quote}\\${quote}${quote}`) + quote;
-}
-
-function shouldProbeInteractiveQuota(command, extraArgs) {
-  return extraArgs.length === 0 && path.basename(command) === 'codex' && process.platform !== 'win32';
-}
-
-function probeInteractiveQuota({ command, repoPath, timeoutMs = QUOTA_PROBE_TIMEOUT_MS }) {
-  return new Promise((resolve) => {
-    let output = '';
-    let settled = false;
-    const finish = (remaining = null) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      terminateProcessTree(child, 'SIGTERM');
-      resolve(remaining);
-    };
-    // `script` supplies the pseudo-terminal required for Codex to render the
-    // account percentage. A normal piped spawn never shows this UI value.
-    const child = spawn('script', ['-qfec', shellQuote(command), '/dev/null'], {
-      cwd: repoPath,
-      shell: false,
-      detached: true,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: process.env
-    });
-    const inspect = (chunk) => {
-      output += chunk.toString();
-      const remaining = parseQuotaRemaining(output);
-      if (remaining !== null) finish(remaining);
-    };
-    child.stdout.on('data', inspect);
-    child.stderr.on('data', inspect);
-    child.on('error', () => finish(null));
-    child.on('close', () => finish(parseQuotaRemaining(output)));
-    const timer = setTimeout(() => finish(parseQuotaRemaining(output)), timeoutMs);
-    timer.unref();
-  });
 }
 
 function parseCodexJsonOutput(output = '') {
@@ -227,6 +182,7 @@ function buildCodexArgs(prompt, extraArgs = [], model = '', repoPath) {
     '--cd', repoPath,
     '--sandbox', DEFAULT_SANDBOX_MODE,
     '--json',
+    '--search',
     '-c', 'sandbox_workspace_write.network_access=true',
     '--skip-git-repo-check'
   ];
@@ -235,12 +191,11 @@ function buildCodexArgs(prompt, extraArgs = [], model = '', repoPath) {
   return args;
 }
 
-function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, redactor }) {
+function spawnCodex({ command, args, repoPath, prompt, runStepId, redactor }) {
   return new Promise((resolve, reject) => {
     let stdout = '';
     let stderr = '';
     let settled = false;
-    let timedOut = false;
     const child = spawn(command, args, {
       cwd: repoPath,
       shell: false,
@@ -250,15 +205,6 @@ function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, red
     });
 
     activeProcesses.set(runStepId, child);
-
-    const timer = setTimeout(() => {
-      timedOut = true;
-      terminateProcessTree(child, 'SIGTERM');
-      setTimeout(() => {
-        if (!child.killed) terminateProcessTree(child, 'SIGKILL');
-      }, 5000).unref();
-    }, timeoutMs);
-    timer.unref();
 
     child.stdout.on('data', (chunk) => {
       const text = redactor(chunk.toString());
@@ -275,7 +221,6 @@ function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, red
     child.on('error', (error) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
       activeProcesses.delete(runStepId);
       reject(error);
     });
@@ -283,9 +228,8 @@ function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, red
     child.on('close', (code, signal) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
       activeProcesses.delete(runStepId);
-      resolve({ code, signal, stdout, stderr, timedOut });
+      resolve({ code, signal, stdout, stderr });
     });
 
     child.stdin.end(prompt);
@@ -301,7 +245,6 @@ async function executeStep(options) {
     codexCommand = DEFAULT_CODEX_COMMAND,
     codexArgs = [],
     codexModel = '',
-    timeoutMs = DEFAULT_TIMEOUT_MS,
     retries = 0
   } = options;
 
@@ -316,25 +259,11 @@ async function executeStep(options) {
   updateRunStatus(runId, 'running', { started_at: nowSql() });
   updateRunStep(runStepId, { status: 'running', started_at: nowSql(), completed_at: null, error_message: null });
 
-  if (shouldProbeInteractiveQuota(codexCommand, codexArgs)) {
-    const quotaRemaining = await probeInteractiveQuota({ command: codexCommand, repoPath: safeRepoPath });
-    if (quotaRemaining === 0) {
-      const quotaError = new Error('Codex interactive CLI reports 0% quota left.');
-      quotaError.code = 'QUOTA_LIMIT_DETECTED';
-      updateRunStep(runStepId, { status: 'waiting_for_quota', completed_at: null, error_message: quotaError.message });
-      updateRunStatus(runId, 'waiting_for_quota', { completed_at: null, error_message: quotaError.message });
-      throw quotaError;
-    }
-    if (quotaRemaining !== null) {
-      appendRunStepLog(runStepId, 'stdout', `[CodexRunner] Interactive quota check: ${quotaRemaining}% left.\n`);
-    }
-  }
-
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     appendRunStepLog(runStepId, 'stdout', redactor(`\n[CodexRunner] Attempt ${attempt} of ${maxAttempts}.\n`));
 
     try {
-      const result = await spawnCodex({ command: codexCommand, args, repoPath: safeRepoPath, prompt, timeoutMs, runStepId, redactor });
+      const result = await spawnCodex({ command: codexCommand, args, repoPath: safeRepoPath, prompt, runStepId, redactor });
 
       const structuredOutput = parseCodexJsonOutput(result.stdout);
       result.structuredOutput = structuredOutput;
@@ -366,7 +295,7 @@ async function executeStep(options) {
         return { ...result, cancelled: true, attempt };
       }
 
-      const error = new Error(result.timedOut ? 'Codex run timed out.' : `Codex exited with code ${result.code}${result.signal ? ` (${result.signal})` : ''}.`);
+      const error = new Error(`Codex exited with code ${result.code}${result.signal ? ` (${result.signal})` : ''}.`);
       error.result = result;
       throw error;
     } catch (error) {
@@ -424,7 +353,6 @@ module.exports = {
   detectQuotaLimit,
   parseQuotaRemaining,
   parseCodexJsonOutput,
-  probeInteractiveQuota,
   validateRepoPath,
   executeStep
 };

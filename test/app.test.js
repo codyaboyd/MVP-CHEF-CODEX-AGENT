@@ -17,6 +17,7 @@ test('home page renders the folder-first Codex prompt composer', async () => {
   assert.match(response.text, /What do you want to build/);
   assert.match(response.text, /Add another prompt/);
   assert.match(response.text, /Browse folders/);
+  assert.match(response.text, /Type to search folders/);
   assert.doesNotMatch(response.text, /webkitdirectory/);
 });
 
@@ -422,7 +423,6 @@ test('CodexRunner can cancel an active spawned process', async () => {
     prompt: 'wait until cancelled',
     codexCommand: process.execPath,
     codexArgs: ['-e', 'process.stdin.resume(); setTimeout(() => {}, 30000);'],
-    timeoutMs: 30000,
   });
 
   await new Promise((resolve) => setTimeout(resolve, 100));
