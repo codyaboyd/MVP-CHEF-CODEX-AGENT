@@ -12,10 +12,63 @@ const activeProcesses = new Map();
 const cancelledSteps = new Set();
 
 const QUOTA_LIMIT_PATTERN = /(quota|rate[ -]?limit|usage[ -]?limit|refill|too many requests|exhausted)/i;
+const QUOTA_REMAINING_PATTERN = /(?:^|\s)(100|\d{1,2})%\s+left\b/i;
+const QUOTA_PROBE_TIMEOUT_MS = 5000;
 
 function detectQuotaLimit(...parts) {
   const text = parts.filter(Boolean).join('\n');
   return QUOTA_LIMIT_PATTERN.test(text);
+}
+
+function parseQuotaRemaining(output = '') {
+  // The interactive UI includes ANSI control sequences, so allow arbitrary
+  // terminal styling between the percentage and its label.
+  const plainText = String(output).replace(/\x1B(?:[@-_][0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))/g, '');
+  const match = plainText.match(QUOTA_REMAINING_PATTERN);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
+function shellQuote(value) {
+  const quote = String.fromCharCode(39);
+  return quote + String(value).replaceAll(quote, `${quote}\\${quote}${quote}`) + quote;
+}
+
+function shouldProbeInteractiveQuota(command, extraArgs) {
+  return extraArgs.length === 0 && path.basename(command) === 'codex' && process.platform !== 'win32';
+}
+
+function probeInteractiveQuota({ command, repoPath, timeoutMs = QUOTA_PROBE_TIMEOUT_MS }) {
+  return new Promise((resolve) => {
+    let output = '';
+    let settled = false;
+    const finish = (remaining = null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      terminateProcessTree(child, 'SIGTERM');
+      resolve(remaining);
+    };
+    // `script` supplies the pseudo-terminal required for Codex to render the
+    // account percentage. A normal piped spawn never shows this UI value.
+    const child = spawn('script', ['-qfec', shellQuote(command), '/dev/null'], {
+      cwd: repoPath,
+      shell: false,
+      detached: true,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: process.env
+    });
+    const inspect = (chunk) => {
+      output += chunk.toString();
+      const remaining = parseQuotaRemaining(output);
+      if (remaining !== null) finish(remaining);
+    };
+    child.stdout.on('data', inspect);
+    child.stderr.on('data', inspect);
+    child.on('error', () => finish(null));
+    child.on('close', () => finish(parseQuotaRemaining(output)));
+    const timer = setTimeout(() => finish(parseQuotaRemaining(output)), timeoutMs);
+    timer.unref();
+  });
 }
 
 function parseCodexJsonOutput(output = '') {
@@ -263,6 +316,20 @@ async function executeStep(options) {
   updateRunStatus(runId, 'running', { started_at: nowSql() });
   updateRunStep(runStepId, { status: 'running', started_at: nowSql(), completed_at: null, error_message: null });
 
+  if (shouldProbeInteractiveQuota(codexCommand, codexArgs)) {
+    const quotaRemaining = await probeInteractiveQuota({ command: codexCommand, repoPath: safeRepoPath });
+    if (quotaRemaining === 0) {
+      const quotaError = new Error('Codex interactive CLI reports 0% quota left.');
+      quotaError.code = 'QUOTA_LIMIT_DETECTED';
+      updateRunStep(runStepId, { status: 'waiting_for_quota', completed_at: null, error_message: quotaError.message });
+      updateRunStatus(runId, 'waiting_for_quota', { completed_at: null, error_message: quotaError.message });
+      throw quotaError;
+    }
+    if (quotaRemaining !== null) {
+      appendRunStepLog(runStepId, 'stdout', `[CodexRunner] Interactive quota check: ${quotaRemaining}% left.\n`);
+    }
+  }
+
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     appendRunStepLog(runStepId, 'stdout', redactor(`\n[CodexRunner] Attempt ${attempt} of ${maxAttempts}.\n`));
 
@@ -279,10 +346,17 @@ async function executeStep(options) {
         throw quotaError;
       }
 
-      if (result.code === 0) {
+      const requiresCompletedTurn = codexArgs.length === 0 && path.basename(codexCommand) === 'codex';
+      if (result.code === 0 && (!requiresCompletedTurn || structuredOutput.progress.turnCompleted)) {
         updateRunStep(runStepId, { status: 'succeeded', completed_at: nowSql(), error_message: null });
         updateRunStatus(runId, 'succeeded', { completed_at: nowSql(), error_message: null });
         return { ...result, attempt };
+      }
+
+      if (result.code === 0 && requiresCompletedTurn) {
+        const error = new Error('Codex exited without a turn.completed event.');
+        error.result = result;
+        throw error;
       }
 
       if (cancelledSteps.has(runStepId)) {
@@ -348,7 +422,9 @@ module.exports = {
   collectSecretValues,
   createRedactor,
   detectQuotaLimit,
+  parseQuotaRemaining,
   parseCodexJsonOutput,
+  probeInteractiveQuota,
   validateRepoPath,
   executeStep
 };

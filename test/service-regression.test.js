@@ -97,6 +97,12 @@ test('quota detection recognizes common limit messages but ignores ordinary fail
   assert.equal(codexRunner.detectQuotaLimit('SyntaxError: unexpected token'), false);
 });
 
+test('interactive quota parsing reads the percentage shown by the Codex terminal UI', () => {
+  assert.equal(codexRunner.parseQuotaRemaining('gpt model · 87% left'), 87);
+  assert.equal(codexRunner.parseQuotaRemaining('\u001b[32m0% left\u001b[0m'), 0);
+  assert.equal(codexRunner.parseQuotaRemaining('No account allowance displayed'), null);
+});
+
 test('CodexRunner parses JSON Lines output into progress metadata', () => {
   const parsed = codexRunner.parseCodexJsonOutput([
     JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'Done' } }),
