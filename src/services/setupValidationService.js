@@ -1,12 +1,11 @@
 const { execFile } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
-const path = require('node:path');
 const appSettingsService = require('./appSettingsService');
 
 function runCommand(command, args = [], options = {}) {
   return new Promise((resolve) => {
-    execFile(command, args, { timeout: options.timeoutMs || 5000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+    execFile(command, args, { timeout: options.timeoutMs || 5000, maxBuffer: 1024 * 1024, env: options.env || process.env }, (error, stdout, stderr) => {
       resolve({ ok: !error, error, stdout: stdout.trim(), stderr: stderr.trim() });
     });
   });
@@ -72,8 +71,20 @@ async function validateCodexSetup(overrides = {}) {
     authOk = configDirLooksReady(settings.codexConfigDir);
     authDetail = authOk ? `Config directory looks ready: ${settings.codexConfigDir}` : 'Configured Codex config directory is missing or empty.';
   } else {
-    authOk = Boolean(process.env.OPENAI_API_KEY || process.env.CODEX_API_KEY || configDirLooksReady(settings.codexConfigDir) || configDirLooksReady(path.join(os.homedir(), '.codex')));
-    authDetail = authOk ? 'Environment or Codex config appears to contain credentials.' : 'No Codex auth signal found; run `codex login` or configure environment credentials.';
+    const authEnvironment = { ...process.env };
+    if (settings.codexConfigDir) {
+      authEnvironment.CODEX_HOME = settings.codexConfigDir.replace(/^~(?=$|\/|\\)/, os.homedir());
+    }
+    const loginStatus = version.ok
+      ? await runCommand(resolvedCommand, ['login', 'status'], { env: authEnvironment })
+      : { ok: false, stdout: '', stderr: '' };
+    const environmentCredential = Boolean(process.env.OPENAI_API_KEY || process.env.CODEX_API_KEY);
+    authOk = loginStatus.ok || environmentCredential;
+    authDetail = loginStatus.ok
+      ? (loginStatus.stdout || loginStatus.stderr || 'Codex CLI reports an active login.')
+      : environmentCredential
+        ? 'An API credential is available in the service environment.'
+        : (loginStatus.stderr || loginStatus.stdout || 'Codex CLI is unavailable, or `codex login status` reports no active login. Ensure the app service runs as the user who authenticated.');
   }
   checks.push({ key: 'codex_auth_ready', label: 'Codex auth is configured', ok: authOk, detail: authDetail });
   return { ok: checks.every((check) => check.ok), checks };

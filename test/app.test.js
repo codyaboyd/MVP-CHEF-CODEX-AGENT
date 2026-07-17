@@ -124,7 +124,6 @@ test('recipe CRUD supports project association and step details', async () => {
       projectId: String(project.id),
       stepTitles: ['Draft', 'Review'],
       stepPrompts: ['Draft the change.', 'Review the change.'],
-      stepRequiredChecks: ['Tests pass', 'Approval recorded'],
       stepRetryCounts: ['1', '2'],
       stepHumanApprovals: ['0', '1']
     });
@@ -136,7 +135,7 @@ test('recipe CRUD supports project association and step details', async () => {
 
   let steps = db.prepare('SELECT * FROM recipe_steps WHERE recipe_id = ? ORDER BY step_order').all(recipeId);
   assert.equal(steps.length, 2);
-  assert.equal(steps[0].required_checks, 'Tests pass');
+  assert.equal(steps[0].required_checks, '');
   assert.equal(steps[1].retry_count, 2);
   assert.equal(steps[1].human_approval, 1);
 
@@ -298,14 +297,14 @@ test('settings page saves GitHub and Codex auth configuration', async () => {
   }
 });
 
-test('projects page manages command defaults and validates project health', async () => {
+test('projects page manages project metadata and validates project health', async () => {
   const projectsResponse = await request(app).get('/projects');
 
   assert.equal(projectsResponse.status, 200);
   assert.match(projectsResponse.text, /Stock a new project/);
   assert.match(projectsResponse.text, /Project health/);
   assert.match(projectsResponse.text, /GitHub repo slug/);
-  assert.match(projectsResponse.text, /npm test/);
+  assert.doesNotMatch(projectsResponse.text, /Test command/);
 
   const invalidResponse = await request(app)
     .post('/projects')
@@ -482,7 +481,7 @@ test('RecipeRunEngine starts a recipe run, creates pending steps, and executes t
   assert.deepEqual(steps.map((step) => step.step_order), [1, 2]);
   assert.deepEqual(steps.map((step) => step.status), ['succeeded', 'succeeded']);
   assert.match(steps[0].stdout_log, /Mock Codex runner completed/);
-  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM run_step_checks WHERE run_id = ?').get(run.id).total, 6);
+  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM run_step_checks WHERE run_id = ?').get(run.id).total, 0);
 
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
@@ -521,9 +520,8 @@ test('RecipeRunEngine stops on failure and resumes from the failed step', async 
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
 
-test('RecipeRunEngine fails required quality gates and allows manual override', async () => {
+test('RecipeRunEngine leaves testing to Codex instead of running configured gates', async () => {
   const engine = require('../src/services/recipeRunEngine');
-  const qualityGateService = require('../src/services/qualityGateService');
   const project = db.prepare(`
     INSERT INTO projects (name, repo_path, github_repo_slug, default_branch, lint_command, test_command, build_command)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -534,17 +532,11 @@ test('RecipeRunEngine fails required quality gates and allows manual override', 
     .run(recipe.lastInsertRowid, 1, 'Only', 'Do only.', 'test');
 
   const created = await engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false });
-  const failed = await engine.executeRun(created.id, { mockMode: true });
+  const completed = await engine.executeRun(created.id, { mockMode: true });
   const step = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
-  assert.equal(failed.status, 'failed');
-  assert.equal(step.status, 'failed');
-  assert.match(step.error_message, /Required quality gate failed: test/);
-  assert.equal(db.prepare('SELECT status FROM run_step_checks WHERE run_step_id = ? AND check_name = ?').get(step.id, 'test').status, 'failed');
-
-  qualityGateService.saveManualOverride(step.id, 'Reviewed and accepted.');
-  const resumed = await engine.resumeRun(created.id, { mockMode: true });
-  assert.equal(resumed.status, 'succeeded');
-  assert.equal(db.prepare('SELECT quality_gate_override FROM run_steps WHERE id = ?').get(step.id).quality_gate_override, 1);
+  assert.equal(completed.status, 'succeeded');
+  assert.equal(step.status, 'succeeded');
+  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM run_step_checks WHERE run_step_id = ?').get(step.id).total, 0);
 
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);

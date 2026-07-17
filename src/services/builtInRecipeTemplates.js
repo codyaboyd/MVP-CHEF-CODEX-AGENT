@@ -351,7 +351,7 @@ const builtInRecipeTemplates = [
         requiresApproval: false
       },
       {
-        title: 'Document quality gates',
+        title: 'Document testing workflow',
         prompt: 'Update contributor or README notes with the test, lint, and build commands expected before merging. Mention any known environment limitations explicitly.',
         requiredChecks: ['npm test', 'npm run build'],
         maxRetries: 1,

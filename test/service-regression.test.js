@@ -244,6 +244,30 @@ test('SetupValidationService treats GitHub as optional when local-only mode is e
   assert.match(github.checks[0].detail, /disabled/);
 });
 
+test('SetupValidationService asks Codex CLI for the active login status', async () => {
+  const setupValidationService = require('../src/services/setupValidationService');
+  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-login-status-'));
+  const fixture = path.join(fixtureDir, 'codex');
+  fs.writeFileSync(fixture, `#!/bin/sh
+if [ "$1" = "--version" ]; then echo "codex-cli 1.0"; exit 0; fi
+if [ "$1" = "login" ] && [ "$2" = "status" ]; then echo "Logged in using ChatGPT"; exit 0; fi
+exit 1
+`);
+  fs.chmodSync(fixture, 0o755);
+  try {
+    const result = await setupValidationService.validateCodexSetup({
+      codexCommandPath: fixture,
+      codexAuthMode: 'environment',
+      codexConfigDir: ''
+    });
+    const auth = result.checks.find((check) => check.key === 'codex_auth_ready');
+    assert.equal(auth.ok, true);
+    assert.match(auth.detail, /Logged in using ChatGPT/);
+  } finally {
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 test('ProjectService detects package manager and command defaults from project files', () => {
   const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'detect-node-commands-'));
   try {

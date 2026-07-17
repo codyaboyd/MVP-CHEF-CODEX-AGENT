@@ -33,7 +33,7 @@
           <div class="col-md-6">
             <label class="form-label" for="approvalMode">Recipe approval mode</label>
             <select class="form-select" id="approvalMode" name="approvalMode">
-              <% [['manual_steps','Manual approval steps only'], ['none','No approvals'], ['before_step','Before every step'], ['after_codex','After Codex before checks'], ['before_commit','Before commit'], ['before_merge','Before PR merge'], ['all','All approval points']].forEach(([value, label]) => { %>
+              <% [['manual_steps','Manual approval steps only'], ['none','No approvals'], ['before_step','Before every step'], ['after_codex','After Codex'], ['before_commit','Before commit'], ['before_merge','Before PR merge'], ['all','All approval points']].forEach(([value, label]) => { %>
                 <option value="<%= value %>" <%= (values.approvalMode || values.approval_mode || 'manual_steps') === value ? 'selected' : '' %>><%= label %></option>
               <% }) %>
             </select>
@@ -61,7 +61,7 @@
               <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                   <h2 class="h4 mb-1">Structured prompt steps</h2>
-                  <p class="text-muted mb-0">Use this mode when you need step titles, retries, approvals, and required checks.</p>
+                  <p class="text-muted mb-0">Use this mode when you need step titles, retries, and approvals.</p>
                 </div>
                 <button class="btn btn-outline-primary rounded-pill" type="button" data-add-step>+ Add step</button>
               </div>
@@ -109,11 +109,6 @@
                     <textarea class="form-control" name="stepPrompts" rows="4" required><%= step.prompt || '' %></textarea>
                     <div class="form-text" data-prompt-helper-status>Uses local prompt linting rules; no external APIs are called.</div>
                   </div>
-                  <div class="col-12">
-                    <label class="form-label">Required checks</label>
-                    <textarea class="form-control" name="stepRequiredChecks" rows="2"><%= step.requiredChecks || step.required_checks || '' %></textarea>
-                    <div class="form-text">Describe checks that must pass before this step is considered done.</div>
-                  </div>
                 </div>
               </div>
             <% }) %>
@@ -123,7 +118,7 @@
               <div class="card border-dashed bg-light-subtle">
                 <div class="card-body">
                   <h2 class="h5 mb-2">Raw text block sequence</h2>
-                  <p class="text-muted mb-3">Paste prompt blocks when you do not need separate titles, retries, approvals, or required checks. Separate blocks with a blank line or a line containing <code>---</code>; each block becomes a prompt step named “Text block N”.</p>
+                  <p class="text-muted mb-3">Paste prompt blocks when you do not need separate titles, retries, or approvals. Separate blocks with a blank line or a line containing <code>---</code>; each block becomes a prompt step named “Text block N”.</p>
                   <label class="form-label" for="rawTextBlocks">Raw prompt blocks</label>
                   <textarea class="form-control" id="rawTextBlocks" name="rawTextBlocks" rows="10" placeholder="First raw prompt block...&#10;&#10;---&#10;&#10;Second raw prompt block..."><%= values.rawTextBlocks || '' %></textarea>
                   <div class="form-text">Use either this raw sequence or structured steps. Raw blocks take precedence when this field contains text.</div>
