@@ -5,6 +5,7 @@ const recipeController = require('../controllers/recipeController');
 const router = express.Router();
 
 router.get('/', pageController.dashboard);
+router.post('/run', pageController.quickRun);
 router.get('/projects', pageController.projects);
 router.get('/projects/resolve-folder', pageController.resolveProjectFolder);
 router.get('/projects/inspect-path', pageController.inspectProjectPath);

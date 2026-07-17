@@ -17,6 +17,28 @@ body {
 }
 
 .fw-black { font-weight: 900; }
+
+.codex-home { min-height: 72vh; }
+.codex-intro { max-width: 44rem; padding: 2.5rem 0 2rem; }
+.codex-intro h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 750; letter-spacing: -.045em; }
+.codex-intro p { color: #746b65; font-size: 1.08rem; }
+.codex-mark { align-items: center; background: #171513; border-radius: 1rem; color: white; display: inline-flex; font-size: 2rem; height: 3.25rem; justify-content: center; margin-bottom: 1.25rem; width: 3.25rem; }
+.prompt-composer { background: rgba(255,255,255,.94); border: 1px solid #d9d4cf; border-radius: 1.35rem; box-shadow: 0 18px 50px rgba(57,43,36,.12); max-width: 52rem; padding: 1rem; }
+.folder-picker-row { align-items: center; border-bottom: 1px solid #ece8e4; display: flex; gap: .65rem; padding: .25rem .25rem .8rem; }
+.folder-path-input { border: 0; flex: 1; font-size: .94rem; min-width: 0; outline: 0; }
+.folder-hint { color: #8b827c; font-size: .78rem; margin: .45rem .35rem 1rem; }
+.prompt-chain { display: grid; gap: .7rem; }
+.prompt-chain-item { align-items: start; background: #faf9f7; border: 1px solid #e7e3df; border-radius: .9rem; display: grid; gap: .6rem; grid-template-columns: 1.7rem 1fr 1.5rem; padding: .7rem; }
+.prompt-chain-item textarea { background: transparent; border: 0; outline: 0; resize: vertical; width: 100%; }
+.prompt-index { align-items: center; background: #e9e6e2; border-radius: 50%; display: flex; font-size: .75rem; font-weight: 700; height: 1.6rem; justify-content: center; width: 1.6rem; }
+.prompt-remove { background: none; border: 0; color: #8b827c; font-size: 1.35rem; line-height: 1; }
+.composer-actions { align-items: center; display: flex; justify-content: space-between; padding: 1rem .2rem 0; }
+.composer-actions .btn-link { color: #625a54; font-size: .9rem; text-decoration: none; }
+.quick-notes { color: #847b74; display: flex; font-size: .8rem; gap: 1.5rem; justify-content: center; max-width: 52rem; padding: 1rem; }
+.recent-work { max-width: 52rem; }
+.recent-work h2 { font-size: 1.15rem; margin: 0; }
+.recent-run { align-items: center; background: rgba(255,255,255,.72); border-top: 1px solid #ddd7d1; color: inherit; display: flex; justify-content: space-between; padding: .9rem .3rem; text-decoration: none; }
+.recent-run small { color: #847b74; display: block; }
 .eyebrow { color: #a24d32; font-weight: 900; letter-spacing: .04em; margin-bottom: .25rem; text-transform: uppercase; }
 
 .chef-navbar { background: linear-gradient(90deg, var(--chef-red), #ff8c42); border-bottom: 5px solid var(--chef-yellow); box-shadow: 0 8px 0 rgba(57,43,36,.08); }
