@@ -117,7 +117,6 @@ function normalizeProjectInput(input) {
   return {
     name: String(input.name || '').trim(),
     repoPath: String(input.repoPath || input.repo_path || '').trim(),
-    githubRepoSlug: String(input.githubRepoSlug || input.github_repo_slug || '').trim(),
     defaultBranch: String(input.defaultBranch ?? input.default_branch ?? 'main').trim(),
     packageManagerCommand: String(input.packageManagerCommand || input.package_manager_command || DEFAULT_COMMANDS.packageManagerCommand).trim(),
     testCommand: String(input.testCommand || input.test_command || DEFAULT_COMMANDS.testCommand).trim(),
@@ -145,14 +144,9 @@ function validateProjectPath(repoPath) {
   return { ok: true, repoPath: resolved, isGitRepository: fs.existsSync(path.join(resolved, '.git')) };
 }
 
-function isGitHubRepoSlug(value) {
-  return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value) && !value.includes('..');
-}
 function getHealthChecks(project) {
   const checks = [];
   const repoPath = project.repo_path || project.repoPath;
-  const githubRepoSlug = project.github_repo_slug || project.githubRepoSlug;
-  const githubEnabled = project.githubAutomationEnabled !== false && project.github_automation_enabled !== 0;
   const defaultBranch = project.default_branch || project.defaultBranch;
 
   checks.push({
@@ -167,13 +161,6 @@ function getHealthChecks(project) {
     label: 'Git repository available',
     ok: true,
     detail: repoPath && fs.existsSync(path.join(repoPath, '.git')) ? path.join(repoPath, '.git') : 'Not required for local-only runs.'
-  });
-
-  checks.push({
-    key: 'github_repo_slug_valid',
-    label: 'GitHub repo slug is valid',
-    ok: !githubEnabled || !githubRepoSlug || isGitHubRepoSlug(githubRepoSlug),
-    detail: githubRepoSlug || (githubEnabled ? 'Optional unless GitHub automation is used.' : 'GitHub automation disabled for local-only use.')
   });
 
   checks.push({
@@ -197,7 +184,6 @@ function validateProject(input) {
   } else {
     project.repoPath = repoPathValidation.repoPath;
   }
-  if (project.githubRepoSlug && !isGitHubRepoSlug(project.githubRepoSlug)) errors.push('GitHub repo slug must use owner/repo format.');
   if (!project.defaultBranch) errors.push('Default branch is required.');
 
   return { project, errors };
@@ -209,8 +195,7 @@ function withHealth(project) {
     ...project,
     health_checks: checks,
     health_status: checks.every((check) => check.ok) ? 'healthy' : 'needs_attention',
-    health_score: Math.round((checks.filter((check) => check.ok).length / checks.length) * 100),
-    github_repo_url: project.github_repo_slug ? `https://github.com/${project.github_repo_slug}` : project.github_repo_url
+    health_score: Math.round((checks.filter((check) => check.ok).length / checks.length) * 100)
   };
 }
 
@@ -237,13 +222,13 @@ function createProject(input) {
 
   return db.prepare(`
     INSERT INTO projects (
-      name, repo_path, github_repo_slug, default_branch,
-      package_manager_command, test_command, build_command, lint_command, description, safe_mode, github_repo_url
+      name, repo_path, default_branch,
+      package_manager_command, test_command, build_command, lint_command, description, safe_mode
     ) VALUES (
-      @name, @repoPath, @githubRepoSlug, @defaultBranch,
-      @packageManagerCommand, @testCommand, @buildCommand, @lintCommand, @description, @safeMode, @githubRepoUrl
+      @name, @repoPath, @defaultBranch,
+      @packageManagerCommand, @testCommand, @buildCommand, @lintCommand, @description, @safeMode
     )
-  `).run({ ...project, githubRepoUrl: project.githubRepoSlug ? `https://github.com/${project.githubRepoSlug}` : '' });
+  `).run(project);
 }
 
 function getOrCreateFolderProject(folderPath) {
@@ -275,7 +260,6 @@ module.exports = {
   getHealthChecks,
   getOrCreateFolderProject,
   getProjects,
-  isGitHubRepoSlug,
   validateProjectPath,
   validateRepoPath: validateProjectPath,
   normalizeProjectInput,

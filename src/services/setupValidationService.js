@@ -90,43 +90,9 @@ async function validateCodexSetup(overrides = {}) {
   return { ok: checks.every((check) => check.ok), checks };
 }
 
-async function validateGitHubSetup(overrides = {}) {
-  const settings = { ...rowsByKey(), ...overrides };
-  const enabled = appSettingsService.normalizeBoolean(settings.githubAutomationEnabled, true);
-  const checks = [{
-    key: 'github_automation_enabled',
-    label: 'GitHub automation is enabled',
-    ok: enabled,
-    skipped: !enabled,
-    detail: enabled ? 'GitHub PR/check/merge automation will be available.' : 'GitHub automation is disabled; runs stay local and do not require gh.'
-  }];
-  if (!enabled) return { ok: true, checks };
-
-  const command = settings.githubCliPath || 'gh';
-  const version = await runCommand(command, ['--version']);
-  checks.push({
-    key: 'github_cli_available',
-    label: 'GitHub CLI is available',
-    ok: version.ok,
-    detail: version.ok ? (version.stdout.split('\n')[0] || `${command} responded`) : (version.error?.code === 'ENOENT' ? `${command} was not found on PATH.` : version.stderr || version.error?.message || 'gh command failed.')
-  });
-  if (version.ok) {
-    const auth = await runCommand(command, ['auth', 'status']);
-    checks.push({
-      key: 'github_auth_ready',
-      label: 'GitHub CLI is authenticated',
-      ok: auth.ok,
-      detail: auth.ok ? 'gh auth status succeeded.' : auth.stderr || auth.stdout || 'Run `gh auth login`.'
-    });
-  } else {
-    checks.push({ key: 'github_auth_ready', label: 'GitHub CLI is authenticated', ok: false, detail: 'Skipped because gh is unavailable.' });
-  }
-  return { ok: checks.every((check) => check.ok), checks };
-}
-
 async function validateSetup(overrides = {}) {
-  const [codex, github] = await Promise.all([validateCodexSetup(overrides), validateGitHubSetup(overrides)]);
-  return { ok: codex.ok && github.ok, codex, github };
+  const codex = await validateCodexSetup(overrides);
+  return { ok: codex.ok, codex };
 }
 
-module.exports = { findUsableCodexCommand, validateCodexSetup, validateGitHubSetup, validateSetup };
+module.exports = { findUsableCodexCommand, validateCodexSetup, validateSetup };

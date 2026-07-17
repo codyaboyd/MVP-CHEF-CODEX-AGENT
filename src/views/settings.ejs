@@ -2,7 +2,7 @@
 <%
   const values = settings.reduce((all, setting) => ({ ...all, [setting.key]: setting.value }), {});
   const valueFor = (key, fallback = '') => values[key] ?? fallback;
-  const sensitiveKeys = new Set(['codexApiKey', 'githubToken']);
+  const sensitiveKeys = new Set(['codexApiKey']);
   const displayValue = (setting) => sensitiveKeys.has(setting.key) && setting.value ? '••••••••' : setting.value;
   const boolSelect = (key, label, help) => { %>
     <div class="col-md-6">
@@ -21,7 +21,7 @@
       <div class="paper-panel p-4 h-100">
         <p class="eyebrow">⚙️ Kitchen controls</p>
         <h1 class="fw-black">Settings</h1>
-        <p class="text-muted">Tune Codex execution, GitHub automation, safety rails, quota recovery, and the workbench display from one pantry.</p>
+        <p class="text-muted">Tune Codex execution, safety rails, quota recovery, and the workbench display from one pantry.</p>
         <div class="display-1">🧂</div>
       </div>
     </div>
@@ -33,7 +33,6 @@
           <span>Codex: <strong><%= valueFor('codexCommandPath', 'codex') %></strong></span>
           <span>Cooldown: <strong><%= valueFor('defaultCooldownMinutes', '60') %> min</strong></span>
           <span>Parallel runs: <strong><%= valueFor('maxParallelRuns', '1') %></strong></span>
-          <span>GitHub: <strong><%= valueFor('githubAutomationEnabled', 'true') === 'true' ? 'Optional enabled' : 'Local only' %></strong></span>
         </div>
       </div>
     </div>
@@ -98,42 +97,9 @@
 
       <div class="col-lg-6">
         <section class="paper-panel p-4 settings-section">
-          <p class="eyebrow">🐙 GitHub settings</p>
-          <h2 class="h4 fw-black">Optional branch and merge automation</h2>
-          <div class="row g-3">
-            <% boolSelect('githubAutomationEnabled', 'Use GitHub automation', 'Disable for local-only runs. When disabled, MVP Chef will not require gh, push branches, create PRs, or merge via GitHub.'); %>
-            <div class="col-md-6">
-              <label class="form-label fw-bold" for="githubCliPath">GitHub CLI path</label>
-              <input class="form-control" id="githubCliPath" name="githubCliPath" value="<%= valueFor('githubCliPath', 'gh') %>" placeholder="gh or /usr/local/bin/gh">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-bold" for="githubUsername">GitHub username</label>
-              <input class="form-control" id="githubUsername" name="githubUsername" value="<%= valueFor('githubUsername', '') %>">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-bold" for="githubDefaultOrg">Default GitHub org</label>
-              <input class="form-control" id="githubDefaultOrg" name="githubDefaultOrg" value="<%= valueFor('githubDefaultOrg', '') %>" placeholder="owner or organization">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-bold" for="githubToken">GitHub token</label>
-              <input class="form-control" id="githubToken" name="githubToken" type="password" value="<%= valueFor('githubToken', '') %>" autocomplete="off" placeholder="ghp_...">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-bold" for="defaultBranch">Default branch</label>
-              <input class="form-control" id="defaultBranch" name="defaultBranch" value="<%= valueFor('defaultBranch', 'main') %>">
-            </div>
-            <% boolSelect('autoMergeEnabled', 'Auto merge', 'Merge eligible pull requests after checks and approvals pass.'); %>
-            <% boolSelect('protectedMainMode', 'Protected main mode', 'Prefer pull requests over direct main-branch changes.'); %>
-          </div>
-        </section>
-      </div>
-
-      <div class="col-lg-6">
-        <section class="paper-panel p-4 settings-section">
           <p class="eyebrow">🛡️ Safety settings</p>
           <h2 class="h4 fw-black">Approval gates</h2>
           <div class="row g-3">
-            <% boolSelect('requireHumanApprovalBeforeMerge', 'Require approval', 'Pause before merge until a human approves the run.'); %>
             <% boolSelect('projectSafeModeDefault', 'Default project safe mode', 'Start new projects with stricter prompt linting enabled.'); %>
             <% boolSelect('secretScannerAllowOverride', 'Allow secrets scanner manual override', 'Permit explicit operator override of secret-scan blocks.'); %>
           </div>
@@ -196,9 +162,9 @@
   <% if (setupValidation) { %>
     <section class="paper-panel p-4 mt-4">
       <h2 class="h4 fw-black">Setup validation</h2>
-      <p class="text-muted">These readiness checks verify whether Codex and optional GitHub automation are ready before runs depend on them.</p>
+      <p class="text-muted">These readiness checks verify whether Codex is ready before runs depend on it.</p>
       <div class="row g-3">
-        <% [['Codex', setupValidation.codex], ['GitHub', setupValidation.github]].forEach(([groupName, group]) => { %>
+        <% [['Codex', setupValidation.codex]].forEach(([groupName, group]) => { %>
           <div class="col-lg-6">
             <div class="list-group list-group-flush settings-list">
               <div class="list-group-item"><strong><%= groupName %></strong><span><%= group.ok ? '✅ Ready' : '🛠️ Needs attention' %></span></div>

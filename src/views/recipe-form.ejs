@@ -33,7 +33,7 @@
           <div class="col-md-6">
             <label class="form-label" for="approvalMode">Recipe approval mode</label>
             <select class="form-select" id="approvalMode" name="approvalMode">
-              <% [['manual_steps','Manual approval steps only'], ['none','No approvals'], ['before_step','Before every step'], ['after_codex','After Codex'], ['before_commit','Before commit'], ['before_merge','Before PR merge'], ['all','All approval points']].forEach(([value, label]) => { %>
+              <% [['manual_steps','Manual approval steps only'], ['none','No approvals'], ['before_step','Before every step'], ['after_codex','After Codex'], ['before_commit','Before commit'], ['all','All approval points']].forEach(([value, label]) => { %>
                 <option value="<%= value %>" <%= (values.approvalMode || values.approval_mode || 'manual_steps') === value ? 'selected' : '' %>><%= label %></option>
               <% }) %>
             </select>
@@ -96,7 +96,7 @@
                   <div class="col-md-4">
                     <label class="form-label">Approval override</label>
                     <select class="form-select" name="stepApprovalOverrides">
-                      <% [['inherit','Use recipe mode'], ['none','No approvals'], ['before_step','Before this step'], ['after_codex','After Codex'], ['before_commit','Before commit'], ['before_merge','Before PR merge'], ['all','All approval points']].forEach(([value, label]) => { %>
+                      <% [['inherit','Use recipe mode'], ['none','No approvals'], ['before_step','Before this step'], ['after_codex','After Codex'], ['before_commit','Before commit'], ['all','All approval points']].forEach(([value, label]) => { %>
                         <option value="<%= value %>" <%= (step.approvalOverride || step.approval_override || 'inherit') === value ? 'selected' : '' %>><%= label %></option>
                       <% }) %>
                     </select>

@@ -130,7 +130,7 @@ class GitManager {
     const leaked = secrets.filter((secret) => patch.includes(secret.value));
     if (leaked.length) {
       const labels = leaked.map((secret) => secret.key).join(', ');
-      throw new Error(`Secret values were detected in committed changes for: ${labels}. Remove the secret before creating or merging a pull request.`);
+      throw new Error(`Secret values were detected in committed changes for: ${labels}. Remove the secret before continuing.`);
     }
     return true;
   }

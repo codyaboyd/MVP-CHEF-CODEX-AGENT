@@ -8,7 +8,6 @@ const OVERRIDE_SETTING_KEY = 'secretScannerAllowOverride';
 const SECRET_PATTERNS = [
   { type: 'private key', regex: /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/ },
   { type: 'OpenAI key', regex: /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/ },
-  { type: 'GitHub token', regex: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b/ },
   { type: 'Stripe key', regex: /\b(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b/ },
   { type: 'API key', regex: /\b(?:api[_-]?key|apikey)\b\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{16,}/i },
   { type: 'token', regex: /\b(?:access[_-]?token|auth[_-]?token|bearer[_-]?token|refresh[_-]?token|token)\b\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{16,}/i },

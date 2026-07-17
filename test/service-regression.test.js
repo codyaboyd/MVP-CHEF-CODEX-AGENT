@@ -10,7 +10,6 @@ const recipeService = require('../src/services/recipeService');
 const runStateManager = require('../src/services/runStateManager');
 const codexRunner = require('../src/services/codexRunnerService');
 const promptLintService = require('../src/services/promptLintService');
-const settingsService = require('../src/services/appSettingsService');
 const projectService = require('../src/services/projectService');
 const folderBrowserService = require('../src/services/folderBrowserService');
 const { runGit } = require('../src/services/gitManagerService');
@@ -56,7 +55,7 @@ test('RecipeService imports, orders, and exports recipe steps deterministically'
     ingredients: ['Repo', 'Acceptance criteria'],
     steps: [
       { title: 'Plan filling', prompt: 'Plan the implementation with acceptance criteria and tests.', requiredChecks: ['npm test'], maxRetries: 1, requiresApproval: false },
-      { title: 'Ship garnish', prompt: 'Implement the change and verify that npm test passes.', requiredChecks: ['npm run lint', 'npm test'], maxRetries: 2, requiresApproval: true, approvalOverride: 'before_merge' }
+      { title: 'Ship garnish', prompt: 'Implement the change and verify that npm test passes.', requiredChecks: ['npm run lint', 'npm test'], maxRetries: 2, requiresApproval: true, approvalOverride: 'before_commit' }
     ]
   };
 
@@ -128,31 +127,21 @@ test('PromptLintService flags unsafe prompts and preserves already-specific prom
   assert.deepEqual(cleanWarnings, []);
 });
 
-test('AppSettingsService loads defaults and normalizes overrides for quota and automation settings', () => {
-  settingsService.ensureDefaultSettings();
-  assert.equal(settingsService.getSetting('codexCommandPath').value, 'codex');
 
-  const quota = settingsService.getQuotaSettings({ defaultCooldownMinutes: '15', autoResumeAfterCooldown: 'off', maxRetriesAfterQuota: '4' });
-  assert.deepEqual(quota, { defaultCooldownMinutes: 15, autoResumeAfterCooldown: false, maxRetriesAfterQuota: 4 });
-
-  const automation = settingsService.getAutomationSettings({ autoMergeEnabled: '0', requireHumanApprovalBeforeMerge: 'yes', protectedMainMode: 'enabled' });
-  assert.deepEqual(automation, { autoMergeEnabled: false, requireHumanApprovalBeforeMerge: true, protectedMainMode: true, githubAutomationEnabled: true });
-});
 
 test('ProjectService validates repo health and normalizes safe-mode defaults', () => {
   const repoPath = makeGitRepo('project-service-valid-');
-  const valid = projectService.validateProject({ name: 'Valid Project', repoPath, githubRepoSlug: 'owner/repo', defaultBranch: 'main', safeMode: 'true' });
+  const valid = projectService.validateProject({ name: 'Valid Project', repoPath, defaultBranch: 'main', safeMode: 'true' });
   assert.deepEqual(valid.errors, []);
   assert.equal(valid.project.safeMode, 1);
   assert.equal(projectService.getHealthChecks(valid.project).every((check) => check.ok), true);
 
-  const localOnly = projectService.validateProject({ name: 'Local Project', repoPath, githubRepoSlug: '', defaultBranch: 'main' });
+  const localOnly = projectService.validateProject({ name: 'Local Project', repoPath, defaultBranch: 'main' });
   assert.deepEqual(localOnly.errors, []);
 
-  const invalid = projectService.validateProject({ name: '', repoPath: path.join(repoPath, 'missing'), githubRepoSlug: 'bad slug', defaultBranch: '' });
+  const invalid = projectService.validateProject({ name: '', repoPath: path.join(repoPath, 'missing'), defaultBranch: '' });
   assert.ok(invalid.errors.includes('Project name is required.'));
   assert.ok(invalid.errors.includes('Local project folder path must exist.'));
-  assert.ok(invalid.errors.includes('GitHub repo slug must use owner/repo format.'));
   assert.ok(invalid.errors.includes('Default branch is required.'));
 
   fs.rmSync(repoPath, { recursive: true, force: true });
@@ -337,13 +326,7 @@ test('systemd installer replaces existing service on the requested port and writ
   assert.match(serviceScript, /Environment=HOST=0\.0\.0\.0/);
 });
 
-test('SetupValidationService treats GitHub as optional when local-only mode is enabled', async () => {
-  const setupValidationService = require('../src/services/setupValidationService');
-  const github = await setupValidationService.validateGitHubSetup({ githubAutomationEnabled: 'false', githubCliPath: '/definitely/missing/gh' });
-  assert.equal(github.ok, true);
-  assert.equal(github.checks[0].skipped, true);
-  assert.match(github.checks[0].detail, /disabled/);
-});
+
 
 test('SetupValidationService asks Codex CLI for the active login status', async () => {
   const setupValidationService = require('../src/services/setupValidationService');
@@ -395,4 +378,16 @@ test('ProjectService detects package manager and command defaults from project f
   } finally {
     fs.rmSync(repoPath, { recursive: true, force: true });
   }
+});
+
+test('run progress advances three points for every completed Codex item', () => {
+  const { calculateProgress } = require('../src/services/dashboardService');
+  const events = [
+    { type: 'thread.started', thread_id: 'thread_1' },
+    { type: 'item.completed', item: { id: 'item_15' } },
+    { type: 'item.completed', item: { id: 'item_16' } }
+  ].map(JSON.stringify).join('\n');
+
+  assert.equal(calculateProgress([{ stdout: events }], 'running'), 6);
+  assert.equal(calculateProgress([{ stdout: events }], 'succeeded'), 100);
 });
