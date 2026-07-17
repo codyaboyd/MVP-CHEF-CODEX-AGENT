@@ -4,12 +4,32 @@ const request = require('supertest');
 const app = require('../src/server');
 const db = require('../src/db');
 
-test('home page renders seeded recipe book', async () => {
+test('home page renders the folder-first Codex prompt composer', async () => {
   const response = await request(app).get('/');
 
   assert.equal(response.status, 200);
   assert.match(response.text, /MVP Chef Codex/);
-  assert.match(response.text, /Product Brief Soufflé/);
+  assert.match(response.text, /What do you want to build/);
+  assert.match(response.text, /Add another prompt/);
+});
+
+test('quick run accepts an ordinary folder and chains prompts in order', async () => {
+  const response = await request(app)
+    .post('/run')
+    .type('form')
+    .send({ folderPath: process.cwd(), prompts: ['Inspect the folder.', 'Summarize what you found.'] });
+
+  assert.equal(response.status, 302);
+  assert.match(response.headers.location, /^\/runs\/\d+$/);
+  const runId = Number(response.headers.location.split('/').pop());
+  const steps = db.prepare(`
+    SELECT recipe_steps.prompt
+    FROM run_steps
+    JOIN recipe_steps ON recipe_steps.id = run_steps.recipe_step_id
+    WHERE run_steps.run_id = ?
+    ORDER BY run_steps.step_order
+  `).all(runId);
+  assert.deepEqual(steps.map((step) => step.prompt), ['Inspect the folder.', 'Summarize what you found.']);
 });
 
 test('health endpoint reports service readiness', async () => {

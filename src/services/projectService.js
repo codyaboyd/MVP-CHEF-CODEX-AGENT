@@ -246,11 +246,34 @@ function createProject(input) {
   `).run({ ...project, githubRepoUrl: project.githubRepoSlug ? `https://github.com/${project.githubRepoSlug}` : '' });
 }
 
+function getOrCreateFolderProject(folderPath) {
+  const validation = validateProjectPath(folderPath);
+  if (!validation.ok) {
+    const error = new Error(validation.message);
+    error.validationErrors = [validation.message];
+    throw error;
+  }
+
+  const existing = db.prepare('SELECT * FROM projects WHERE repo_path = ? ORDER BY id ASC LIMIT 1').get(validation.repoPath);
+  if (existing) return existing;
+
+  const detected = detectProjectCommands(validation.repoPath);
+  const result = createProject({
+    name: path.basename(validation.repoPath) || validation.repoPath,
+    repoPath: validation.repoPath,
+    defaultBranch: 'main',
+    description: 'Added from the Codex prompt composer.',
+    ...(detected.commands || {})
+  });
+  return db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid);
+}
+
 module.exports = {
   DEFAULT_COMMANDS,
   createProject,
   detectProjectCommands,
   getHealthChecks,
+  getOrCreateFolderProject,
   getProjects,
   isGitHubRepoSlug,
   validateProjectPath,

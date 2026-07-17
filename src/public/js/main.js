@@ -1,5 +1,47 @@
 document.documentElement.classList.add('js-enabled');
 
+document.querySelectorAll('[data-quick-run-form]').forEach((form) => {
+  const chain = form.querySelector('[data-prompt-chain]');
+  const folderInput = form.querySelector('[data-project-path]');
+  const folderSelector = form.querySelector('[data-quick-folder-selector]');
+  const folderStatus = form.querySelector('[data-quick-folder-status]');
+
+  function renumberPrompts() {
+    chain.querySelectorAll('[data-prompt-chain-item]').forEach((item, index) => {
+      item.querySelector('.prompt-index').textContent = index + 1;
+      item.querySelector('[data-remove-prompt]').hidden = chain.children.length === 1;
+    });
+  }
+
+  form.querySelector('[data-add-prompt]').addEventListener('click', () => {
+    const item = chain.firstElementChild.cloneNode(true);
+    item.querySelector('textarea').value = '';
+    chain.append(item);
+    renumberPrompts();
+    item.querySelector('textarea').focus();
+  });
+  chain.addEventListener('click', (event) => {
+    if (!event.target.matches('[data-remove-prompt]') || chain.children.length === 1) return;
+    event.target.closest('[data-prompt-chain-item]').remove();
+    renumberPrompts();
+  });
+  folderSelector.addEventListener('change', async () => {
+    const file = folderSelector.files && folderSelector.files[0];
+    if (!file) return;
+    const folderName = (file.webkitRelativePath || file.name).split('/')[0];
+    folderStatus.textContent = `Resolving ${folderName}…`;
+    const response = await fetch(`/projects/resolve-folder?name=${encodeURIComponent(folderName)}`);
+    const result = await response.json();
+    if (result.ok) {
+      folderInput.value = result.path;
+      folderStatus.textContent = `Ready to work in ${result.path}`;
+    } else {
+      folderStatus.textContent = `Selected ${folderName}. Paste its absolute server path to continue.`;
+    }
+  });
+  renumberPrompts();
+});
+
 function refreshStepNumbers(list) {
   list.querySelectorAll('[data-step-editor]').forEach((step, index) => {
     step.querySelector('.step-number').textContent = `Step ${index + 1}`;

@@ -13,8 +13,46 @@ const path = require('node:path');
 function dashboard(req, res) {
   res.render('dashboard', {
     title: 'Dashboard',
-    ...dashboardService.getDashboard()
+    ...dashboardService.getDashboard(),
+    composer: { folderPath: '', prompts: [''] },
+    composerErrors: []
   });
+}
+
+async function quickRun(req, res, next) {
+  const prompts = (Array.isArray(req.body.prompts) ? req.body.prompts : [req.body.prompts])
+    .map((prompt) => String(prompt || '').trim())
+    .filter(Boolean);
+  const composer = { folderPath: String(req.body.folderPath || '').trim(), prompts: prompts.length ? prompts : [''] };
+  const validation = projectService.validateProjectPath(composer.folderPath);
+  const errors = [!validation.ok ? validation.message : null, !prompts.length ? 'Type at least one prompt.' : null].filter(Boolean);
+
+  if (errors.length) {
+    res.status(400).render('dashboard', {
+      title: 'Dashboard',
+      ...dashboardService.getDashboard(),
+      composer,
+      composerErrors: errors
+    });
+    return;
+  }
+
+  try {
+    const project = projectService.getOrCreateFolderProject(validation.repoPath);
+    const recipe = recipeService.createRecipe({
+      title: `Prompt run · ${path.basename(validation.repoPath)}`,
+      phase: '1.0.0',
+      summary: prompts.length === 1 ? prompts[0].slice(0, 160) : `${prompts.length} chained prompts`,
+      projectId: project.id,
+      approvalMode: 'none',
+      steps: prompts.map((prompt, index) => ({ title: `Prompt ${index + 1}`, prompt }))
+    });
+    const run = await recipeRunEngine.startRunFromRecipe(recipe.id, { autoExecute: false });
+    recipeRunEngine.resumeRun(run.id, { mockMode: 'auto', gitEnabled: false, githubAutomation: false }).catch((error) => console.error(error));
+    res.redirect(`/runs/${run.id}`);
+  } catch (error) {
+    next(error);
+  }
 }
 
 function projects(req, res) {
@@ -331,6 +369,7 @@ function updateSettings(req, res) {
 
 module.exports = {
   dashboard,
+  quickRun,
   projects,
   createProject,
   resolveProjectFolder,
