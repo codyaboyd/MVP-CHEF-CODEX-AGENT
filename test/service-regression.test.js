@@ -180,11 +180,16 @@ test('CodexRunner reports a missing CLI and marks the run step failed', async ()
     repoPath,
     prompt: 'Verify missing CLI handling. Acceptance criteria: the run fails. Verification: npm test passes.',
     codexCommand: path.join(repoPath, 'missing-codex')
-  }), (error) => error.code === 'ENOENT');
+  }), (error) => {
+    assert.equal(error.code, 'ENOENT');
+    assert.match(error.message, /Configure an executable command or absolute path in Settings/);
+    return true;
+  });
 
   const savedStep = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(step.lastInsertRowid);
   assert.equal(savedStep.status, 'failed');
-  assert.match(savedStep.stderr_log, /spawn .*missing-codex ENOENT/);
+  assert.match(savedStep.stderr_log, /Codex CLI executable .*missing-codex.* was not found/);
+  assert.match(savedStep.error_message, /available to the app service user/);
 
   db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
   fs.rmSync(repoPath, { recursive: true, force: true });
