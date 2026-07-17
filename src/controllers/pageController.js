@@ -20,6 +20,15 @@ function dashboard(req, res) {
   });
 }
 
+function renderComposerError(res, composer, message, status = 400) {
+  res.status(status).render('dashboard', {
+    title: 'Dashboard',
+    ...dashboardService.getDashboard(),
+    composer,
+    composerErrors: [message]
+  });
+}
+
 async function quickRun(req, res, next) {
   const prompts = (Array.isArray(req.body.prompts) ? req.body.prompts : [req.body.prompts])
     .map((prompt) => String(prompt || '').trim())
@@ -40,6 +49,9 @@ async function quickRun(req, res, next) {
 
   try {
     const project = projectService.getOrCreateFolderProject(validation.repoPath);
+    // Check before creating the one-off recipe so a locked project does not
+    // leave an orphaned recipe behind.
+    runStateManager.assertProjectAvailable(project.id);
     const recipe = recipeService.createRecipe({
       title: `Prompt run · ${path.basename(validation.repoPath)}`,
       phase: '1.0.0',
@@ -52,6 +64,15 @@ async function quickRun(req, res, next) {
     recipeRunEngine.resumeRun(run.id, { gitEnabled: false, githubAutomation: false }).catch((error) => console.error(error));
     res.redirect(`/runs/${run.id}`);
   } catch (error) {
+    if (error.code === 'PROJECT_RUN_LOCKED') {
+      const existingRunId = Number(error.lock?.run_id || error.activeRun?.id);
+      if (Number.isInteger(existingRunId) && existingRunId > 0) {
+        res.redirect(`/runs/${existingRunId}`);
+        return;
+      }
+      renderComposerError(res, composer, 'This folder already has an active run. Open or cancel that run before starting another.', 409);
+      return;
+    }
     next(error);
   }
 }

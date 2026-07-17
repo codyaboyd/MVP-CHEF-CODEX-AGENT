@@ -39,6 +39,35 @@ test('quick run accepts an ordinary folder and chains prompts in order', async (
   assert.deepEqual(steps.map((step) => step.prompt), ['Inspect the folder.', 'Summarize what you found.']);
 });
 
+test('quick run redirects to the active folder run instead of showing a server error', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const projectService = require('../src/services/projectService');
+  const runStateManager = require('../src/services/runStateManager');
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'quick-run-locked-'));
+  const project = projectService.getOrCreateFolderProject(repoPath);
+  const run = db.prepare(`
+    INSERT INTO runs (project_id, status, created_at, updated_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  `).run(project.id, 'running');
+  runStateManager.acquireProjectLock(project.id, run.lastInsertRowid);
+
+  const response = await request(app)
+    .post('/run')
+    .type('form')
+    .send({ folderPath: repoPath, prompts: 'Add micro-animations' });
+
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.location, `/runs/${run.lastInsertRowid}`);
+  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM recipes WHERE project_id = ?').get(project.id).total, 0);
+
+  runStateManager.releaseProjectLock(project.id, run.lastInsertRowid);
+  db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.id);
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});
+
 test('health endpoint reports service readiness', async () => {
   const response = await request(app).get('/healthz');
 
