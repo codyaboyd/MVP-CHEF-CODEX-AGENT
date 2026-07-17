@@ -168,25 +168,23 @@ process.exit(23);
   }
 });
 
-test('CodexRunner auto mock mode falls back when the CLI command is unavailable', async () => {
-  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-auto-mock-'));
+test('CodexRunner reports a missing CLI and marks the run step failed', async () => {
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-missing-cli-'));
   execFileSync('git', ['init'], { cwd: repoPath });
   const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('pending');
   const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'pending');
 
-  const result = await codexRunner.executeStep({
+  await assert.rejects(codexRunner.executeStep({
     runId: run.lastInsertRowid,
     runStepId: step.lastInsertRowid,
     repoPath,
-    prompt: 'Implement a mock-mode fallback. Acceptance criteria: fallback is logged. Verification: npm test passes.',
-    codexCommand: path.join(repoPath, 'missing-codex'),
-    mockMode: 'auto'
-  });
+    prompt: 'Verify missing CLI handling. Acceptance criteria: the run fails. Verification: npm test passes.',
+    codexCommand: path.join(repoPath, 'missing-codex')
+  }), (error) => error.code === 'ENOENT');
 
   const savedStep = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(step.lastInsertRowid);
-  assert.equal(result.mocked, true);
-  assert.equal(savedStep.status, 'succeeded');
-  assert.match(savedStep.stderr_log, /Codex CLI unavailable; using mock runner/);
+  assert.equal(savedStep.status, 'failed');
+  assert.match(savedStep.stderr_log, /spawn .*missing-codex ENOENT/);
 
   db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
   fs.rmSync(repoPath, { recursive: true, force: true });

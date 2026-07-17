@@ -4,6 +4,10 @@ const request = require('supertest');
 const app = require('../src/server');
 const db = require('../src/db');
 const pathIsAbsolute = require('node:path').isAbsolute;
+const FAKE_CODEX_OPTIONS = Object.freeze({
+  codexCommand: process.execPath,
+  codexArgs: ['-e', 'process.stdin.resume(); process.stdin.on(\'end\', () => console.log(\'Codex completed\'))']
+});
 
 test('home page renders the folder-first Codex prompt composer', async () => {
   const response = await request(app).get('/');
@@ -262,7 +266,6 @@ test('settings page saves GitHub and Codex auth configuration', async () => {
         codexModel: 'gpt-test',
         codexApprovalPolicy: 'never',
         codexSandboxMode: 'danger-full-access',
-        mockRunnerMode: 'false',
         defaultBranch: 'trunk',
         githubCliPath: '/usr/bin/gh',
         githubUsername: 'chef-user',
@@ -364,7 +367,7 @@ test('projects page manages project metadata and validates project health', asyn
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.id);
 });
 
-test('CodexRunner mock mode saves redacted run step logs', async () => {
+test('CodexRunner saves redacted CLI output in run step logs', async () => {
   const os = require('node:os');
   const fs = require('node:fs');
   const path = require('node:path');
@@ -380,14 +383,14 @@ test('CodexRunner mock mode saves redacted run step logs', async () => {
     runStepId: step.lastInsertRowid,
     repoPath,
     prompt: 'Use sk-test-secret-value safely.',
-    mockMode: true
+    codexCommand: process.execPath,
+    codexArgs: ['-e', 'process.stdin.on(\'data\', chunk => process.stdout.write(chunk))']
   });
 
   const savedStep = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(step.lastInsertRowid);
   assert.equal(result.code, 0);
-  assert.equal(result.mocked, true);
   assert.equal(savedStep.status, 'succeeded');
-  assert.match(savedStep.stdout_log, /Mock Codex runner completed/);
+  assert.match(savedStep.stdout_log, /\[REDACTED:OPENAI_API_KEY\]/);
   assert.doesNotMatch(`${savedStep.stdout_log}\n${savedStep.stderr_log || ''}`, /sk-test-secret-value/);
 
   db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
@@ -412,7 +415,6 @@ test('CodexRunner spawns commands in repo path, streams logs, and captures exit 
     codexCommand: process.execPath,
     codexArgs: ['-e', 'process.stdin.resume(); process.stdin.on(\'data\', () => {}); console.error(process.cwd()); process.exit(7);'],
     retries: 1,
-    mockMode: false
   }), /Codex exited with code 7/);
 
   const savedStep = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(step.lastInsertRowid);
@@ -444,7 +446,6 @@ test('CodexRunner can cancel an active spawned process', async () => {
     codexCommand: process.execPath,
     codexArgs: ['-e', 'process.stdin.resume(); setTimeout(() => {}, 30000);'],
     timeoutMs: 30000,
-    mockMode: false
   });
 
   await new Promise((resolve) => setTimeout(resolve, 100));
@@ -473,14 +474,14 @@ test('RecipeRunEngine starts a recipe run, creates pending steps, and executes t
   db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
     .run(recipe.lastInsertRowid, 2, 'Second', 'Do second.');
 
-  const run = await engine.startRunFromRecipe(recipe.lastInsertRowid, { mockMode: true });
+  const run = await engine.startRunFromRecipe(recipe.lastInsertRowid, { ...FAKE_CODEX_OPTIONS });
   const savedRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(run.id);
   const steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(run.id);
 
   assert.equal(savedRun.status, 'succeeded');
   assert.deepEqual(steps.map((step) => step.step_order), [1, 2]);
   assert.deepEqual(steps.map((step) => step.status), ['succeeded', 'succeeded']);
-  assert.match(steps[0].stdout_log, /Mock Codex runner completed/);
+  assert.match(steps[0].stdout_log, /Codex completed/);
   assert.equal(db.prepare('SELECT COUNT(*) AS total FROM run_step_checks WHERE run_id = ?').get(run.id).total, 0);
 
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
@@ -504,14 +505,13 @@ test('RecipeRunEngine stops on failure and resumes from the failed step', async 
   const failed = await engine.executeRun(created.id, {
     codexCommand: process.execPath,
     codexArgs: ['-e', 'process.exit(9);'],
-    mockMode: false
   });
   assert.equal(failed.status, 'failed');
   let steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(created.id);
   assert.equal(steps[0].status, 'failed');
   assert.equal(steps[1].status, 'pending');
 
-  const resumed = await engine.resumeRun(created.id, { mockMode: true });
+  const resumed = await engine.resumeRun(created.id, { ...FAKE_CODEX_OPTIONS });
   steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(created.id);
   assert.equal(resumed.status, 'succeeded');
   assert.deepEqual(steps.map((step) => step.status), ['succeeded', 'succeeded']);
@@ -532,7 +532,7 @@ test('RecipeRunEngine leaves testing to Codex instead of running configured gate
     .run(recipe.lastInsertRowid, 1, 'Only', 'Do only.', 'test');
 
   const created = await engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false });
-  const completed = await engine.executeRun(created.id, { mockMode: true });
+  const completed = await engine.executeRun(created.id, { ...FAKE_CODEX_OPTIONS });
   const step = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
   assert.equal(completed.status, 'succeeded');
   assert.equal(step.status, 'succeeded');
@@ -612,7 +612,6 @@ test('failure recovery tools persist actions and expose reports, logs, and retry
   await engine.executeRun(created.id, {
     codexCommand: process.execPath,
     codexArgs: ['-e', 'console.error("boom"); process.exit(4);'],
-    mockMode: false
   });
   const failedStep = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
 
@@ -858,7 +857,6 @@ test('CodexRunner detects quota text and marks a step waiting_for_quota without 
     codexCommand: process.execPath,
     codexArgs: ['-e', 'console.error("Too many requests: usage limit exhausted; refill soon"); process.exit(1);'],
     retries: 3,
-    mockMode: false
   }), (error) => error.code === 'QUOTA_LIMIT_DETECTED');
 
   const savedRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(run.lastInsertRowid);
@@ -889,7 +887,6 @@ test('RecipeRunEngine pauses on quota and does not start the next prompt until c
   const waiting = await engine.executeRun(created.id, {
     codexCommand: process.execPath,
     codexArgs: ['-e', 'console.error("rate limit exhausted until refill"); process.exit(1);'],
-    mockMode: false,
     defaultCooldownMinutes: 5,
     autoResumeAfterCooldown: false
   });
@@ -900,13 +897,13 @@ test('RecipeRunEngine pauses on quota and does not start the next prompt until c
   assert.equal(steps[1].status, 'pending');
   assert.ok(waiting.quota_refill_at);
 
-  const stillWaiting = await engine.resumeRun(created.id, { mockMode: true, autoResumeAfterCooldown: false });
+  const stillWaiting = await engine.resumeRun(created.id, { ...FAKE_CODEX_OPTIONS, autoResumeAfterCooldown: false });
   steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(created.id);
   assert.equal(stillWaiting.status, 'waiting_for_quota');
   assert.equal(steps[1].status, 'pending');
 
   db.prepare('UPDATE runs SET quota_refill_at = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), created.id);
-  const resumed = await engine.resumeRun(created.id, { mockMode: true, autoResumeAfterCooldown: false });
+  const resumed = await engine.resumeRun(created.id, { ...FAKE_CODEX_OPTIONS, autoResumeAfterCooldown: false });
   steps = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order').all(created.id);
   assert.equal(resumed.status, 'succeeded');
   assert.deepEqual(steps.map((step) => step.status), ['succeeded', 'succeeded']);
@@ -927,7 +924,7 @@ test('human approval modes pause before a step and expose approval actions', asy
     .run(recipe.lastInsertRowid, 1, 'Review me', 'Do reviewed work.');
 
   const created = await engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false });
-  const waiting = await engine.executeRun(created.id, { mockMode: true });
+  const waiting = await engine.executeRun(created.id, { ...FAKE_CODEX_OPTIONS });
   let step = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
   assert.equal(waiting.status, 'waiting_for_approval');
   assert.equal(step.status, 'waiting_for_approval');
@@ -941,7 +938,7 @@ test('human approval modes pause before a step and expose approval actions', asy
   assert.match(detail.text, /Skip step/);
   assert.match(detail.text, /Cancel run/);
 
-  const resumed = await engine.resumeRun(created.id, { mockMode: true, approved: true, approvedPoint: 'before_step' });
+  const resumed = await engine.resumeRun(created.id, { ...FAKE_CODEX_OPTIONS, approved: true, approvedPoint: 'before_step' });
   step = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
   assert.equal(resumed.status, 'succeeded');
   assert.equal(step.status, 'succeeded');
@@ -1053,13 +1050,13 @@ test('RecipeRunEngine warns on prompt lint findings and only blocks them in safe
   };
 
   const normalRecipeId = createRecipe(normalProject.lastInsertRowid, 'Prompt Lint Warning Cake');
-  const normalRun = await engine.startRunFromRecipe(normalRecipeId, { mockMode: true });
+  const normalRun = await engine.startRunFromRecipe(normalRecipeId, { ...FAKE_CODEX_OPTIONS });
   const normalStep = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(normalRun.id);
   assert.equal(normalRun.status, 'succeeded');
   assert.match(normalStep.stdout_log, /\[PromptLint\] Warnings:/);
 
   const safeRecipeId = createRecipe(safeProject.lastInsertRowid, 'Prompt Lint Safe Cake');
-  const safeRun = await engine.startRunFromRecipe(safeRecipeId, { mockMode: true });
+  const safeRun = await engine.startRunFromRecipe(safeRecipeId, { ...FAKE_CODEX_OPTIONS });
   const safeStep = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(safeRun.id);
   assert.equal(safeRun.status, 'failed');
   assert.equal(safeStep.status, 'failed');

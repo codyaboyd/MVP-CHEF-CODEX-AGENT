@@ -331,7 +331,6 @@ async function executeRun(runId, options = {}) {
         repoPath: project.repo_path,
         prompt: stepPrompt,
         retries: recipeStep.retryCount,
-        mockMode: options.mockMode ?? 'auto',
         codexCommand: options.codexCommand,
         codexArgs: options.codexArgs,
         timeoutMs: options.timeoutMs

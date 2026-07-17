@@ -91,15 +91,6 @@
               </select>
               <div class="form-text">Limits what Codex can access while running. <strong>Workspace write</strong> lets it edit the project; <strong>Read only</strong> is for inspection; <strong>Full access</strong> removes filesystem limits.</div>
             </div>
-            <div class="col-12">
-              <label class="form-label fw-bold" for="mockRunnerMode">Mock runner mode</label>
-              <select class="form-select" id="mockRunnerMode" name="mockRunnerMode">
-                <% [['auto','Auto fallback'], ['true','Always mock'], ['false','Use real CLI']].forEach(([value, label]) => { %>
-                  <option value="<%= value %>" <%= valueFor('mockRunnerMode', 'auto') === value ? 'selected' : '' %>><%= label %></option>
-                <% }) %>
-              </select>
-              <div class="form-text">Mock runner is a local dry-run simulator for demos and setup troubleshooting. Choose <strong>Use real CLI</strong> to require Codex; <strong>Auto fallback</strong> only mocks when Codex cannot be launched.</div>
-            </div>
           </div>
         </section>
       </div>

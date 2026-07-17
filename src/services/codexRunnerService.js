@@ -119,21 +119,9 @@ function validateRepoPath(repoPath) {
   return resolved;
 }
 
-function shouldUseMock(mode) {
-  return mode === true || mode === 'true' || mode === 'always' || process.env.CODEX_RUNNER_MOCK === 'true';
-}
-
 function buildCodexArgs(prompt, extraArgs = []) {
   // Prompt text is written to stdin instead of interpolated into shell commands or argv.
   return extraArgs.length ? extraArgs : ['exec', '--stdin'];
-}
-
-function runMock({ runStepId, prompt, redactor }) {
-  return new Promise((resolve) => {
-    const stdout = redactor(`Mock Codex runner started.\nPrompt length: ${prompt.length} characters.\nMock Codex runner completed.\n`);
-    appendRunStepLog(runStepId, 'stdout', stdout);
-    resolve({ code: 0, signal: null, stdout, stderr: '', mocked: true });
-  });
 }
 
 function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, redactor }) {
@@ -202,8 +190,7 @@ async function executeStep(options) {
     codexCommand = DEFAULT_CODEX_COMMAND,
     codexArgs = [],
     timeoutMs = DEFAULT_TIMEOUT_MS,
-    retries = 0,
-    mockMode = 'auto'
+    retries = 0
   } = options;
 
   const safeRepoPath = validateRepoPath(repoPath);
@@ -221,9 +208,7 @@ async function executeStep(options) {
     appendRunStepLog(runStepId, 'stdout', redactor(`\n[CodexRunner] Attempt ${attempt} of ${maxAttempts}.\n`));
 
     try {
-      const result = shouldUseMock(mockMode)
-        ? await runMock({ runStepId, prompt, redactor })
-        : await spawnCodex({ command: codexCommand, args, repoPath: safeRepoPath, prompt, timeoutMs, runStepId, redactor });
+      const result = await spawnCodex({ command: codexCommand, args, repoPath: safeRepoPath, prompt, timeoutMs, runStepId, redactor });
 
       if (detectQuotaLimit(result.stdout, result.stderr)) {
         const quotaError = new Error('Codex quota or rate limit detected.');
@@ -249,14 +234,6 @@ async function executeStep(options) {
       error.result = result;
       throw error;
     } catch (error) {
-      if (error.code === 'ENOENT' && mockMode === 'auto') {
-        appendRunStepLog(runStepId, 'stderr', '[CodexRunner] Codex CLI unavailable; using mock runner.\n');
-        const result = await runMock({ runStepId, prompt, redactor });
-        updateRunStep(runStepId, { status: 'succeeded', completed_at: nowSql(), error_message: null });
-        updateRunStatus(runId, 'succeeded', { completed_at: nowSql(), error_message: null });
-        return { ...result, attempt };
-      }
-
       const quotaDetected = error.code === 'QUOTA_LIMIT_DETECTED' || detectQuotaLimit(error.message, error.result?.stdout, error.result?.stderr);
       const message = redactor(error.message);
       appendRunStepLog(runStepId, 'stderr', `[CodexRunner] ${message}\n`);
