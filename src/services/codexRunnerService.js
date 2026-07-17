@@ -128,7 +128,6 @@ function buildCodexArgs(prompt, extraArgs = [], model = '', repoPath) {
     'exec',
     '--cd', repoPath,
     '--sandbox', DEFAULT_SANDBOX_MODE,
-    '--ask-for-approval', 'never',
     '--search',
     '--json',
     '--strict-config',
