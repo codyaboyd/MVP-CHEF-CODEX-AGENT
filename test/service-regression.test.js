@@ -215,11 +215,12 @@ process.stdin.on('end', () => {
       runStepId: step.lastInsertRowid,
       repoPath,
       prompt: 'Prompt provided through standard input.',
-      codexCommand: mockCodexPath
+      codexCommand: mockCodexPath,
+      codexModel: 'account-supported-model'
     });
 
     const output = JSON.parse(result.stdout);
-    assert.deepEqual(output.args, ['exec', '--skip-git-repo-check', '-']);
+    assert.deepEqual(output.args, ['exec', '--skip-git-repo-check', '--model', 'account-supported-model', '-']);
     assert.equal(output.prompt, 'Prompt provided through standard input.');
   } finally {
     db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
