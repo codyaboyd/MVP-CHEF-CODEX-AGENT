@@ -1,6 +1,6 @@
 # MVP Chef Codex
 
-MVP Chef Codex is a local, Ubuntu-friendly web app for turning repeatable Codex CLI workflows into versioned “recipes.” It lets you define multi-step prompts, attach them to local Git repositories, run those prompts through Codex, inspect logs, pause for human approval, recover from failures, and optionally prepare GitHub pull-request automation through the GitHub CLI.
+MVP Chef Codex is a local, Ubuntu-friendly web app for turning repeatable Codex CLI workflows into versioned “recipes.” It lets you define multi-step prompts, attach them to local Git repositories, run those prompts through Codex, inspect logs, pause for human approval, recover from failures, rely on Codex to test its work, and optionally prepare GitHub pull-request automation through the GitHub CLI.
 
 > **Project status:** MVP Chef Codex is an MVP-oriented developer tool. Treat every generated code change as untrusted until you review, test, and approve it.
 
@@ -29,7 +29,7 @@ MVP Chef Codex is a recipe book for AI-assisted software work:
 2. **Create recipes** that describe repeatable Codex tasks as ordered prompt steps.
 3. **Run recipes** from the browser against the selected project repository.
 4. **Track each run** in SQLite, including step status, stdout/stderr, failures, retries, approvals, quota pauses, and cancellation.
-5. **Review recovery options** such as retrying, editing a prompt before retry, skipping a step, continuing from a step, or overriding a failed quality gate.
+5. **Review recovery options** such as retrying, editing a prompt before retry, skipping a step, or continuing from a step while preserving its context.
 6. **Coordinate GitHub automation** through `gh` when repository settings and safety checks allow it.
 
 Typical use cases include bootstrapping MVP features, applying recurring refactors, running repository hygiene tasks, producing review-ready PRs, and documenting proven prompting workflows for a team.
@@ -40,7 +40,7 @@ Typical use cases include bootstrapping MVP features, applying recurring refacto
 
 - Create, edit, duplicate, delete, import, and export prompt recipes.
 - Store recipe metadata: name, version, description, ingredients, project association, and approval mode.
-- Model each recipe as ordered steps with title, prompt, required checks, retry count, human approval flag, and optional approval override.
+- Model each recipe as ordered steps with title, prompt, retry count, human approval flag, and optional approval override.
 - Import and export versioned JSON so recipes can be shared, reviewed, and committed.
 
 ### Project management
@@ -64,7 +64,6 @@ Typical use cases include bootstrapping MVP features, applying recurring refacto
 
 - Approval modes include no approval, before step, after Codex, before commit, before merge, all checkpoints, and per-step manual approval.
 - Failed steps can be retried, edited and retried, skipped, or used as a continuation point.
-- Required checks and quality-gate results are tracked with override support.
 - Interrupted running steps are preserved on app restart and moved to a paused state for inspection.
 
 ### GitHub automation
@@ -118,7 +117,6 @@ SQLite database (better-sqlite3)
   +-- recipe_steps
   +-- runs
   +-- run_steps
-  +-- run_step_checks
   +-- run_recovery_actions
   +-- project_run_locks
   +-- app_settings
@@ -413,7 +411,6 @@ Recipes can be imported and exported as JSON.
 
 - Keep each step focused and reviewable.
 - Tell Codex exactly which files or areas it may edit.
-- Include test commands in `requiredChecks`.
 - Use approval checkpoints before risky operations such as commits, merges, migrations, deletions, dependency upgrades, and production configuration changes.
 - Prefer several small steps over one large prompt.
 
@@ -582,7 +579,7 @@ Planned and potential improvements:
 - Richer recipe schema with variables, secrets references, conditional steps, and reusable fragments.
 - WebSocket or Server-Sent Events streaming for live run logs.
 - Multi-user authentication and role-based approvals.
-- Per-project policy templates for safe mode, branch naming, merge strategy, and required checks.
+- Per-project policy templates for safe mode, branch naming, and merge strategy.
 - Deeper Git diff review UI before approval checkpoints.
 - Recipe marketplace or shared catalog export/import workflow.
 - More granular quota-provider integrations when Codex exposes structured quota metadata.

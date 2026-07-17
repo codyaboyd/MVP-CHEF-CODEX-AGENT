@@ -301,22 +301,6 @@ function setQuotaRefill(req, res, next) {
   }
 }
 
-function overrideQualityGate(req, res, next) {
-  try {
-    const run = dashboardService.getRunById(Number(req.params.id));
-    const step = run?.steps.find((candidate) => candidate.id === Number(req.params.stepId));
-    if (!step) {
-      next();
-      return;
-    }
-    require('../services/qualityGateService').saveManualOverride(step.id, req.body.reason);
-    recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto', approved: true }).catch(next);
-    redirectToRun(req, res);
-  } catch (error) {
-    next(error);
-  }
-}
-
 function cancelRun(req, res) {
   runStateManager.cancelRun(Number(req.params.id));
   redirectToRun(req, res);
@@ -386,7 +370,6 @@ module.exports = {
   setQuotaRefill,
   pauseRun,
   resumeRun,
-  overrideQualityGate,
   approveRunStep,
   rejectRunStep,
   retryRunStep,

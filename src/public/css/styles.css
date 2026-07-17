@@ -264,17 +264,6 @@ body::before {
 .timeline-item { position: relative; }
 .timeline-item > div { min-width: 0; }
 .timeline-item.is-current { box-shadow: inset 6px 0 0 var(--chef-blue); }
-.quality-gate {
-  background: rgba(255,255,255,.58);
-  border: 2px solid var(--chef-soft-border);
-  border-radius: .8rem;
-  margin-top: .45rem;
-  padding: .55rem .7rem;
-}
-.quality-gate-passed { border-color: rgba(107,203,119,.75); }
-.quality-gate-failed { border-color: rgba(238,99,82,.75); }
-.quality-gate pre { background: #1d1915; border-radius: .65rem; color: #fff5d9; margin-top: .5rem; max-height: 12rem; overflow: auto; padding: .75rem; }
-
 .terminal-toolbar {
   align-items: center;
   background: #2a221c;

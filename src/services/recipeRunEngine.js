@@ -2,7 +2,6 @@ const db = require('../db');
 const codexRunner = require('./codexRunnerService');
 const recipeService = require('./recipeService');
 const runStateManager = require('./runStateManager');
-const qualityGateService = require('./qualityGateService');
 const { GitManager } = require('./gitManagerService');
 const { GitHubManager } = require('./githubManagerService');
 const appSettingsService = require('./appSettingsService');
@@ -339,15 +338,8 @@ async function executeRun(runId, options = {}) {
       });
 
       if (requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.AFTER_CODEX) && !approvalSatisfied(nextStep, APPROVAL_POINTS.AFTER_CODEX, options)) {
-        return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.AFTER_CODEX, 'Waiting for approval after Codex before checks.');
+        return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.AFTER_CODEX, 'Waiting for approval after Codex.');
       }
-
-      await qualityGateService.runQualityGates({
-        runId,
-        runStepId: nextStep.id,
-        project,
-        recipeStep
-      });
 
       if (requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.BEFORE_COMMIT) && !approvalSatisfied(nextStep, APPROVAL_POINTS.BEFORE_COMMIT, options)) {
         return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.BEFORE_COMMIT, 'Waiting for approval before commit.');

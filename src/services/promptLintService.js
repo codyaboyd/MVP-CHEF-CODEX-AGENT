@@ -21,7 +21,7 @@ const UNRELATED_FILE_PATTERNS = [
   /\bwhile you'?re there\b/i
 ];
 const ACCEPTANCE_PATTERNS = [/acceptance criteria/i, /done when/i, /definition of done/i, /must pass/i, /should include/i, /verify that/i];
-const TEST_PATTERNS = [/\btest(s|ing)?\b/i, /\bbuild\b/i, /\blint\b/i, /\btypecheck\b/i, /\bquality gate/i, /npm\s+(run\s+)?(test|build|lint)/i, /cargo\s+test/i, /pytest/i];
+const TEST_PATTERNS = [/\btest(s|ing)?\b/i, /\bbuild\b/i, /\blint\b/i, /\btypecheck\b/i, /npm\s+(run\s+)?(test|build|lint)/i, /cargo\s+test/i, /pytest/i];
 
 function warning(code, message, suggestion) {
   return { code, message, suggestion };
