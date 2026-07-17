@@ -128,9 +128,7 @@ function buildCodexArgs(prompt, extraArgs = [], model = '', repoPath) {
     'exec',
     '--cd', repoPath,
     '--sandbox', DEFAULT_SANDBOX_MODE,
-    '--search',
     '--json',
-    '--strict-config',
     '-c', 'sandbox_workspace_write.network_access=true',
     '--skip-git-repo-check'
   ];
