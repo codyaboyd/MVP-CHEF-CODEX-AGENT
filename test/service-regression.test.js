@@ -220,7 +220,19 @@ process.stdin.on('end', () => {
     });
 
     const output = JSON.parse(result.stdout);
-    assert.deepEqual(output.args, ['exec', '--sandbox', 'workspace-write', '--skip-git-repo-check', '--model', 'account-supported-model', '-']);
+    assert.deepEqual(output.args, [
+      'exec',
+      '--cd', repoPath,
+      '--sandbox', 'workspace-write',
+      '--ask-for-approval', 'never',
+      '--search',
+      '--json',
+      '--strict-config',
+      '-c', 'sandbox_workspace_write.network_access=true',
+      '--skip-git-repo-check',
+      '--model', 'account-supported-model',
+      '-'
+    ]);
     assert.equal(output.prompt, 'Prompt provided through standard input.');
   } finally {
     db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
@@ -228,7 +240,7 @@ process.stdin.on('end', () => {
   }
 });
 
-test('CodexRunner passes the configured sandbox mode to Codex', async () => {
+test('CodexRunner enforces the workspace-write sandbox and non-interactive flags', async () => {
   const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-sandbox-mode-'));
   const mockCodexPath = path.join(repoPath, 'mock-codex');
   fs.writeFileSync(mockCodexPath, `#!${process.execPath}
@@ -249,7 +261,18 @@ process.stdin.on('end', () => process.stdout.write(JSON.stringify(process.argv.s
       codexSandboxMode: 'read-only'
     });
 
-    assert.deepEqual(JSON.parse(result.stdout), ['exec', '--sandbox', 'read-only', '--skip-git-repo-check', '-']);
+    assert.deepEqual(JSON.parse(result.stdout), [
+      'exec',
+      '--cd', repoPath,
+      '--sandbox', 'workspace-write',
+      '--ask-for-approval', 'never',
+      '--search',
+      '--json',
+      '--strict-config',
+      '-c', 'sandbox_workspace_write.network_access=true',
+      '--skip-git-repo-check',
+      '-'
+    ]);
   } finally {
     db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
     fs.rmSync(repoPath, { recursive: true, force: true });
