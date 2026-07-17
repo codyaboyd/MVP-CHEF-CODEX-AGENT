@@ -195,6 +195,38 @@ test('CodexRunner reports a missing CLI and marks the run step failed', async ()
   fs.rmSync(repoPath, { recursive: true, force: true });
 });
 
+test('CodexRunner uses the supported Codex stdin prompt argument by default', async () => {
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-stdin-argument-'));
+  const mockCodexPath = path.join(repoPath, 'mock-codex');
+  fs.writeFileSync(mockCodexPath, `#!${process.execPath}
+let prompt = '';
+process.stdin.on('data', (chunk) => { prompt += chunk; });
+process.stdin.on('end', () => {
+  process.stdout.write(JSON.stringify({ args: process.argv.slice(2), prompt }));
+});
+`);
+  fs.chmodSync(mockCodexPath, 0o755);
+  const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('pending');
+  const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'pending');
+
+  try {
+    const result = await codexRunner.executeStep({
+      runId: run.lastInsertRowid,
+      runStepId: step.lastInsertRowid,
+      repoPath,
+      prompt: 'Prompt provided through standard input.',
+      codexCommand: mockCodexPath
+    });
+
+    const output = JSON.parse(result.stdout);
+    assert.deepEqual(output.args, ['exec', '-']);
+    assert.equal(output.prompt, 'Prompt provided through standard input.');
+  } finally {
+    db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
+    fs.rmSync(repoPath, { recursive: true, force: true });
+  }
+});
+
 
 
 test('ProjectService and CodexRunner allow local folders while rejecting unsafe paths', () => {

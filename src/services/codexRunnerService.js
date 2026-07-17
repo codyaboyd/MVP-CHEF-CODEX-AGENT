@@ -120,8 +120,8 @@ function validateRepoPath(repoPath) {
 }
 
 function buildCodexArgs(prompt, extraArgs = []) {
-  // Prompt text is written to stdin instead of interpolated into shell commands or argv.
-  return extraArgs.length ? extraArgs : ['exec', '--stdin'];
+  // `codex exec -` reads the prompt from stdin without interpolating it into argv.
+  return extraArgs.length ? extraArgs : ['exec', '-'];
 }
 
 function spawnCodex({ command, args, repoPath, prompt, timeoutMs, runStepId, redactor }) {
