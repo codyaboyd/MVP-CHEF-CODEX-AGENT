@@ -8,7 +8,6 @@ const DEFAULT_SETTINGS = Object.freeze({
   codexModel: '',
   codexApprovalPolicy: 'suggest',
   codexSandboxMode: 'workspace-write',
-  mockRunnerMode: 'auto',
   defaultBranch: 'main',
   githubToken: '',
   githubUsername: '',

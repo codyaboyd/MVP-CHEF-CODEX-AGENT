@@ -49,7 +49,7 @@ async function quickRun(req, res, next) {
       steps: prompts.map((prompt, index) => ({ title: `Prompt ${index + 1}`, prompt }))
     });
     const run = await recipeRunEngine.startRunFromRecipe(recipe.id, { autoExecute: false });
-    recipeRunEngine.resumeRun(run.id, { mockMode: 'auto', gitEnabled: false, githubAutomation: false }).catch((error) => console.error(error));
+    recipeRunEngine.resumeRun(run.id, { gitEnabled: false, githubAutomation: false }).catch((error) => console.error(error));
     res.redirect(`/runs/${run.id}`);
   } catch (error) {
     next(error);
@@ -197,12 +197,12 @@ function pauseRun(req, res) {
 }
 
 function resumeRun(req, res, next) {
-  recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto', approved: true, approvedPoint: req.body.approvalPoint, quotaCooldownElapsed: req.body.ignoreQuotaCooldown === '1' }).catch(next);
+  recipeRunEngine.resumeRun(Number(req.params.id), { approved: true, approvedPoint: req.body.approvalPoint, quotaCooldownElapsed: req.body.ignoreQuotaCooldown === '1' }).catch(next);
   redirectToRun(req, res);
 }
 
 function approveRunStep(req, res, next) {
-  recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto', approved: true, approvedPoint: req.body.approvalPoint }).catch(next);
+  recipeRunEngine.resumeRun(Number(req.params.id), { approved: true, approvedPoint: req.body.approvalPoint }).catch(next);
   redirectToRun(req, res);
 }
 
@@ -218,7 +218,7 @@ function rejectRunStep(req, res, next) {
 function editPromptAndRetry(req, res, next) {
   try {
     recipeRunEngine.editPromptAndRetry(Number(req.params.id), Number(req.params.stepId), req.body.prompt);
-    recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto' }).catch(next);
+    recipeRunEngine.resumeRun(Number(req.params.id), {}).catch(next);
     redirectToRun(req, res);
   } catch (error) {
     next(error);
@@ -228,7 +228,7 @@ function editPromptAndRetry(req, res, next) {
 function skipRunStep(req, res, next) {
   try {
     recipeRunEngine.skipRunStep(Number(req.params.id), Number(req.params.stepId));
-    recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto' }).catch(next);
+    recipeRunEngine.resumeRun(Number(req.params.id), {}).catch(next);
     redirectToRun(req, res);
   } catch (error) {
     next(error);
@@ -238,7 +238,7 @@ function skipRunStep(req, res, next) {
 function retryRunStep(req, res, next) {
   try {
     failureRecoveryService.retryFailedStep(Number(req.params.id), Number(req.params.stepId));
-    recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto' }).catch(next);
+    recipeRunEngine.resumeRun(Number(req.params.id), {}).catch(next);
     redirectToRun(req, res);
   } catch (error) {
     next(error);
@@ -248,7 +248,7 @@ function retryRunStep(req, res, next) {
 function continueFromStep(req, res, next) {
   try {
     failureRecoveryService.continueFromStep(Number(req.params.id), Number(req.params.stepId));
-    recipeRunEngine.resumeRun(Number(req.params.id), { mockMode: 'auto' }).catch(next);
+    recipeRunEngine.resumeRun(Number(req.params.id), {}).catch(next);
     redirectToRun(req, res);
   } catch (error) {
     next(error);
@@ -294,7 +294,7 @@ function setQuotaRefill(req, res, next) {
     const run = runStateManager.updateRun(runId, runStateManager.STATUSES.WAITING_FOR_QUOTA, { quota_refill_at: refillAt });
     const step = runStateManager.getRunSteps(runId).find((candidate) => candidate.status === runStateManager.STATUSES.WAITING_FOR_QUOTA);
     if (step) runStateManager.updateRunStep(step.id, runStateManager.STATUSES.WAITING_FOR_QUOTA, { quota_refill_at: refillAt });
-    recipeRunEngine.resumeRun(run.id, { mockMode: 'auto', approved: true }).catch(next);
+    recipeRunEngine.resumeRun(run.id, { approved: true }).catch(next);
     redirectToRun(req, res);
   } catch (error) {
     next(error);
@@ -333,7 +333,6 @@ function updateSettings(req, res) {
     codexModel: req.body.codexModel || '',
     codexApprovalPolicy: ['suggest', 'on-request', 'never'].includes(req.body.codexApprovalPolicy) ? req.body.codexApprovalPolicy : 'suggest',
     codexSandboxMode: ['workspace-write', 'read-only', 'danger-full-access'].includes(req.body.codexSandboxMode) ? req.body.codexSandboxMode : 'workspace-write',
-    mockRunnerMode: ['true', 'false', 'auto'].includes(req.body.mockRunnerMode) ? req.body.mockRunnerMode : 'auto',
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
     autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
     autoMergeEnabled: req.body.autoMergeEnabled === 'true' ? 'true' : 'false',

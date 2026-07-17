@@ -180,7 +180,6 @@ function duplicateRecipe(req, res, next) {
 
 function runRecipe(req, res, next) {
   recipeRunEngine.startRunFromRecipe(Number(req.params.id), {
-    mockMode: 'auto',
     gitEnabled: req.body.gitEnabled === '1',
     githubAutomation: false,
     gitPush: false

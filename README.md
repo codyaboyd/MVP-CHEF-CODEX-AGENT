@@ -58,7 +58,6 @@ Typical use cases include bootstrapping MVP features, applying recurring refacto
 - Capture stdout/stderr logs per step.
 - Support cancellation by terminating the active Codex process group.
 - Resume paused, failed, approval-blocked, or quota-blocked runs through UI actions.
-- Fall back to mock runner mode when configured, which is useful for demos and tests.
 
 ### Review, approval, and recovery
 
@@ -247,14 +246,6 @@ npm run lint
 npm run build
 ```
 
-### 4. Useful development settings
-
-For local UI testing without invoking the real Codex CLI, set mock runner mode in Settings or add this to `.env`:
-
-```bash
-CODEX_RUNNER_MOCK=true
-```
-
 The app creates the SQLite database automatically at `DATABASE_PATH` when it boots.
 
 ## Codex CLI setup
@@ -288,11 +279,6 @@ MVP Chef Codex shells out to the configured Codex executable for real recipe run
    ```
 
 4. In MVP Chef Codex, open **Settings** and set **Codex command path** to either `codex` or an absolute path such as `/usr/local/bin/codex`.
-5. Decide whether to use mock mode:
-   - `auto`: use real Codex when available, fall back to mock runner when the CLI is missing.
-   - `true`: always use the mock runner.
-   - `false`: require the real Codex CLI.
-
 For systemd deployments, remember that the service user and interactive shell may have different `PATH` values. If Codex works in your terminal but not in the service, configure an absolute command path.
 
 ## GitHub CLI setup
@@ -355,9 +341,8 @@ Environment variables are loaded with `dotenv`.
 | `PROJECT_BROWSER_ROOTS` | Documents, Desktop, Downloads, and `/workspace` | Path-delimited list of server folders that the project browser may scan. |
 | `CODEX_CLI_COMMAND` | `codex` | Default Codex CLI executable used by recipe runs. |
 | `CODEX_RUN_TIMEOUT_MS` | `600000` | Maximum runtime for one Codex step before termination. |
-| `CODEX_RUNNER_MOCK` | unset | Set to `true` to force local mock runner mode. |
 
-Runtime settings are also stored in the `app_settings` SQLite table and editable in the Settings page. Important settings include Codex command path, mock runner mode, default branch, max step runtime, auto-merge controls, quota cooldown, retry limits, safe mode, and secret-scanner override policy.
+Runtime settings are also stored in the `app_settings` SQLite table and editable in the Settings page. Important settings include Codex command path, default branch, max step runtime, auto-merge controls, quota cooldown, retry limits, safe mode, and secret-scanner override policy.
 
 ## Recipe format
 
@@ -424,7 +409,7 @@ MVP Chef Codex can modify local repositories through Codex and Git automation. U
 - Run tests manually before merging.
 - Do not put secrets in prompts, recipe JSON, URLs, issue text, or comments.
 - Keep `.env` files out of Git.
-- Use mock runner mode when testing recipes themselves.
+- Use isolated test repositories and a controlled CLI executable when testing recipes themselves.
 - Enable human approval before merge for shared or production repositories.
 - Keep protected-main workflows enabled where possible.
 - Back up the SQLite database before upgrades.
@@ -506,7 +491,7 @@ Then restart the app.
   sudo journalctl -u mvp-chef-codex -f
   ```
 
-- Use mock runner mode while diagnosing CLI installation.
+- Review the failed run logs for the launch error, then correct the command path or service environment.
 
 ### GitHub automation fails
 
