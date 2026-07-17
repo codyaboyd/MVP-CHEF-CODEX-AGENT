@@ -220,8 +220,36 @@ process.stdin.on('end', () => {
     });
 
     const output = JSON.parse(result.stdout);
-    assert.deepEqual(output.args, ['exec', '--skip-git-repo-check', '--model', 'account-supported-model', '-']);
+    assert.deepEqual(output.args, ['exec', '--sandbox', 'workspace-write', '--skip-git-repo-check', '--model', 'account-supported-model', '-']);
     assert.equal(output.prompt, 'Prompt provided through standard input.');
+  } finally {
+    db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
+    fs.rmSync(repoPath, { recursive: true, force: true });
+  }
+});
+
+test('CodexRunner passes the configured sandbox mode to Codex', async () => {
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-sandbox-mode-'));
+  const mockCodexPath = path.join(repoPath, 'mock-codex');
+  fs.writeFileSync(mockCodexPath, `#!${process.execPath}
+process.stdin.resume();
+process.stdin.on('end', () => process.stdout.write(JSON.stringify(process.argv.slice(2))));
+`);
+  fs.chmodSync(mockCodexPath, 0o755);
+  const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('pending');
+  const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'pending');
+
+  try {
+    const result = await codexRunner.executeStep({
+      runId: run.lastInsertRowid,
+      runStepId: step.lastInsertRowid,
+      repoPath,
+      prompt: 'Use the configured sandbox.',
+      codexCommand: mockCodexPath,
+      codexSandboxMode: 'read-only'
+    });
+
+    assert.deepEqual(JSON.parse(result.stdout), ['exec', '--sandbox', 'read-only', '--skip-git-repo-check', '-']);
   } finally {
     db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
     fs.rmSync(repoPath, { recursive: true, force: true });

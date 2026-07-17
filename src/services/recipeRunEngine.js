@@ -334,6 +334,7 @@ async function executeRun(runId, options = {}) {
         codexCommand: options.codexCommand ?? appSettingsService.getSetting('codexCommandPath')?.value,
         codexArgs: options.codexArgs,
         codexModel: options.codexModel ?? appSettingsService.getSetting('codexModel')?.value,
+        codexSandboxMode: options.codexSandboxMode ?? appSettingsService.getSetting('codexSandboxMode')?.value,
         timeoutMs: options.timeoutMs
       });
 
