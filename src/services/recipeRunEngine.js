@@ -331,7 +331,7 @@ async function executeRun(runId, options = {}) {
         repoPath: project.repo_path,
         prompt: stepPrompt,
         retries: recipeStep.retryCount,
-        codexCommand: options.codexCommand,
+        codexCommand: options.codexCommand ?? appSettingsService.getSetting('codexCommandPath')?.value,
         codexArgs: options.codexArgs,
         timeoutMs: options.timeoutMs
       });

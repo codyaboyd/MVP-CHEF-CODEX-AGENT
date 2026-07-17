@@ -235,7 +235,11 @@ async function executeStep(options) {
       throw error;
     } catch (error) {
       const quotaDetected = error.code === 'QUOTA_LIMIT_DETECTED' || detectQuotaLimit(error.message, error.result?.stdout, error.result?.stderr);
-      const message = redactor(error.message);
+      const runnerMessage = error.code === 'ENOENT'
+        ? `Codex CLI executable "${codexCommand}" was not found. Configure an executable command or absolute path in Settings, and ensure it is available to the app service user.`
+        : error.message;
+      const message = redactor(runnerMessage);
+      if (error.code === 'ENOENT') error.message = message;
       appendRunStepLog(runStepId, 'stderr', `[CodexRunner] ${message}\n`);
       if (quotaDetected || attempt === maxAttempts) {
         if (quotaDetected) {
