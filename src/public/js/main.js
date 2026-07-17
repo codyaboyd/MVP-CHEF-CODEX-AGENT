@@ -1,9 +1,42 @@
 document.documentElement.classList.add('js-enabled');
 
+function attachFolderBrowser(container, onSelect, setStatus) {
+  const button = container.querySelector('[data-folder-browser-button]');
+  const selector = container.querySelector('[data-folder-browser]');
+  if (!button || !selector) return;
+
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    setStatus('Scanning Documents, Desktop, Downloads, and workspace folders…');
+    try {
+      const response = await fetch('/projects/browse-folders');
+      const result = await response.json();
+      if (!response.ok) throw new Error('Folder scan failed.');
+      selector.replaceChildren(new Option('Choose a server folder…', ''));
+      (result.folders || []).forEach((folder) => {
+        const indent = folder.depth ? `${'— '.repeat(folder.depth)}` : '';
+        selector.add(new Option(`${indent}${folder.name}  (${folder.path})`, folder.path));
+      });
+      selector.hidden = false;
+      selector.focus();
+      setStatus(result.folders.length
+        ? `Found ${result.folders.length} folders. Select one below.`
+        : 'No folders were found in the configured server locations. You can still paste an absolute path.');
+    } catch {
+      setStatus('Unable to scan server folders. Paste an absolute path instead.');
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  selector.addEventListener('change', () => {
+    if (selector.value) onSelect(selector.value);
+  });
+}
+
 document.querySelectorAll('[data-quick-run-form]').forEach((form) => {
   const chain = form.querySelector('[data-prompt-chain]');
   const folderInput = form.querySelector('[data-project-path]');
-  const folderSelector = form.querySelector('[data-quick-folder-selector]');
   const folderStatus = form.querySelector('[data-quick-folder-status]');
 
   function renumberPrompts() {
@@ -25,20 +58,10 @@ document.querySelectorAll('[data-quick-run-form]').forEach((form) => {
     event.target.closest('[data-prompt-chain-item]').remove();
     renumberPrompts();
   });
-  folderSelector.addEventListener('change', async () => {
-    const file = folderSelector.files && folderSelector.files[0];
-    if (!file) return;
-    const folderName = (file.webkitRelativePath || file.name).split('/')[0];
-    folderStatus.textContent = `Resolving ${folderName}…`;
-    const response = await fetch(`/projects/resolve-folder?name=${encodeURIComponent(folderName)}`);
-    const result = await response.json();
-    if (result.ok) {
-      folderInput.value = result.path;
-      folderStatus.textContent = `Ready to work in ${result.path}`;
-    } else {
-      folderStatus.textContent = `Selected ${folderName}. Paste its absolute server path to continue.`;
-    }
-  });
+  attachFolderBrowser(form, (folderPath) => {
+    folderInput.value = folderPath;
+    folderStatus.textContent = `Ready to work in ${folderPath}`;
+  }, (message) => { folderStatus.textContent = message; });
   renumberPrompts();
 });
 
@@ -75,10 +98,9 @@ function createStep(list) {
 
 
 document.querySelectorAll('[data-project-form]').forEach((form) => {
-  const folderInput = form.querySelector('[data-project-folder-selector]');
   const pathInput = form.querySelector('[data-project-path]');
   const status = form.querySelector('[data-project-folder-status]');
-  if (!folderInput || !pathInput) return;
+  if (!pathInput) return;
 
   function setStatus(message) {
     if (status) status.textContent = message;
@@ -105,40 +127,10 @@ document.querySelectorAll('[data-project-form]').forEach((form) => {
     }
   }
 
-  folderInput.addEventListener('change', async () => {
-    const [firstFile] = folderInput.files || [];
-    if (!firstFile) return;
-
-    if (firstFile.path) {
-      const relativeParts = (firstFile.webkitRelativePath || firstFile.name).split('/').filter(Boolean);
-      const absoluteParts = firstFile.path.split(/[\\/]/);
-      const folderPartCount = Math.max(relativeParts.length - 1, 0);
-      pathInput.value = absoluteParts.slice(0, absoluteParts.length - folderPartCount - 1).join(firstFile.path.includes('\\') ? '\\' : '/');
-      await inspectPath();
-      return;
-    }
-
-    const folderName = (firstFile.webkitRelativePath || firstFile.name).split('/')[0];
-    setStatus(`Resolving “${folderName}” on the server…`);
-
-    try {
-      const response = await fetch(`/projects/resolve-folder?name=${encodeURIComponent(folderName)}`);
-      const result = response.ok ? await response.json() : null;
-      if (result && result.ok && result.path) {
-        pathInput.value = result.path;
-        await inspectPath();
-        return;
-      }
-      if (result && result.matches && result.matches.length > 1) {
-        setStatus(`Selected “${folderName}”. Multiple matching server folders were found; paste the full path before saving.`);
-        return;
-      }
-    } catch {
-      // Fall through to the manual-path guidance below.
-    }
-
-    setStatus(`Selected “${folderName}”. Your browser does not expose absolute paths and the server could not resolve it automatically, so paste the full server path before saving.`);
-  });
+  attachFolderBrowser(form, async (folderPath) => {
+    pathInput.value = folderPath;
+    await inspectPath();
+  }, setStatus);
 
   pathInput.addEventListener('blur', inspectPath);
   const detectButton = form.querySelector('[data-detect-project-commands]');

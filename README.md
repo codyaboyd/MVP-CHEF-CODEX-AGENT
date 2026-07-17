@@ -354,6 +354,7 @@ Environment variables are loaded with `dotenv`.
 | `PORT` | `3000` | HTTP server port. During Ubuntu setup, the installer automatically advances to the next open port if this one is occupied. |
 | `DATABASE_PATH` | `./data/mvp-chef-codex.sqlite` | SQLite database path. |
 | `APP_NAME` | `MVP Chef Codex` | Display name used by the app. |
+| `PROJECT_BROWSER_ROOTS` | Documents, Desktop, Downloads, and `/workspace` | Path-delimited list of server folders that the project browser may scan. |
 | `CODEX_CLI_COMMAND` | `codex` | Default Codex CLI executable used by recipe runs. |
 | `CODEX_RUN_TIMEOUT_MS` | `600000` | Maximum runtime for one Codex step before termination. |
 | `CODEX_RUNNER_MOCK` | unset | Set to `true` to force local mock runner mode. |

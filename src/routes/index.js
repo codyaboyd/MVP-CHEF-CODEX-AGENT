@@ -8,6 +8,7 @@ router.get('/', pageController.dashboard);
 router.post('/run', pageController.quickRun);
 router.get('/projects', pageController.projects);
 router.get('/projects/resolve-folder', pageController.resolveProjectFolder);
+router.get('/projects/browse-folders', pageController.browseProjectFolders);
 router.get('/projects/inspect-path', pageController.inspectProjectPath);
 router.post('/projects', pageController.createProject);
 router.get('/recipes', pageController.recipes);

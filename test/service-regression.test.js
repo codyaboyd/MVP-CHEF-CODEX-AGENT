@@ -12,6 +12,7 @@ const codexRunner = require('../src/services/codexRunnerService');
 const promptLintService = require('../src/services/promptLintService');
 const settingsService = require('../src/services/appSettingsService');
 const projectService = require('../src/services/projectService');
+const folderBrowserService = require('../src/services/folderBrowserService');
 const { runGit } = require('../src/services/gitManagerService');
 
 function makeGitRepo(prefix = 'mvp-chef-test-repo-') {
@@ -24,6 +25,27 @@ function makeGitRepo(prefix = 'mvp-chef-test-repo-') {
   execFileSync('git', ['commit', '-m', 'initial'], { cwd: repoPath });
   return repoPath;
 }
+
+test('FolderBrowser scans to a bounded depth and skips dependency and hidden folders', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'folder-browser-'));
+  try {
+    fs.mkdirSync(path.join(root, 'project', 'src', 'features'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'project', 'node_modules', 'dependency'), { recursive: true });
+    fs.mkdirSync(path.join(root, '.hidden', 'private'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'one', 'two', 'three'), { recursive: true });
+
+    const result = folderBrowserService.scanProjectFolders({ roots: [root], maxDepth: 2 });
+    const paths = result.folders.map((folder) => folder.path);
+
+    assert.ok(paths.includes(root));
+    assert.ok(paths.includes(path.join(root, 'project', 'src')));
+    assert.ok(!paths.includes(path.join(root, 'project', 'src', 'features')));
+    assert.ok(!paths.some((folderPath) => folderPath.includes('node_modules')));
+    assert.ok(!paths.some((folderPath) => folderPath.includes('.hidden')));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('RecipeService imports, orders, and exports recipe steps deterministically', () => {
   const project = db.prepare('SELECT id FROM projects ORDER BY id ASC LIMIT 1').get();
