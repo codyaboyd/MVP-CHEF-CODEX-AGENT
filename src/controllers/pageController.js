@@ -6,6 +6,7 @@ const runStateManager = require('../services/runStateManager');
 const appSettingsService = require('../services/appSettingsService');
 const failureRecoveryService = require('../services/failureRecoveryService');
 const setupValidationService = require('../services/setupValidationService');
+const folderBrowserService = require('../services/folderBrowserService');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -76,6 +77,10 @@ function candidateProjectRoots() {
 function inspectProjectPath(req, res) {
   const result = projectService.detectProjectCommands(String(req.query.path || ''));
   res.status(result.ok ? 200 : 400).json(result);
+}
+
+function browseProjectFolders(req, res) {
+  res.json(folderBrowserService.scanProjectFolders());
 }
 
 function resolveProjectFolder(req, res) {
@@ -373,6 +378,7 @@ module.exports = {
   projects,
   createProject,
   resolveProjectFolder,
+  browseProjectFolders,
   inspectProjectPath,
   recipes,
   runDetail,

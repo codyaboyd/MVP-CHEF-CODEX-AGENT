@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const app = require('../src/server');
 const db = require('../src/db');
+const pathIsAbsolute = require('node:path').isAbsolute;
 
 test('home page renders the folder-first Codex prompt composer', async () => {
   const response = await request(app).get('/');
@@ -11,6 +12,8 @@ test('home page renders the folder-first Codex prompt composer', async () => {
   assert.match(response.text, /MVP Chef Codex/);
   assert.match(response.text, /What do you want to build/);
   assert.match(response.text, /Add another prompt/);
+  assert.match(response.text, /Browse folders/);
+  assert.doesNotMatch(response.text, /webkitdirectory/);
 });
 
 test('quick run accepts an ordinary folder and chains prompts in order', async () => {
@@ -75,6 +78,16 @@ test('project folder resolver expands selected folder names to server paths', as
   assert.equal(response.body.ok, true);
   assert.equal(response.body.path, process.cwd());
   assert.deepEqual(response.body.matches, [process.cwd()]);
+});
+
+test('project folder browser returns absolute server paths without file uploads', async () => {
+  const response = await request(app).get('/projects/browse-folders');
+
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray(response.body.folders));
+  assert.ok(response.body.folders.some((folder) => folder.path === '/workspace'));
+  assert.ok(response.body.folders.every((folder) => pathIsAbsolute(folder.path)));
+  assert.equal(response.body.maxDepth, 4);
 });
 
 test('recipe form accepts raw text blocks as prompt steps', async () => {

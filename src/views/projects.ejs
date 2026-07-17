@@ -32,10 +32,10 @@
         <label class="form-label fw-bold" for="repoPath">Local project folder path</label>
         <div class="input-group">
           <input class="form-control" id="repoPath" name="repoPath" placeholder="/workspace/my-project" value="<%= form.repoPath %>" required data-project-path>
-          <label class="btn btn-outline-primary mb-0" for="projectFolderSelector">Choose folder</label>
+          <button class="btn btn-outline-primary" type="button" data-folder-browser-button>Browse folders</button>
         </div>
-        <input class="visually-hidden" id="projectFolderSelector" type="file" webkitdirectory directory multiple data-project-folder-selector>
-        <div class="form-text" data-project-folder-status>Select a local folder when supported, or paste its absolute path. Commands are detected from the server-side project folder.</div>
+        <select class="form-select form-select-sm folder-browser mt-2" aria-label="Server project folders" hidden data-folder-browser></select>
+        <div class="form-text" data-project-folder-status>Browse server folders or paste an absolute path. Commands are detected from the selected folder.</div>
       </div>
       <div class="col-md-4">
         <label class="form-label fw-bold" for="defaultBranch">Default branch</label>
