@@ -97,6 +97,20 @@ test('quota detection recognizes common limit messages but ignores ordinary fail
   assert.equal(codexRunner.detectQuotaLimit('SyntaxError: unexpected token'), false);
 });
 
+test('CodexRunner parses JSON Lines output into progress metadata', () => {
+  const parsed = codexRunner.parseCodexJsonOutput([
+    JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'Done' } }),
+    JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 12, output_tokens: 4 } }),
+    ''
+  ].join('\n'));
+
+  assert.equal(parsed.events.length, 2);
+  assert.equal(parsed.progress.completedItems, 1);
+  assert.equal(parsed.progress.turnCompleted, true);
+  assert.deepEqual(parsed.progress.usage, { input_tokens: 12, output_tokens: 4 });
+  assert.deepEqual(parsed.invalidLines, []);
+});
+
 test('PromptLintService flags unsafe prompts and preserves already-specific prompts', () => {
   const riskyCodes = promptLintService.lintPrompt('fix it, rm -rf everything, and print the secret token')
     .map((warning) => warning.code);

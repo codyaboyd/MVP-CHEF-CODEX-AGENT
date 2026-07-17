@@ -18,6 +18,51 @@ function detectQuotaLimit(...parts) {
   return QUOTA_LIMIT_PATTERN.test(text);
 }
 
+function parseCodexJsonOutput(output = '') {
+  const events = [];
+  const invalidLines = [];
+
+  String(output).split(/\r?\n/).forEach((line) => {
+    if (!line.trim()) return;
+    try {
+      const event = JSON.parse(line);
+      if (event && typeof event === 'object') events.push(event);
+    } catch {
+      invalidLines.push(line);
+    }
+  });
+
+  const completedItems = events.filter((event) => event.type === 'item.completed').length;
+  const turn = [...events].reverse().find((event) => event.type === 'turn.completed');
+  return {
+    events,
+    invalidLines,
+    progress: {
+      completedItems,
+      turnCompleted: Boolean(turn),
+      usage: turn?.usage || null
+    }
+  };
+}
+
+function quotaEvidence(result) {
+  // A successful Codex turn is authoritative. Agent messages and prompts can
+  // legitimately discuss quotas, so scanning all JSON text creates false positives.
+  if (result.code === 0) return '';
+
+  const parsed = parseCodexJsonOutput(result.stdout);
+  const errorEvents = parsed.events.filter((event) => {
+    const type = String(event.type || '').toLowerCase();
+    return type.includes('error') || type.includes('fail');
+  });
+  const structuredErrors = errorEvents.map((event) => JSON.stringify(event)).join('\n');
+
+  // Preserve compatibility with non-JSON/custom commands, but only inspect their
+  // stdout when no valid Codex JSON events were emitted.
+  const unstructuredStdout = parsed.events.length === 0 ? result.stdout : '';
+  return [result.stderr, structuredErrors, unstructuredStdout].filter(Boolean).join('\n');
+}
+
 function nowSql() {
   return new Date().toISOString();
 }
@@ -224,7 +269,10 @@ async function executeStep(options) {
     try {
       const result = await spawnCodex({ command: codexCommand, args, repoPath: safeRepoPath, prompt, timeoutMs, runStepId, redactor });
 
-      if (detectQuotaLimit(result.stdout, result.stderr)) {
+      const structuredOutput = parseCodexJsonOutput(result.stdout);
+      result.structuredOutput = structuredOutput;
+
+      if (detectQuotaLimit(quotaEvidence(result))) {
         const quotaError = new Error('Codex quota or rate limit detected.');
         quotaError.code = 'QUOTA_LIMIT_DETECTED';
         quotaError.result = result;
@@ -248,7 +296,8 @@ async function executeStep(options) {
       error.result = result;
       throw error;
     } catch (error) {
-      const quotaDetected = error.code === 'QUOTA_LIMIT_DETECTED' || detectQuotaLimit(error.message, error.result?.stdout, error.result?.stderr);
+      const quotaDetected = error.code === 'QUOTA_LIMIT_DETECTED'
+        || (error.result && detectQuotaLimit(error.message, quotaEvidence(error.result)));
       const runnerMessage = error.code === 'ENOENT'
         ? `Codex CLI executable "${codexCommand}" was not found. Configure an executable command or absolute path in Settings, and ensure it is available to the app service user.`
         : error.message;
@@ -299,6 +348,7 @@ module.exports = {
   collectSecretValues,
   createRedactor,
   detectQuotaLimit,
+  parseCodexJsonOutput,
   validateRepoPath,
   executeStep
 };

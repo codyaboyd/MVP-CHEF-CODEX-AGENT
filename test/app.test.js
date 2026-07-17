@@ -870,6 +870,38 @@ test('CodexRunner detects quota text and marks a step waiting_for_quota without 
   fs.rmSync(repoPath, { recursive: true, force: true });
 });
 
+test('CodexRunner trusts a successful JSON turn even when an agent message mentions rate limits', async () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const codexRunner = require('../src/services/codexRunnerService');
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-runner-json-success-'));
+  const run = db.prepare('INSERT INTO runs (status, started_at) VALUES (?, CURRENT_TIMESTAMP)').run('queued');
+  const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status) VALUES (?, ?, ?)').run(run.lastInsertRowid, 1, 'queued');
+  const script = [
+    'console.log(JSON.stringify({type:"item.completed",item:{type:"agent_message",text:"No rate limit was detected."}}));',
+    'console.log(JSON.stringify({type:"turn.completed",usage:{input_tokens:10,output_tokens:5}}));'
+  ].join('');
+
+  const result = await codexRunner.executeStep({
+    runId: run.lastInsertRowid,
+    runStepId: step.lastInsertRowid,
+    repoPath,
+    prompt: 'hello from stdin',
+    codexCommand: process.execPath,
+    codexArgs: ['-e', script]
+  });
+
+  assert.equal(result.code, 0);
+  assert.equal(result.structuredOutput.progress.turnCompleted, true);
+  assert.deepEqual(result.structuredOutput.progress.usage, { input_tokens: 10, output_tokens: 5 });
+  assert.equal(db.prepare('SELECT status FROM runs WHERE id = ?').get(run.lastInsertRowid).status, 'succeeded');
+  assert.equal(db.prepare('SELECT status FROM run_steps WHERE id = ?').get(step.lastInsertRowid).status, 'succeeded');
+
+  db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
+  fs.rmSync(repoPath, { recursive: true, force: true });
+});
+
 test('RecipeRunEngine pauses on quota and does not start the next prompt until cooldown is cleared', async () => {
   const engine = require('../src/services/recipeRunEngine');
   const project = db.prepare(`
