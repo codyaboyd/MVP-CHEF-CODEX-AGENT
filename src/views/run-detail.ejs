@@ -50,9 +50,12 @@
         <h2 class="h4 m-0">Progress</h2>
         <strong data-run-progress-label><%= runSnapshot ? runSnapshot.progress : 0 %>%</strong>
       </div>
-      <div class="progress-stack"><div class="progress oven-progress loading-shimmer" role="progressbar" aria-label="Run progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= runSnapshot ? runSnapshot.progress : 0 %>">
-        <div class="progress-bar" data-run-progress style="width: <%= runSnapshot ? runSnapshot.progress : 0 %>%"><%= runSnapshot ? runSnapshot.progress : 0 %>%</div>
-      </div><div class="progress-milestones"><span>Prep</span><span>Codex cooks</span><span>Checks</span><span>Complete</span></div></div>
+      <div class="chef-loader" data-run-progress role="progressbar" aria-label="Run progress: <%= runSnapshot ? runSnapshot.progress : 0 %>%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= runSnapshot ? runSnapshot.progress : 0 %>">
+        <span class="chef-loader-orbit" aria-hidden="true">🥄</span>
+        <span class="chef-loader-dish" aria-hidden="true">🍲</span>
+        <span class="visually-hidden" data-run-progress-description><%= runSnapshot ? runSnapshot.progress : 0 %>% complete</span>
+      </div>
+      <p class="chef-loader-caption mb-0">Codex is cooking your recipe…</p>
     </div>
 
     <div class="paper-panel p-4 mb-4">
@@ -69,7 +72,9 @@
 
     <div class="paper-panel p-4 mb-4">
       <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="h4 mb-0">Cooking steps</h2><span class="chef-badge badge-soft rounded-pill px-3 py-1">Live mise en place</span></div>
-      <div class="timeline" data-run-steps>
+      <details class="prompt-list" open>
+        <summary><span>Prompt list</span><span class="prompt-list-count" data-prompt-count><%= (run.steps || []).length %> prompts</span></summary>
+      <div class="timeline mt-3" data-run-steps>
         <% (run.steps || []).forEach((step) => { %><div class="timeline-item" data-step-id="<%= step.id || step.step_order %>"><span><%= step.step_order %></span><div><strong><%= step.recipe_step_title || step.title || 'Recipe step' %></strong> <span class="status-badge"><%= step.status %></span><p><%= step.prompt || step.status %></p>
           <% if (['failed', 'paused', 'waiting_for_quota'].includes(step.status)) { %>
             <div class="failure-recovery-panel alert alert-danger mt-2">
@@ -107,6 +112,7 @@
         </div></div><% }) %>
         <% if (!run.steps || !run.steps.length) { %><div class="timeline-item"><span>1</span><div><strong>Preheat Codex</strong><p>This demo run is pending and ready for recipe steps.</p></div></div><% } %>
       </div>
+      </details>
     </div>
 
     <div class="paper-panel p-4">

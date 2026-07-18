@@ -260,8 +260,19 @@ body::before {
 
 .run-actions { flex-wrap: wrap; }
 .run-actions .btn { border-width: 2px; font-weight: 900; }
-.progress-stack { display: grid; gap: .65rem; }
-.progress-milestones { display: flex; justify-content: space-between; font-size: .78rem; font-weight: 900; color: #7a665a; }
+.chef-loader { height: 6.5rem; margin: .25rem auto .5rem; position: relative; width: 6.5rem; }
+.chef-loader::before { animation: chef-loader-spin 1.35s linear infinite; border: .42rem dotted var(--chef-red); border-radius: 50%; content: ""; inset: 0; position: absolute; }
+.chef-loader-dish { align-items: center; background: #fff5d9; border: 3px solid var(--chef-ink); border-radius: 50%; display: flex; font-size: 2.65rem; inset: .9rem; justify-content: center; position: absolute; }
+.chef-loader-orbit { animation: chef-utensil-spin 1.35s linear infinite; font-size: 1.55rem; inset: -.1rem; position: absolute; transform-origin: 3.35rem 3.35rem; z-index: 1; }
+.chef-loader-caption { color: #7a665a; font-size: .85rem; font-weight: 900; text-align: center; }
+@keyframes chef-loader-spin { to { transform: rotate(360deg); } }
+@keyframes chef-utensil-spin { to { transform: rotate(360deg); } }
+.prompt-list { background: rgba(255,255,255,.42); border: 2px solid rgba(57,43,36,.18); border-radius: 1rem; padding: .8rem 1rem; }
+.prompt-list > summary { align-items: center; cursor: pointer; display: flex; font-weight: 900; justify-content: space-between; list-style: none; }
+.prompt-list > summary::-webkit-details-marker { display: none; }
+.prompt-list > summary::before { content: "▸"; margin-right: .6rem; transition: transform .2s ease; }
+.prompt-list[open] > summary::before { transform: rotate(90deg); }
+.prompt-list-count { color: #7a665a; font-size: .78rem; margin-left: auto; }
 .timeline-item { position: relative; }
 .timeline-item > div { min-width: 0; }
 .timeline-item.is-current { box-shadow: inset 6px 0 0 var(--chef-blue); }
@@ -310,7 +321,13 @@ body::before {
   .timeline-item { gap: .65rem; }
   .timeline-item > span { flex-basis: 2.15rem; height: 2.15rem; }
   .terminal-panel { max-height: 20rem; padding: .75rem; }
-  .progress-milestones { font-size: .68rem; }
+  .chef-loader { height: 5.5rem; width: 5.5rem; }
+  .chef-loader-orbit { transform-origin: 2.85rem 2.85rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chef-loader::before, .chef-loader-orbit { animation: none; }
+  .prompt-list > summary::before { transition: none; }
 }
 
 .recipe-mode-tabs .nav-link {
