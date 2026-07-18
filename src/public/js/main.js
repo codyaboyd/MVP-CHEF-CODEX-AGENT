@@ -249,6 +249,8 @@ function updateRunControls(root, snapshot) {
 function renderRunSteps(root, snapshot) {
   const list = root.querySelector('[data-run-steps]');
   if (!list) return;
+  const promptCount = root.querySelector('[data-prompt-count]');
+  if (promptCount) promptCount.textContent = `${snapshot.steps.length} ${snapshot.steps.length === 1 ? 'prompt' : 'prompts'}`;
   list.innerHTML = snapshot.steps.map((step) => `
     <div class="timeline-item ${snapshot.currentStep && snapshot.currentStep.id === step.id ? 'is-current' : ''}" data-step-id="${step.id}">
       <span>${step.order}</span>
@@ -283,9 +285,10 @@ function updateRunDetail(root, snapshot) {
   const progress = root.querySelector('[data-run-progress]');
   const progressLabel = root.querySelector('[data-run-progress-label]');
   if (progress) {
-    progress.style.width = `${snapshot.progress}%`;
-    progress.textContent = `${snapshot.progress}%`;
-    progress.parentElement.setAttribute('aria-valuenow', snapshot.progress);
+    progress.setAttribute('aria-valuenow', snapshot.progress);
+    progress.setAttribute('aria-label', `Run progress: ${snapshot.progress}%`);
+    const description = progress.querySelector('[data-run-progress-description]');
+    if (description) description.textContent = `${snapshot.progress}% complete`;
   }
   if (progressLabel) progressLabel.textContent = `${snapshot.progress}%`;
   const quota = root.querySelector('[data-quota-status]');

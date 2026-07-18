@@ -598,6 +598,9 @@ test('failure recovery tools persist actions and expose reports, logs, and retry
   assert.match(detail.text, /Retry failed step/);
   assert.match(detail.text, /Edit failed prompt and retry/);
   assert.match(detail.text, /Continue from this step/);
+  assert.match(detail.text, /class="chef-loader"/);
+  assert.match(detail.text, /<details class="prompt-list" open>/);
+  assert.match(detail.text, /Prompt list/);
 
   const logs = await request(app).get(`/runs/${created.id}/logs?stepId=${failedStep.id}`);
   assert.equal(logs.status, 200);
