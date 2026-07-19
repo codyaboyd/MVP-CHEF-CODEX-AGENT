@@ -393,12 +393,14 @@ test('CodexRunner spawns commands in repo path, streams logs, and captures exit 
     codexCommand: process.execPath,
     codexArgs: ['-e', 'process.stdin.resume(); process.stdin.on(\'data\', () => {}); console.error(process.cwd()); process.exit(7);'],
     retries: 1,
+    retryDelay: 0,
   }), /Codex exited with code 7/);
 
   const savedStep = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(step.lastInsertRowid);
   assert.equal(savedStep.status, 'failed');
   assert.match(savedStep.stdout_log, /Attempt 1 of 2/);
   assert.match(savedStep.stdout_log, /Attempt 2 of 2/);
+  assert.match(savedStep.stdout_log, /Waiting 0 seconds before retrying the prompt/);
   assert.match(savedStep.stderr_log, new RegExp(repoPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(savedStep.error_message, /Codex exited with code 7/);
 

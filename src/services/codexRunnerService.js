@@ -9,6 +9,7 @@ const DEFAULT_SANDBOX_MODE = 'workspace-write';
 const SECRET_KEY_PATTERN = /(SECRET|TOKEN|KEY|PASSWORD|PASS|PWD|AUTH|COOKIE|SESSION|PRIVATE|CREDENTIAL)/i;
 const activeProcesses = new Map();
 const cancelledSteps = new Set();
+const DEFAULT_RETRY_DELAY_MS = Number.parseInt(process.env.CODEX_RETRY_DELAY_MS || '300000', 10);
 
 const QUOTA_LIMIT_PATTERN = /(quota|rate[ -]?limit|usage[ -]?limit|refill|too many requests|exhausted)/i;
 const QUOTA_REMAINING_PATTERN = /(?:^|\s)(100|\d{1,2})%\s+left\b/i;
@@ -73,6 +74,15 @@ function quotaEvidence(result) {
 
 function nowSql() {
   return new Date().toISOString();
+}
+
+function retryDelayMs(value = DEFAULT_RETRY_DELAY_MS) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 300000;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function appendText(existing, next) {
@@ -245,7 +255,8 @@ async function executeStep(options) {
     codexCommand = DEFAULT_CODEX_COMMAND,
     codexArgs = [],
     codexModel = '',
-    retries = 0
+    retries = 0,
+    retryDelay = DEFAULT_RETRY_DELAY_MS
   } = options;
 
   const safeRepoPath = validateRepoPath(repoPath);
@@ -255,6 +266,7 @@ async function executeStep(options) {
   const redactor = createRedactor(repoPath);
   const maxAttempts = Math.max(1, Number.parseInt(retries, 10) + 1);
   const args = buildCodexArgs(prompt, codexArgs, codexModel, safeRepoPath);
+  const delayBetweenAttemptsMs = retryDelayMs(retryDelay);
 
   updateRunStatus(runId, 'running', { started_at: nowSql() });
   updateRunStep(runStepId, { status: 'running', started_at: nowSql(), completed_at: null, error_message: null });
@@ -318,6 +330,13 @@ async function executeStep(options) {
         }
         throw error;
       }
+
+      appendRunStepLog(
+        runStepId,
+        'stdout',
+        `[CodexRunner] Waiting ${Math.round(delayBetweenAttemptsMs / 1000)} seconds before retrying the prompt.\n`
+      );
+      await wait(delayBetweenAttemptsMs);
     }
   }
 
@@ -353,6 +372,7 @@ module.exports = {
   detectQuotaLimit,
   parseQuotaRemaining,
   parseCodexJsonOutput,
+  retryDelayMs,
   validateRepoPath,
   executeStep
 };
