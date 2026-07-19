@@ -22,40 +22,124 @@ The run progress bar does not estimate the number of steps. Each structured Code
 
 ## Requirements
 
-- Node.js 20 or newer
-- npm
-- Codex CLI for real runs
-- Git only for optional local checkpoint and commit behavior
-- Linux for the included systemd deployment scripts
+Install these before running the app locally:
 
-## Local development
+- **Node.js 20 or newer** and **npm**. The project uses the Node engine declared in `package.json` and installs dependencies with npm.
+- **Git** for cloning this repository and for optional local checkpoint/commit behavior inside target projects.
+- **Codex CLI** for real recipe runs. You can start the web app without it, but Codex-backed runs require an authenticated CLI.
+- **Linux** only if you want to use the included systemd deployment scripts. Local development also works anywhere Node.js and the native SQLite dependency can install.
 
-```bash
-cp .env.example .env
-npm install
-npm run dev
-```
+## Quick start: local development
 
-Open <http://localhost:3000>. The SQLite database is created automatically at `DATABASE_PATH`.
+Follow these steps from a terminal.
 
-Run the project checks with:
+### 1. Install Node.js and npm
+
+Check your current versions:
 
 ```bash
-npm test
-npm run lint
-npm run build
+node --version
+npm --version
 ```
 
-## Codex setup
+If `node` is missing or older than version 20, install Node.js 20 or newer. On Ubuntu/Debian, one option is NodeSource:
 
-The default executable is `codex`. Authenticate it as the same operating-system user that runs MVP Chef:
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs build-essential
+```
+
+On macOS, you can use Homebrew:
+
+```bash
+brew install node
+```
+
+### 2. Install the Codex CLI
+
+Install Codex CLI using the current OpenAI/Codex installation method for your environment, then verify that the `codex` command is on your `PATH`:
+
+```bash
+codex --version
+```
+
+Authenticate as the same operating-system user that will run MVP Chef Codex:
 
 ```bash
 codex login
 codex login status
 ```
 
-The Settings page can select a command path, auth mode, model, approval policy, sandbox, quota cooldown, safe-mode default, and display preferences. A normal signed-in CLI does not need an API key stored in the app.
+A normal signed-in CLI does not need an API key stored in MVP Chef Codex. If your Codex executable is not named `codex` or is not on `PATH`, you can set the command path later in the app's Settings page.
+
+### 3. Clone the repository
+
+```bash
+git clone <repository-url>
+cd MVP-CHEF-CODEX-AGENT
+```
+
+If you already have a checkout, change into it instead.
+
+### 4. Create your environment file
+
+```bash
+cp .env.example .env
+```
+
+The default file is enough for local development. Edit `.env` if you want to change the port, host, database location, app name, or browser roots.
+
+### 5. Install project dependencies
+
+```bash
+npm install
+```
+
+This installs Express, EJS, Bootstrap, SQLite support, the test tooling, and the development server dependency.
+
+### 6. Start the development server
+
+```bash
+npm run dev
+```
+
+Open <http://localhost:3000>. The SQLite database is created automatically at `DATABASE_PATH`; with the example environment this is `./data/mvp-chef-codex.sqlite`.
+
+Use `Ctrl+C` to stop the development server.
+
+### 7. Run the production-style server locally
+
+For a production-style local run, use:
+
+```bash
+npm start
+```
+
+This runs `node src/server.js` without `nodemon`.
+
+## First run checklist
+
+After opening the app in your browser:
+
+1. Open **Settings**.
+2. Confirm the Codex command path. The default is `codex`.
+3. Confirm the auth mode, model, approval policy, sandbox, quota cooldown, safe-mode default, and display preferences.
+4. Add or select a project folder. If the folder browser is too broad or too narrow, set `PROJECT_BROWSER_ROOTS` in `.env`.
+5. Create a quick one-off run or import a recipe.
+6. Start with the `workspace-write` sandbox and keep safe mode enabled for risky prompts.
+7. Inspect logs and diffs before accepting or committing generated changes.
+
+## Project commands
+
+Run these from the repository root:
+
+```bash
+npm run dev      # start the local development server with nodemon
+npm start        # start the app with node
+npm test         # run Node's built-in test suite
+npm run lint     # run ESLint
+npm run build    # placeholder build command for deployment checks
+```
 
 ## Configuration
 
@@ -63,12 +147,36 @@ Copy `.env.example` to `.env`. Supported environment values are:
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
+| `NODE_ENV` | Runtime environment | `development` |
 | `PORT` | HTTP port | `3000` |
-| `HOST` | Listen address | `127.0.0.1` |
-| `DATABASE_PATH` | SQLite file | `data/mvp-chef-codex.sqlite` |
-| `CODEX_CLI_COMMAND` | Codex executable | `codex` |
+| `HOST` | Listen address | `0.0.0.0` in the server when unset |
+| `DATABASE_PATH` | SQLite file | `./data/mvp-chef-codex.sqlite` |
+| `APP_NAME` | Display name used by the app/environment | `MVP Chef Codex` |
+| `PROJECT_BROWSER_ROOTS` | Optional colon-separated roots exposed by the server folder browser | unset |
 
 Do not commit `.env` or place credentials in recipes. Logs redact values from secret-like environment variables and the target folder's `.env` file.
+
+## Codex setup and app settings
+
+The default executable is `codex`. Authenticate it as the same operating-system user that runs MVP Chef Codex:
+
+```bash
+codex login
+codex login status
+```
+
+The Settings page can select:
+
+- Codex command path
+- Auth mode
+- Model
+- Approval policy
+- Sandbox mode
+- Quota cooldown and auto-resume behavior
+- Safe-mode default
+- Display preferences
+
+If you run MVP Chef Codex as a systemd service, run `codex login` for the service user or configure the Settings page with the correct command and auth details for that user.
 
 ## Recipe format
 
@@ -119,20 +227,58 @@ Use isolated projects for experimentation. Start with `workspace-write`, keep sa
 
 ## Ubuntu service installation
 
-From a prepared checkout:
+Use this path when you want MVP Chef Codex to run as a systemd service on Ubuntu.
+
+### 1. Prepare the machine
+
+Make sure you have `sudo` access and that this repository is checked out on the server. The installer will install system packages, Node.js 20 when needed, production npm dependencies, and a systemd service.
+
+### 2. Run the installer
+
+From the repository root:
 
 ```bash
 sudo ./scripts/install-ubuntu.sh
 ```
 
-The installer copies the application to `/opt/mvp-chef-codex`, installs production dependencies, creates the environment and data directories, and enables a systemd service. Related operations:
+By default, the installer copies the application to `/opt/mvp-chef-codex`, installs production dependencies with `npm ci --omit=dev`, creates `data` and `backups` directories, writes `.env` if needed, enables the service, and waits for `/healthz` to return healthy.
+
+### 3. Optional installer variables
+
+Set variables before the command to customize deployment:
+
+```bash
+sudo APP_NAME=mvp-chef-codex SERVICE_NAME=mvp-chef-codex APP_DIR=/opt/mvp-chef-codex APP_USER=ubuntu PORT=3000 ./scripts/install-ubuntu.sh
+```
+
+Common variables:
+
+- `APP_NAME`: application directory name default.
+- `SERVICE_NAME`: systemd service name.
+- `APP_DIR`: installation directory.
+- `APP_USER`: operating-system user that owns and runs the app.
+- `NODE_MAJOR`: Node.js major version to install when needed; defaults to `20`.
+- `PORT`: HTTP port; defaults to `3000`.
+
+### 4. Manage the service
+
+```bash
+sudo systemctl status mvp-chef-codex
+sudo journalctl -u mvp-chef-codex -f
+sudo systemctl restart mvp-chef-codex
+```
+
+### 5. Back up and update
+
+```bash
+sudo APP_DIR=/opt/mvp-chef-codex ./scripts/backup-db.sh
+sudo ./scripts/update.sh
+```
+
+You can also create or refresh the unit directly:
 
 ```bash
 sudo ./scripts/create-systemd-service.sh mvp-chef-codex /opt/mvp-chef-codex ubuntu
-sudo APP_DIR=/opt/mvp-chef-codex ./scripts/backup-db.sh
-sudo ./scripts/update.sh
-sudo systemctl status mvp-chef-codex
-sudo journalctl -u mvp-chef-codex -f
 ```
 
 ## Architecture
@@ -155,7 +301,9 @@ Browser -> Express routes/controllers -> services -> SQLite
 
 ## Troubleshooting
 
-- **Codex is unavailable:** set the correct command path in Settings and run `codex login status` as the service user.
+- **The app will not start:** run `npm install`, confirm Node.js is version 20 or newer, and check that `PORT` is not already in use.
+- **The database cannot be created:** confirm the directory in `DATABASE_PATH` exists or can be created by the app user.
+- **Codex is unavailable:** set the correct command path in Settings and run `codex login status` as the same user that runs MVP Chef Codex.
 - **A run is locked:** open the active run and resume or cancel it; stale lock leases are cleaned automatically.
 - **A run pauses for quota:** wait for the displayed refill time, set a new time, or resume after capacity returns.
 - **A prompt is blocked:** safe mode rejects prompt-lint warnings. Rewrite destructive, vague, or secret-exposing instructions.
