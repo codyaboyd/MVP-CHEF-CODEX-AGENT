@@ -58,6 +58,30 @@
       <p class="chef-loader-caption mb-0">Codex is cooking your recipe…</p>
     </div>
 
+
+    <div class="paper-panel p-4 mb-4">
+      <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-3">
+        <div>
+          <h2 class="h4 m-0">Save this recipe</h2>
+          <p class="text-muted small mb-0">After starting a run, save the prompt chain as a reusable workflow in Saved workflows.</p>
+        </div>
+        <% if (run.recipe_id) { %><a class="btn btn-sm btn-outline-dark" href="/recipes/<%= run.recipe_id %>/edit">Advanced edit</a><% } %>
+      </div>
+      <form method="post" action="/runs/<%= run.id %>/save-recipe" class="row g-3 align-items-end">
+        <div class="col-md-5">
+          <label class="form-label small fw-bold">Recipe name</label>
+          <input class="form-control" name="title" value="<%= run.recipe_name || `Codex run #${run.id}` %>" required>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label small fw-bold">Summary</label>
+          <input class="form-control" name="summary" value="<%= run.recipe_description || 'Reusable recipe saved from this Codex run.' %>" required>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-success w-100" type="submit">💾 Save recipe</button>
+        </div>
+      </form>
+    </div>
+
     <div class="paper-panel p-4 mb-4">
       <div class="d-flex flex-wrap justify-content-between gap-2 align-items-center mb-3">
         <h2 class="h4 m-0">Failure recovery tools</h2>
@@ -82,7 +106,7 @@
               <div class="d-flex flex-wrap gap-2 mt-2">
                 <form method="post" action="/runs/<%= run.id %>/steps/<%= step.id %>/retry"><button class="btn btn-sm btn-primary" type="submit">Retry failed step</button></form>
                 <form method="post" action="/runs/<%= run.id %>/steps/<%= step.id %>/skip"><button class="btn btn-sm btn-outline-secondary" type="submit">Skip failed step</button></form>
-                <form method="post" action="/runs/<%= run.id %>/steps/<%= step.id %>/continue-from"><button class="btn btn-sm btn-outline-primary" type="submit">Continue from this step</button></form>
+                <form method="post" action="/runs/<%= run.id %>/steps/<%= step.id %>/continue-from"><button class="btn btn-sm btn-outline-primary" type="submit">Continue from this step — restart failed step and keep rolling</button></form>
                 <a class="btn btn-sm btn-outline-dark" href="/runs/<%= run.id %>/diff?stepId=<%= step.id %>" target="_blank">Diff</a>
                 <a class="btn btn-sm btn-outline-dark" href="/runs/<%= run.id %>/logs?stepId=<%= step.id %>" target="_blank">Logs</a>
               </div>

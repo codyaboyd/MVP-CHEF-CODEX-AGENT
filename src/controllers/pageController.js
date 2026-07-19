@@ -217,6 +217,40 @@ function pauseRun(req, res) {
   redirectToRun(req, res);
 }
 
+
+function saveRunRecipe(req, res, next) {
+  try {
+    const runId = Number(req.params.id);
+    const run = runStateManager.getRun(runId);
+    if (!run || !run.recipe_id) {
+      next();
+      return;
+    }
+    const recipe = recipeService.getRecipeById(run.recipe_id);
+    if (!recipe) {
+      next();
+      return;
+    }
+    const title = String(req.body.title || '').trim();
+    const summary = String(req.body.summary || '').trim();
+    if (!title || !summary) {
+      throw new Error('Recipe title and summary are required before saving.');
+    }
+    recipeService.updateRecipe(recipe.id, {
+      title,
+      phase: recipe.phase || '1.0.0',
+      summary,
+      ingredients: recipe.ingredients || '',
+      projectId: recipe.projectId,
+      approvalMode: recipe.approvalMode || 'none',
+      steps: recipe.steps
+    });
+    res.redirect(`/recipes/${recipe.id}`);
+  } catch (error) {
+    next(error);
+  }
+}
+
 function resumeRun(req, res, next) {
   recipeRunEngine.resumeRun(Number(req.params.id), { approved: true, approvedPoint: req.body.approvalPoint, quotaCooldownElapsed: req.body.ignoreQuotaCooldown === '1' }).catch(next);
   redirectToRun(req, res);
@@ -378,6 +412,7 @@ module.exports = {
   recipes,
   runDetail,
   runEvents,
+  saveRunRecipe,
   setQuotaRefill,
   pauseRun,
   resumeRun,

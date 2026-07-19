@@ -576,6 +576,35 @@ test('RunStateManager prevents concurrent active runs for one project and cancel
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
 
+
+test('run detail lets a started quick run save recipe metadata', async () => {
+  const createResponse = await request(app)
+    .post('/run')
+    .type('form')
+    .send({ folderPath: process.cwd(), prompts: 'Turn this run into a saved workflow.' });
+
+  assert.equal(createResponse.status, 302);
+  const runId = Number(createResponse.headers.location.split('/').pop());
+
+  const detailResponse = await request(app).get(`/runs/${runId}`);
+  assert.equal(detailResponse.status, 200);
+  assert.match(detailResponse.text, /Save this recipe/);
+
+  const saveResponse = await request(app)
+    .post(`/runs/${runId}/save-recipe`)
+    .type('form')
+    .send({ title: 'Saved Quick Run', summary: 'Reusable workflow saved after pressing run.' });
+
+  const recipeId = db.prepare('SELECT recipe_id FROM runs WHERE id = ?').get(runId).recipe_id;
+  assert.equal(saveResponse.status, 302);
+  assert.equal(saveResponse.headers.location, `/recipes/${recipeId}`);
+  const recipe = db.prepare('SELECT name, description FROM recipes WHERE id = ?').get(recipeId);
+  assert.equal(recipe.name, 'Saved Quick Run');
+  assert.equal(recipe.description, 'Reusable workflow saved after pressing run.');
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
+});
+
 test('failure recovery tools persist actions and expose reports, logs, and retry controls', async () => {
   const engine = require('../src/services/recipeRunEngine');
   const project = db.prepare(`
