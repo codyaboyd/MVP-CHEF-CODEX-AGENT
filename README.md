@@ -153,6 +153,7 @@ Copy `.env.example` to `.env`. Supported environment values are:
 | `DATABASE_PATH` | SQLite file | `./data/mvp-chef-codex.sqlite` |
 | `APP_NAME` | Display name used by the app/environment | `MVP Chef Codex` |
 | `PROJECT_BROWSER_ROOTS` | Optional colon-separated roots exposed by the server folder browser | unset |
+| `CODEX_RETRY_DELAY_MS` | Delay before retrying a failed Codex prompt step | `300000` (5 minutes) |
 
 Do not commit `.env` or place credentials in recipes. Logs redact values from secret-like environment variables and the target folder's `.env` file.
 
