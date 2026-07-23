@@ -458,3 +458,139 @@ addButtonDelight();
 addRecipeCardTilt();
 pauseOffscreenAnimations();
 animateNavigation();
+
+// Reusable animation utility system for cinematic cookbook UX.
+const ChefMotion = (() => {
+  const reduced = () => prefersReducedMotion();
+  function stagger(root = document) {
+    root.querySelectorAll('.motion-stagger, .row, .timeline, .prompt-chain, .recipe-grid').forEach((group) => {
+      Array.from(group.children).forEach((child, index) => child.style.setProperty('--stagger-index', index));
+    });
+  }
+  function revealSections() {
+    const targets = document.querySelectorAll('section, .paper-panel, .recipe-card, .stat-card, .empty-state');
+    if (!('IntersectionObserver' in window) || reduced()) {
+      targets.forEach((target) => target.classList.add('motion-in-view'));
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('motion-in-view');
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    targets.forEach((target) => observer.observe(target));
+  }
+  function sparkle(x, y, count = 10) {
+    if (reduced()) return;
+    for (let index = 0; index < count; index += 1) {
+      const star = document.createElement('span');
+      star.className = 'chef-sparkle';
+      star.textContent = ['✦', '✨', '✧', '⋆'][index % 4];
+      star.style.left = `${x + (Math.random() - 0.5) * 80}px`;
+      star.style.top = `${y + (Math.random() - 0.5) * 60}px`;
+      document.body.append(star);
+      star.addEventListener('animationend', () => star.remove(), { once: true });
+    }
+  }
+  function confetti(count = 42) {
+    if (reduced()) return;
+    const colors = ['#ee6352', '#ffd95a', '#6bcb77', '#4d96ff', '#7c5cff'];
+    for (let index = 0; index < count; index += 1) {
+      const bit = document.createElement('span');
+      bit.className = 'chef-confetti';
+      bit.style.background = colors[index % colors.length];
+      bit.style.height = `${6 + Math.random() * 9}px`;
+      bit.style.left = `${Math.random() * 100}vw`;
+      bit.style.top = `${-10 - Math.random() * 30}px`;
+      bit.style.width = `${5 + Math.random() * 7}px`;
+      bit.style.animationDelay = `${Math.random() * .35}s`;
+      document.body.append(bit);
+      bit.addEventListener('animationend', () => bit.remove(), { once: true });
+    }
+  }
+  function fireworks(count = 8) {
+    if (reduced()) return;
+    for (let index = 0; index < count; index += 1) {
+      const firework = document.createElement('span');
+      firework.className = 'chef-firework';
+      firework.textContent = '🎆';
+      firework.style.left = `${10 + Math.random() * 80}vw`;
+      firework.style.top = `${8 + Math.random() * 45}vh`;
+      firework.style.animationDelay = `${index * 90}ms`;
+      document.body.append(firework);
+      firework.addEventListener('animationend', () => firework.remove(), { once: true });
+    }
+  }
+  function stamp(element, label = 'COMPLETE') {
+    if (!element || reduced()) return;
+    const badge = document.createElement('span');
+    badge.className = 'status-badge motion-stamp position-absolute top-0 end-0 m-3';
+    badge.textContent = label;
+    element.style.position = 'relative';
+    element.append(badge);
+    setTimeout(() => badge.remove(), 2600);
+  }
+  return { stagger, revealSections, sparkle, confetti, fireworks, stamp };
+})();
+
+function setupMascot() {
+  const mascot = document.querySelector('[data-chef-mascot]');
+  if (!mascot) return;
+  const message = mascot.querySelector('[data-chef-message]');
+  const hat = mascot.querySelector('[data-chef-hat]');
+  const status = document.querySelector('[data-run-status], .status-badge[data-status]')?.dataset.status || '';
+  const mood = status.includes('succeeded') ? 'success' : status.includes('failed') ? 'failed' : status.includes('waiting') || status.includes('queued') ? 'waiting' : status.includes('running') ? 'running' : 'idle';
+  const copy = { idle: 'Need a recipe?', running: 'Stirring Codex…', success: 'Bon appétit!', failed: 'Too smoky!', waiting: 'Cooldown nap…' };
+  mascot.dataset.mood = mood;
+  if (message) message.textContent = copy[mood];
+  let hatClicks = 0;
+  if (hat) hat.addEventListener('click', () => {
+    hatClicks += 1;
+    ChefMotion.sparkle(window.innerWidth - 80, window.innerHeight - 120, 8);
+    if (hatClicks >= 10) { ChefMotion.confetti(80); hatClicks = 0; }
+  });
+}
+
+function setupEasterEggs() {
+  const konami = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+  const keys = [];
+  document.addEventListener('keydown', (event) => {
+    keys.push(event.key);
+    keys.splice(0, Math.max(0, keys.length - konami.length));
+    if (konami.every((key, index) => key === keys[index])) {
+      document.body.classList.add('master-chef-mode');
+      ChefMotion.confetti(120); ChefMotion.fireworks(10);
+      setTimeout(() => document.body.classList.remove('master-chef-mode'), 4200);
+    }
+  });
+  if (Math.random() < 0.08 && !prefersReducedMotion()) {
+    setTimeout(() => {
+      const spatula = document.createElement('span');
+      spatula.className = 'golden-spatula'; spatula.textContent = '🏆🥄';
+      spatula.style.left = '70vw'; spatula.style.top = '82vh'; document.body.append(spatula);
+      spatula.addEventListener('animationend', () => spatula.remove(), { once: true });
+    }, 1800);
+  }
+  document.addEventListener('pointermove', (event) => {
+    if (prefersReducedMotion() || Math.random() > 0.002) return;
+    const mouse = document.createElement('span');
+    mouse.className = 'tiny-mouse'; mouse.textContent = '🐭';
+    mouse.style.left = `${event.clientX}px`; mouse.style.top = `${event.clientY + 12}px`; document.body.append(mouse);
+    mouse.addEventListener('animationend', () => mouse.remove(), { once: true });
+  });
+}
+
+function celebrateExistingSuccess() {
+  if (document.querySelector('[data-run-status]')?.textContent.trim() === 'succeeded') {
+    ChefMotion.stamp(document.querySelector('.recipe-page'), 'COMPLETE');
+    ChefMotion.fireworks(6);
+  }
+}
+
+ChefMotion.stagger();
+ChefMotion.revealSections();
+setupMascot();
+setupEasterEggs();
+celebrateExistingSuccess();
