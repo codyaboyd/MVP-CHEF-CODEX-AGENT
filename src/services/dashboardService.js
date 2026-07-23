@@ -47,8 +47,8 @@ function getRunById(id) {
 
 function countAttempts(step) {
   const logs = `${step.stdout_log || ''}\n${step.stderr_log || ''}`;
-  const matches = logs.match(/\[CodexRunner\] Attempt \d+ of \d+\./g);
-  return matches ? matches.length : 0;
+  const matches = logs.matchAll(/\[CodexRunner\] Attempt (\d+) of \d+\./g);
+  return [...matches].filter((match) => Number.parseInt(match[1], 10) > 1).length;
 }
 
 function calculateProgress(steps = [], runStatus = '') {

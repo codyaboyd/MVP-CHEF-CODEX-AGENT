@@ -655,7 +655,7 @@ test('run events stream live run snapshots with progress, logs, and retries', as
   const run = db.prepare('INSERT INTO runs (status, stdout_log, stderr_log, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)')
     .run('running', 'run stdout\n', 'run stderr\n');
   const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status, stdout_log, stderr_log) VALUES (?, ?, ?, ?, ?)')
-    .run(run.lastInsertRowid, 1, 'running', '[CodexRunner] Attempt 1 of 2.\nstep stdout\n', 'step stderr\n');
+    .run(run.lastInsertRowid, 1, 'running', '[CodexRunner] Attempt 1 of 2.\n[CodexRunner] Attempt 2 of 2.\nstep stdout\n', 'step stderr\n');
 
   const response = await request(app).get(`/runs/${run.lastInsertRowid}/events`).buffer(true).parse((res, callback) => {
     let body = '';
