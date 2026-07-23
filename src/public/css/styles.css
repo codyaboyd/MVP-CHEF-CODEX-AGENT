@@ -121,7 +121,11 @@ body {
 .run-actions form { display: inline-flex; }
 .terminal-panel { background: #15120f; border: 4px solid var(--chef-ink); border-radius: 1rem; box-shadow: inset 0 0 0 2px rgba(255,255,255,.08); color: #f8f1d4; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; max-height: 28rem; overflow: auto; padding: 1rem; }
 .terminal-panel pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
-.terminal-panel .stderr { color: #ff9a8f; }
+.terminal-panel-stderr { color: #ffb0a8; }
+.terminal-tabs { background: #2a221c; border-left: 4px solid var(--chef-ink); border-right: 4px solid var(--chef-ink); gap: .4rem; padding: .55rem 1rem 0; }
+.terminal-tabs .nav-link { border: 2px solid rgba(255,255,255,.18); color: #fff5d9; font-weight: 900; }
+.terminal-tabs .nav-link.active { background: #fff5d9; color: var(--chef-ink); }
+.terminal-tab-content .terminal-panel { border-top: 0; }
 .timeline-item.is-current { background: rgba(77,150,255,.14); border: 2px dashed rgba(57,43,36,.25); border-radius: 1rem; padding: .75rem; }
 
 .settings-page .settings-section { height: 100%; }
