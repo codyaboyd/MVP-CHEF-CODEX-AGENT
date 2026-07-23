@@ -54,6 +54,47 @@ function attachFolderBrowser(container, onSelect, setStatus) {
   });
 }
 
+function summarizeCodexEvent(event) {
+  const type = event.type || 'event';
+  if (type === 'turn.completed') {
+    const usage = event.usage ? ` · usage ${JSON.stringify(event.usage)}` : '';
+    return `✓ turn completed${usage}`;
+  }
+  if (type === 'item.completed') {
+    const item = event.item || {};
+    const title = item.title || item.name || item.type || 'item';
+    const content = typeof item.content === 'string' ? ` — ${item.content}` : '';
+    return `✓ ${title}${content}`;
+  }
+  if (type === 'response.output_text.delta' || type === 'response.output_text.done') {
+    return event.delta || event.text || '';
+  }
+  if (type.includes('error') || type.includes('fail')) {
+    return `! ${event.message || event.error || JSON.stringify(event)}`;
+  }
+  return `${type}: ${JSON.stringify(event)}`;
+}
+
+function formatCodexStream(output = '') {
+  const lines = String(output).split(/\r?\n/);
+  const formatted = [];
+  lines.forEach((line) => {
+    if (!line.trim()) return;
+    try {
+      const event = JSON.parse(line);
+      if (event && typeof event === 'object' && !Array.isArray(event)) {
+        const summary = summarizeCodexEvent(event);
+        if (summary) formatted.push(summary);
+        return;
+      }
+    } catch {
+      // stdout may include wrapper text; stderr is displayed separately as raw text.
+    }
+    formatted.push(line);
+  });
+  return formatted.join('\n');
+}
+
 document.querySelectorAll('[data-quick-run-form]').forEach((form) => {
   const chain = form.querySelector('[data-prompt-chain]');
   const folderInput = form.querySelector('[data-project-path]');
@@ -297,10 +338,16 @@ function updateRunDetail(root, snapshot) {
     if (refill) refill.textContent = snapshot.quotaStatus.refillAt || 'Not set';
     if (retry) retry.textContent = snapshot.quotaStatus.retryCount || 0;
   }
-  const logs = root.querySelector('[data-run-logs]');
-  if (logs) {
-    logs.textContent = [snapshot.stdout, snapshot.stderr ? `\n[stderr]\n${snapshot.stderr}` : ''].filter(Boolean).join('') || 'Waiting for logs…';
-    const terminal = root.querySelector('[data-run-terminal]');
+  const stdout = root.querySelector('[data-run-stdout]');
+  if (stdout) {
+    stdout.textContent = formatCodexStream(snapshot.stdout) || 'Waiting for Codex stream…';
+    const terminal = root.querySelector('[data-run-terminal="stdout"]');
+    if (terminal) terminal.scrollTop = terminal.scrollHeight;
+  }
+  const stderr = root.querySelector('[data-run-stderr]');
+  if (stderr) {
+    stderr.textContent = snapshot.stderr || 'No stderr output.';
+    const terminal = root.querySelector('[data-run-terminal="stderr"]');
     if (terminal) terminal.scrollTop = terminal.scrollHeight;
   }
   renderRunSteps(root, snapshot);
@@ -320,4 +367,8 @@ document.querySelectorAll('[data-run-detail]').forEach((root) => {
   source.onerror = () => {
     if (connection) connection.textContent = 'Reconnecting';
   };
+});
+
+document.querySelectorAll('[data-run-stdout]').forEach((stdout) => {
+  stdout.textContent = formatCodexStream(stdout.textContent) || 'Waiting for Codex stream…';
 });

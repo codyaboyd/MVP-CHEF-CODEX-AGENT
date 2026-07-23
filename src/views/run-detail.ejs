@@ -141,8 +141,25 @@
         <div class="d-flex align-items-center gap-2"><span class="terminal-dots"><span></span><span></span><span></span></span><h2 class="h5 m-0">Live terminal logs</h2></div>
         <span class="status-badge" data-run-connection>Connecting</span>
       </div>
-      <div class="terminal-panel" data-run-terminal aria-live="polite">
-        <pre><code data-run-logs><%= runSnapshot ? `${runSnapshot.stdout}${runSnapshot.stderr ? `\n${runSnapshot.stderr}` : ''}` : 'Waiting for logs…' %></code></pre>
+      <ul class="nav nav-pills terminal-tabs" id="terminalLogTabs" role="tablist" aria-label="Terminal log streams">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="stdout-log-tab" data-bs-toggle="tab" data-bs-target="#stdoutLogPane" type="button" role="tab" aria-controls="stdoutLogPane" aria-selected="true">Codex stream</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="stderr-log-tab" data-bs-toggle="tab" data-bs-target="#stderrLogPane" type="button" role="tab" aria-controls="stderrLogPane" aria-selected="false">stderr</button>
+        </li>
+      </ul>
+      <div class="tab-content terminal-tab-content">
+        <div class="tab-pane fade show active" id="stdoutLogPane" role="tabpanel" aria-labelledby="stdout-log-tab" tabindex="0">
+          <div class="terminal-panel" data-run-terminal="stdout" aria-live="polite">
+            <pre><code data-run-stdout><%= runSnapshot && runSnapshot.stdout ? runSnapshot.stdout : 'Waiting for Codex stream…' %></code></pre>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="stderrLogPane" role="tabpanel" aria-labelledby="stderr-log-tab" tabindex="0">
+          <div class="terminal-panel terminal-panel-stderr" data-run-terminal="stderr" aria-live="polite">
+            <pre><code data-run-stderr><%= runSnapshot && runSnapshot.stderr ? runSnapshot.stderr : 'No stderr output.' %></code></pre>
+          </div>
+        </div>
       </div>
     </div>
   </div>
