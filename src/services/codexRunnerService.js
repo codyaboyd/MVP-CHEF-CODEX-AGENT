@@ -5,7 +5,8 @@ const dotenv = require('dotenv');
 const db = require('../db');
 
 const DEFAULT_CODEX_COMMAND = process.env.CODEX_CLI_COMMAND || 'codex';
-const DEFAULT_SANDBOX_MODE = 'workspace-write';
+const DEFAULT_SANDBOX_MODE =
+  process.env.CODEX_SANDBOX_MODE || 'workspace-write';
 const SECRET_KEY_PATTERN = /(SECRET|TOKEN|KEY|PASSWORD|PASS|PWD|AUTH|COOKIE|SESSION|PRIVATE|CREDENTIAL)/i;
 const activeProcesses = new Map();
 const cancelledSteps = new Set();
@@ -184,19 +185,22 @@ function validateRepoPath(repoPath) {
 }
 
 function buildCodexArgs(prompt, extraArgs = [], model = '', repoPath) {
-  // Recipe projects may be new local folders rather than trusted Git repositories.
-  // Read the prompt from stdin and explicitly allow Codex to run in those folders.
   if (extraArgs.length) return extraArgs;
+
   const args = [
+    '--search',
     'exec',
     '--cd', repoPath,
     '--sandbox', DEFAULT_SANDBOX_MODE,
     '--json',
-    '--search',
     '-c', 'sandbox_workspace_write.network_access=true',
     '--skip-git-repo-check'
   ];
-  if (typeof model === 'string' && model.trim()) args.push('--model', model.trim());
+
+  if (typeof model === 'string' && model.trim()) {
+    args.push('--model', model.trim());
+  }
+
   args.push('-');
   return args;
 }
