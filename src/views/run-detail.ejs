@@ -93,7 +93,7 @@
 
     <div class="paper-panel p-4 mb-4">
       <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="h4 mb-0">Cooking steps</h2><span class="chef-badge badge-soft rounded-pill px-3 py-1">Live mise en place</span></div>
-      <details class="prompt-list">
+      <details class="prompt-list" <%= (run.steps || []).some((step) => ['failed', 'paused', 'waiting_for_quota'].includes(step.status)) ? 'open' : '' %>>
         <summary><span>Prompt list</span><span class="prompt-list-count" data-prompt-count><%= (run.steps || []).length %> prompts</span></summary>
       <div class="timeline mt-3" data-run-steps>
         <% (run.steps || []).forEach((step) => { %><div class="timeline-item" data-step-id="<%= step.id || step.step_order %>"><span><%= step.step_order %></span><div><strong><%= step.recipe_step_title || step.title || 'Recipe step' %></strong> <span class="status-badge"><%= step.status %></span><p><%= step.prompt || step.status %></p>
