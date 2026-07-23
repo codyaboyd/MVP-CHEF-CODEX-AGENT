@@ -33,7 +33,6 @@ router.get('/runs/:id/failure-report', pageController.exportFailureReport);
 router.post('/runs/:id/pause', pageController.pauseRun);
 router.post('/runs/:id/resume', pageController.resumeRun);
 router.post('/runs/:id/save-recipe', pageController.saveRunRecipe);
-router.post('/runs/:id/rollback-last-step', pageController.rollbackLastStep);
 router.post('/runs/:id/steps/:stepId/approve', pageController.approveRunStep);
 router.post('/runs/:id/steps/:stepId/reject', pageController.rejectRunStep);
 router.post('/runs/:id/steps/:stepId/retry', pageController.retryRunStep);

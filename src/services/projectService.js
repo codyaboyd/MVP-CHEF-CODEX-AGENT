@@ -147,27 +147,11 @@ function validateProjectPath(repoPath) {
 function getHealthChecks(project) {
   const checks = [];
   const repoPath = project.repo_path || project.repoPath;
-  const defaultBranch = project.default_branch || project.defaultBranch;
-
   checks.push({
     key: 'repo_path_exists',
     label: 'Repo path exists',
     ok: Boolean(repoPath && fs.existsSync(repoPath)),
     detail: repoPath || 'No repository path configured.'
-  });
-
-  checks.push({
-    key: 'repo_path_git_repository',
-    label: 'Git repository available',
-    ok: true,
-    detail: repoPath && fs.existsSync(path.join(repoPath, '.git')) ? path.join(repoPath, '.git') : 'Not required for local-only runs.'
-  });
-
-  checks.push({
-    key: 'default_branch_set',
-    label: 'Default branch is set',
-    ok: Boolean(defaultBranch),
-    detail: defaultBranch || 'No default branch configured.'
   });
 
   return checks;
@@ -184,8 +168,6 @@ function validateProject(input) {
   } else {
     project.repoPath = repoPathValidation.repoPath;
   }
-  if (!project.defaultBranch) errors.push('Default branch is required.');
-
   return { project, errors };
 }
 
@@ -201,7 +183,7 @@ function withHealth(project) {
 
 function getProjects() {
   return db.prepare(`
-    SELECT p.*, COUNT(r.id) AS recipe_count,
+    SELECT p.*, COUNT(CASE WHEN r.is_saved = 1 THEN 1 END) AS recipe_count,
            l.run_id AS lock_run_id, l.owner AS lock_owner, l.expires_at AS lock_expires_at, l.heartbeat_at AS lock_heartbeat_at
     FROM projects p
     LEFT JOIN recipes r ON r.project_id = p.id

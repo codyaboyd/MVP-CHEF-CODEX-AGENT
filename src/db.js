@@ -254,7 +254,13 @@ function runMigrations(db) {
         );
         CREATE INDEX IF NOT EXISTS idx_project_run_locks_expires_at ON project_run_locks(expires_at);
       `
-
+    },
+    {
+      version: 11,
+      name: 'add_recipe_saved_flag',
+      sql: `
+        ALTER TABLE recipes ADD COLUMN is_saved INTEGER NOT NULL DEFAULT 1;
+      `
     }
   ];
 

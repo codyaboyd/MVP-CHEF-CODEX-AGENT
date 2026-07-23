@@ -197,6 +197,7 @@ function getAllRecipes() {
     SELECT recipes.*, projects.name AS project_name, projects.repo_path AS project_repo_path
     FROM recipes
     LEFT JOIN projects ON projects.id = recipes.project_id
+    WHERE recipes.is_saved = 1
     ORDER BY recipes.id ASC
   `).all().map(serializeRecipe);
 }
@@ -215,7 +216,7 @@ function getProjects() {
   return db.prepare('SELECT id, name FROM projects ORDER BY name ASC').all();
 }
 
-function createRecipe({ title, phase, summary, ingredients = '', projectId = null, approvalMode = 'manual_steps', steps = [], instructions = '', rawTextBlocks = '' }) {
+function createRecipe({ title, phase, summary, ingredients = '', projectId = null, approvalMode = 'manual_steps', steps = [], instructions = '', rawTextBlocks = '', isSaved = true }) {
   const rawSteps = parseRawTextBlocks(rawTextBlocks).map((prompt, index) => ({ title: `Text block ${index + 1}`, prompt }));
   const normalizedSteps = normalizeSteps(rawSteps.length ? rawSteps : (steps.length ? steps : parseLines(instructions).map((prompt, index) => ({ title: `Step ${index + 1}`, prompt }))));
   const ingredientList = parseLines(ingredients);
@@ -223,9 +224,9 @@ function createRecipe({ title, phase, summary, ingredients = '', projectId = nul
 
   const create = db.transaction(() => {
     const result = db.prepare(`
-      INSERT INTO recipes (project_id, name, version, description, approval_mode, imported_json, exported_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(normalizeProjectId(projectId), title, phase, summary, normalizeApprovalMode(approvalMode), JSON.stringify(recipeJson, null, 2), JSON.stringify(recipeJson, null, 2));
+      INSERT INTO recipes (project_id, name, version, description, approval_mode, imported_json, exported_json, is_saved)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(normalizeProjectId(projectId), title, phase, summary, normalizeApprovalMode(approvalMode), JSON.stringify(recipeJson, null, 2), JSON.stringify(recipeJson, null, 2), isSaved ? 1 : 0);
 
     saveSteps(result.lastInsertRowid, normalizedSteps);
     return result.lastInsertRowid;
@@ -300,7 +301,7 @@ function updateRecipe(id, { title, phase, summary, ingredients = '', projectId =
   const update = db.transaction(() => {
     db.prepare(`
       UPDATE recipes
-      SET project_id = ?, name = ?, version = ?, description = ?, approval_mode = ?, exported_json = ?, updated_at = CURRENT_TIMESTAMP
+      SET project_id = ?, name = ?, version = ?, description = ?, approval_mode = ?, exported_json = ?, is_saved = 1, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(normalizeProjectId(projectId), title, phase, summary, normalizeApprovalMode(approvalMode), JSON.stringify(recipeJson, null, 2), id);
     db.prepare('DELETE FROM recipe_steps WHERE recipe_id = ?').run(id);

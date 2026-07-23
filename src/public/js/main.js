@@ -280,17 +280,13 @@ function updateRunDetail(root, snapshot) {
   if (currentStep) currentStep.textContent = snapshot.currentStep ? snapshot.currentStep.title : 'Complete';
   const retries = root.querySelector('[data-run-retries]');
   if (retries) retries.textContent = snapshot.retryAttempts;
-  const commit = root.querySelector('[data-run-commit]');
-  if (commit) commit.textContent = snapshot.commitSha || 'Pending';
   const progress = root.querySelector('[data-run-progress]');
-  const progressLabel = root.querySelector('[data-run-progress-label]');
   if (progress) {
     progress.setAttribute('aria-valuenow', snapshot.progress);
-    progress.setAttribute('aria-label', `Run progress: ${snapshot.progress}%`);
+    progress.setAttribute('aria-label', 'Run progress');
     const description = progress.querySelector('[data-run-progress-description]');
-    if (description) description.textContent = `${snapshot.progress}% complete`;
+    if (description) description.textContent = 'Run in progress';
   }
-  if (progressLabel) progressLabel.textContent = `${snapshot.progress}%`;
   const quota = root.querySelector('[data-quota-status]');
   if (quota && snapshot.quotaStatus) {
     quota.classList.toggle('d-none', !snapshot.quotaStatus.waiting);
