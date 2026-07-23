@@ -4,7 +4,7 @@
     <div>
       <p class="eyebrow">📁 Project pantry</p>
       <h1>Projects</h1>
-      <p class="text-muted">Manage local project folders, default branches, and command recipes for Codex runs.</p>
+      <p class="text-muted">Manage local project folders and command recipes for Codex runs.</p>
     </div>
   </div>
 
@@ -24,12 +24,9 @@
         <input class="form-control" id="name" name="name" value="<%= form.name %>" required>
       </div>
       <div class="col-md-6">
-        <label class="form-label fw-bold" for="defaultBranch">Default branch</label>
-        <input class="form-control" id="defaultBranch" name="defaultBranch" value="<%= form.defaultBranch %>" required>
-      </div>
-      <div class="col-md-6 col-lg-3">
-        <label class="form-label fw-bold" for="packageManagerCommand">Package manager</label>
-        <input class="form-control" id="packageManagerCommand" name="packageManagerCommand" value="<%= form.packageManagerCommand %>" data-detected-command="packageManagerCommand">
+        <label class="form-label fw-bold" for="repoPath">Project folder</label>
+        <input class="form-control" id="repoPath" name="repoPath" value="<%= form.repoPath %>" placeholder="/absolute/path/to/project" required data-project-path>
+        <div class="form-text" data-project-folder-status>Select or paste a local project folder.</div>
       </div>
       <div class="col-md-4">
         <label class="form-label fw-bold" for="safeMode">Safe mode</label>
@@ -43,7 +40,8 @@
         <label class="form-label fw-bold" for="description">Description</label>
         <textarea class="form-control" id="description" name="description" rows="2"><%= form.description %></textarea>
       </div>
-      <div class="col-12 d-flex flex-wrap gap-2 align-items-center"><button class="btn btn-outline-secondary rounded-pill" type="button" data-detect-project-commands>Detect commands</button><button class="btn btn-primary rounded-pill chef-button" type="submit">+ Add project</button></div>
+      <div class="col-12 d-flex flex-wrap gap-2 align-items-center"><button class="btn btn-outline-secondary rounded-pill" type="button" data-folder-browser-button>Browse folders</button><button class="btn btn-primary rounded-pill chef-button" type="submit">+ Add project</button></div>
+      <div class="col-12"><input class="form-control form-control-sm folder-browser-search" type="search" placeholder="Type to search folders…" aria-label="Search server project folders" hidden data-folder-browser-search><select class="form-select form-select-sm folder-browser mt-2" aria-label="Server project folders" hidden data-folder-browser></select></div>
     </form>
   </article>
 
@@ -59,10 +57,8 @@
             <div class="project-badge"><%= project.health_status === 'healthy' ? '✅' : '🛠️' %></div>
           </div>
           <div class="pantry-row"><span>Project folder</span><code><%= project.repo_path %></code></div>
-          <div class="pantry-row"><span>Default branch</span><code><%= project.default_branch %></code></div>
           <div class="pantry-row"><span>Safe mode</span><strong><%= project.safe_mode ? 'Enabled' : 'Disabled' %></strong></div>
           <div class="pantry-row"><span>Run lock</span><strong><%= project.lock_run_id ? `Run #${project.lock_run_id}` : 'Available' %></strong><% if (project.lock_owner) { %><small class="text-muted d-block">Owner: <%= project.lock_owner %> · expires <%= project.lock_expires_at %></small><% } %></div>
-          <div class="pantry-row"><span>Package manager</span><code><%= project.package_manager_command %></code></div>
 
           <div class="mt-4">
             <div class="d-flex justify-content-between align-items-center mb-2">

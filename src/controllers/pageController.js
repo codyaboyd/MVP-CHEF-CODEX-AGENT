@@ -58,7 +58,8 @@ async function quickRun(req, res, next) {
       summary: prompts.length === 1 ? prompts[0].slice(0, 160) : `${prompts.length} chained prompts`,
       projectId: project.id,
       approvalMode: 'none',
-      steps: prompts.map((prompt, index) => ({ title: `Prompt ${index + 1}`, prompt }))
+      steps: prompts.map((prompt, index) => ({ title: `Prompt ${index + 1}`, prompt })),
+      isSaved: false
     });
     const run = await recipeRunEngine.startRunFromRecipe(recipe.id, { autoExecute: false });
     recipeRunEngine.resumeRun(run.id, { gitEnabled: false }).catch((error) => console.error(error));
@@ -310,12 +311,6 @@ function continueFromStep(req, res, next) {
   }
 }
 
-function rollbackLastStep(req, res, next) {
-  failureRecoveryService.rollbackLastStep(Number(req.params.id))
-    .then(() => redirectToRun(req, res))
-    .catch(next);
-}
-
 function runDiff(req, res, next) {
   failureRecoveryService.getDiff(Number(req.params.id), req.query.stepId ? Number(req.query.stepId) : null)
     .then((diff) => res.type('text/plain').send(diff))
@@ -420,7 +415,6 @@ module.exports = {
   rejectRunStep,
   retryRunStep,
   continueFromStep,
-  rollbackLastStep,
   runDiff,
   runLogs,
   exportFailureReport,

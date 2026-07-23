@@ -352,3 +352,44 @@ body::before {
   color: var(--chef-ink);
   padding: .1rem .35rem;
 }
+
+/* Mobile-first wrapping safeguards for long folder paths and prompt text. */
+.pantry-row code,
+.timeline-item p,
+.timeline-item textarea,
+.recent-run,
+.folder-path-input,
+.prompt-list,
+.terminal-panel pre {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prompt-list > summary span:first-child { min-width: 0; }
+
+@media (max-width: 767.98px) {
+  .container { padding-left: 1rem; padding-right: 1rem; }
+  .codex-intro { padding-top: 1.5rem; }
+  .folder-picker-row,
+  .composer-actions,
+  .terminal-toolbar,
+  .recent-run { align-items: stretch; flex-direction: column; }
+  .folder-picker-row .btn,
+  .composer-actions .btn,
+  .run-actions.btn-group { width: 100%; }
+  .prompt-composer { border-radius: 1.1rem; padding: .85rem; }
+  .prompt-chain-item { grid-template-columns: 1.6rem minmax(0, 1fr); }
+  .prompt-chain-item textarea { grid-column: 1 / -1; min-height: 7rem; }
+  .prompt-remove { justify-self: end; }
+  .quick-notes { align-items: center; flex-direction: column; gap: .35rem; }
+  .paper-panel.p-4,
+  .recipe-page.p-4 { padding: 1rem !important; }
+  .stat-card { min-height: 8rem; }
+  .prompt-list { padding: .7rem; }
+  .prompt-list > summary { gap: .5rem; }
+  .prompt-list-count { flex: 0 0 auto; }
+  .timeline-item { align-items: flex-start; }
+  .timeline-item > div { width: calc(100% - 3rem); }
+  .failure-recovery-panel .btn,
+  .approval-panel .btn { width: 100%; }
+}
