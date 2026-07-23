@@ -397,3 +397,128 @@ body::before {
   .failure-recovery-panel .btn,
   .approval-panel .btn { width: 100%; }
 }
+
+/* Living Digital Recipe Book premium animation layer. */
+:root {
+  --chef-gold: #ffd36a;
+  --chef-glow: rgba(255, 198, 87, .5);
+  --chef-night: #171321;
+  --chef-lantern: #ffb45f;
+  --motion-ease: cubic-bezier(.2, .9, .25, 1.25);
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background-attachment: fixed;
+  overflow-x: hidden;
+  position: relative;
+}
+body::after {
+  animation: vignette-breathe 8s ease-in-out infinite;
+  background: radial-gradient(circle at center, transparent 48%, rgba(72, 39, 18, .12) 100%);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
+}
+main, .chef-navbar, .chef-footer { position: relative; z-index: 1; }
+.living-backdrop { inset: 0; overflow: hidden; pointer-events: none; position: fixed; z-index: 0; }
+.living-backdrop::before {
+  animation: parchment-drift 18s linear infinite;
+  background-image: radial-gradient(rgba(121, 82, 45, .08) 1px, transparent 1px), linear-gradient(115deg, rgba(255,255,255,.12), transparent 38%, rgba(139,84,44,.08));
+  background-size: 22px 22px, 180% 180%;
+  content: ""; inset: -8%; opacity: .72; position: absolute;
+}
+.sun-ray { animation: sunlight-sway 14s ease-in-out infinite; background: linear-gradient(90deg, rgba(255,255,255,.42), transparent); filter: blur(1px); height: 140vh; left: 7%; opacity: .34; position: absolute; top: -20vh; transform: rotate(18deg); width: 12vw; }
+.sun-ray-2 { animation-delay: -5s; left: 26%; opacity: .2; width: 7vw; }
+.cookbook-page { animation: page-drift 22s ease-in-out infinite; background: rgba(255, 250, 235, .44); border: 2px solid rgba(57,43,36,.08); border-radius: 1.2rem; box-shadow: 0 20px 60px rgba(57,43,36,.08); height: 18rem; position: absolute; right: 8%; top: 16%; transform: rotate(-8deg); width: 13rem; }
+.page-2 { animation-delay: -8s; left: 4%; right: auto; top: 55%; transform: rotate(7deg); }
+.recipe-particle { animation: float-paper 16s linear infinite; background: #fff8dc; border: 1px solid rgba(57,43,36,.16); border-radius: .25rem; box-shadow: 0 5px 18px rgba(57,43,36,.12); height: 2rem; left: 14%; position: absolute; top: 105%; width: 1.55rem; }
+.paper-2 { animation-delay: -6s; left: 50%; } .paper-3 { animation-delay: -11s; left: 82%; }
+.herb { animation: herb-drift 18s ease-in-out infinite; font-size: 1.75rem; left: 8%; opacity: .45; position: absolute; top: 70%; }
+.herb-2 { animation-delay: -9s; left: 76%; top: 28%; }
+.ember, .dust { border-radius: 50%; position: absolute; }
+.ember { animation: ember-rise 5s ease-in infinite; background: var(--chef-gold); box-shadow: 0 0 18px var(--chef-glow); height: .45rem; width: .45rem; }
+.ember-1 { bottom: 8%; left: 15%; } .ember-2 { animation-delay: -2s; bottom: 4%; left: 83%; }
+.dust { animation: dust-mote 9s ease-in-out infinite; background: rgba(255,255,255,.75); height: .25rem; left: 38%; top: 36%; width: .25rem; }
+.dust-2 { animation-delay: -4s; left: 64%; top: 62%; }
+
+.kitchen-header { overflow: hidden; }
+.kitchen-header::before { animation: steam-waft 6s ease-in-out infinite; background: radial-gradient(circle, rgba(255,255,255,.5), transparent 62%); content: ""; filter: blur(10px); height: 5rem; left: 8rem; position: absolute; top: -.8rem; width: 14rem; }
+.kitchen-header::after { animation: page-edge-glow 3s ease-in-out infinite; background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent); bottom: 0; content: ""; height: 5px; left: 0; position: absolute; width: 100%; }
+.hanging-utensils { display: flex; gap: 1rem; left: 1rem; position: absolute; top: -.2rem; }
+.hanging-utensils span { animation: utensil-sway 3.8s ease-in-out infinite; display: inline-block; transform-origin: 50% -1rem; }
+.hanging-utensils span:nth-child(2) { animation-delay: -.9s; } .hanging-utensils span:nth-child(3) { animation-delay: -1.8s; }
+.chef-logo { animation: logo-bounce 4s ease-in-out infinite; overflow: visible; }
+.chef-logo::before { animation: hat-sparkle 2.7s ease-in-out infinite; }
+.chef-logo .chef-steam, .chef-logo .chef-steam::before, .chef-logo .chef-steam::after { animation: steam-waft 3.5s ease-in-out infinite; background: rgba(255,255,255,.75); border-radius: 50%; content: ""; height: .5rem; position: absolute; top: -.45rem; width: .5rem; }
+.chef-logo .chef-steam { left: .65rem; } .chef-logo .chef-steam::before { left: .55rem; top: -.2rem; } .chef-logo .chef-steam::after { left: 1.05rem; top: .15rem; }
+
+.btn, .nav-link, .recent-run, .prompt-remove, .stretched-link { transition: transform .18s var(--motion-ease), box-shadow .18s ease, filter .18s ease, background-color .18s ease; }
+.btn { overflow: hidden; position: relative; transform: translateZ(0); }
+.btn::before { background: linear-gradient(110deg, transparent, rgba(255,255,255,.58), transparent); content: ""; inset: 0; position: absolute; transform: translateX(-135%) skewX(-18deg); transition: transform .6s ease; }
+.btn:hover { box-shadow: 0 .75rem 1.5rem rgba(57,43,36,.18); transform: translateY(-3px) scale(1.02); }
+.btn:hover::before { transform: translateX(135%) skewX(-18deg); }
+.btn:active { transform: translateY(1px) scale(.97); }
+.btn:focus-visible, .nav-link:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--chef-yellow); outline-offset: 3px; animation: focus-pulse 1.3s ease-in-out infinite; }
+.chef-ripple { animation: ripple-pop .55s ease-out forwards; background: rgba(255,255,255,.65); border-radius: 50%; pointer-events: none; position: absolute; transform: translate(-50%, -50%) scale(0); }
+.chef-burst { animation: burst-pop .75s ease-out forwards; pointer-events: none; position: fixed; z-index: 3000; }
+
+.recipe-card, .stat-card, .paper-panel, .recipe-page, .prompt-composer { transform: translateZ(0); will-change: transform; }
+.recipe-card { animation: card-idle-float 7s ease-in-out infinite; border-color: var(--chef-ink) !important; transition: transform .22s var(--motion-ease), box-shadow .22s ease, filter .22s ease; }
+.recipe-card::after { animation: border-ribbon 5s linear infinite; background: linear-gradient(90deg, transparent, rgba(255,211,106,.75), transparent); content: ""; height: 3px; left: -60%; position: absolute; right: auto; top: 0; width: 60%; }
+.recipe-card:hover, .recipe-card.is-tilting { filter: saturate(1.08); }
+.recipe-card.is-selected { box-shadow: 0 0 0 6px rgba(255,211,106,.28), 14px 14px 0 rgba(57,43,36,.22) !important; }
+.paper-panel, .recipe-page { position: relative; }
+.recipe-page::before { animation: page-open .8s var(--motion-ease) both; background: linear-gradient(90deg, rgba(57,43,36,.1), transparent 12%); border-radius: inherit; content: ""; inset: 0; pointer-events: none; position: absolute; }
+.recipe-page h1, .recipe-page p, .recipe-page li, .step-detail { animation: ink-reveal .7s ease both; }
+.recipe-page::after, .paper-panel::after { background: linear-gradient(135deg, transparent 50%, rgba(57,43,36,.12) 51%, rgba(255,255,255,.75) 65%); border-bottom-right-radius: inherit; bottom: 0; content: ""; height: 2.2rem; position: absolute; right: 0; width: 2.2rem; }
+.timeline-item.is-current { animation: active-step-glow 1.8s ease-in-out infinite; }
+.timeline-item.is-current > span { animation: spoon-stir 1.4s ease-in-out infinite; }
+.timeline-item[data-step-id] .status-succeeded { animation: stamp-complete .55s var(--motion-ease); }
+.chef-loader-dish::after { animation: pot-steam 1.4s ease-in-out infinite; content: "♨"; left: 50%; position: absolute; top: -.9rem; transform: translateX(-50%); }
+.alert-success.recipe-alert { animation: success-sparkle .9s ease both; box-shadow: 0 0 0 .35rem rgba(255,211,106,.28), 6px 6px 0 rgba(57,43,36,.14); }
+.alert-danger.recipe-alert { animation: burnt-shake .45s ease both; }
+.progress-bar { animation: gourmet-progress 2s linear infinite; background-size: 200% 100% !important; }
+
+[data-bs-theme="dark"], body.dark-mode {
+  --chef-ink: #f7e8c7; --chef-cream: #251c22; --chef-paper: #2d242b; color: #f7e8c7;
+  background: radial-gradient(circle at 18% 12%, rgba(255,180,95,.22), transparent 20rem), radial-gradient(circle at 82% 6%, rgba(146,190,255,.16), transparent 22rem), linear-gradient(135deg, #15111c, #2a1c20 70%, #140f12);
+}
+[data-bs-theme="dark"] .paper-panel, [data-bs-theme="dark"] .recipe-page, [data-bs-theme="dark"] .recipe-card, [data-bs-theme="dark"] .stat-card { box-shadow: 0 0 35px rgba(255,180,95,.12), 7px 7px 0 rgba(0,0,0,.35) !important; }
+[data-bs-theme="dark"] .living-backdrop::after { animation: fireplace-flicker 2.4s ease-in-out infinite; background: radial-gradient(circle at 15% 100%, rgba(255,116,47,.35), transparent 22rem); content: ""; inset: 0; position: absolute; }
+
+@keyframes vignette-breathe { 50% { opacity: .55; transform: scale(1.02); } }
+@keyframes parchment-drift { to { transform: translate3d(-22px, -22px, 0); } }
+@keyframes sunlight-sway { 50% { transform: rotate(23deg) translateX(2rem); opacity: .42; } }
+@keyframes page-drift { 50% { transform: translate3d(1.5rem, -1rem, 0) rotate(-3deg); } }
+@keyframes float-paper { to { transform: translate3d(4rem, -120vh, 0) rotate(360deg); } }
+@keyframes herb-drift { 50% { transform: translate3d(3rem, -2rem, 0) rotate(18deg); } }
+@keyframes ember-rise { to { opacity: 0; transform: translate3d(1rem, -8rem, 0) scale(.3); } }
+@keyframes dust-mote { 50% { opacity: .2; transform: translate3d(2rem, -3rem, 0); } }
+@keyframes utensil-sway { 50% { transform: rotate(7deg); } }
+@keyframes logo-bounce { 50% { transform: translateY(-2px) rotate(-2deg); } }
+@keyframes hat-sparkle { 50% { filter: drop-shadow(0 0 8px #fff) drop-shadow(0 0 12px var(--chef-yellow)); } }
+@keyframes steam-waft { 50% { opacity: .35; transform: translate3d(.4rem, -.5rem, 0) scale(1.2); } }
+@keyframes page-edge-glow { 50% { opacity: .45; } }
+@keyframes focus-pulse { 50% { outline-offset: 6px; } }
+@keyframes ripple-pop { to { opacity: 0; transform: translate(-50%, -50%) scale(2.6); } }
+@keyframes burst-pop { to { opacity: 0; transform: translate(var(--burst-x), var(--burst-y)) scale(.2) rotate(180deg); } }
+@keyframes card-idle-float { 50% { transform: translateY(-4px) rotate(var(--idle-rotate, 0deg)); } }
+@keyframes border-ribbon { to { left: 120%; } }
+@keyframes page-open { from { opacity: .65; transform: scaleX(.08); transform-origin: left; } }
+@keyframes ink-reveal { from { opacity: 0; transform: translateY(.4rem); } }
+@keyframes active-step-glow { 50% { box-shadow: inset 6px 0 0 var(--chef-blue), 0 0 28px rgba(77,150,255,.28); } }
+@keyframes spoon-stir { 50% { transform: rotate(16deg) scale(1.08); } }
+@keyframes pot-steam { 50% { opacity: .3; transform: translate(-50%, -.5rem) scale(1.25); } }
+@keyframes stamp-complete { from { transform: scale(1.35) rotate(-8deg); } }
+@keyframes gourmet-progress { to { background-position: 200% 0; } }
+@keyframes success-sparkle { 50% { filter: brightness(1.12); transform: scale(1.01); } }
+@keyframes burnt-shake { 20%, 60% { transform: translateX(-6px) rotate(-1deg); } 40%, 80% { transform: translateX(6px) rotate(1deg); } }
+@keyframes fireplace-flicker { 50% { opacity: .62; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .001ms !important; }
+  .living-backdrop { display: none; }
+}
