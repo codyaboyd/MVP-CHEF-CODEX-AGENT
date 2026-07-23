@@ -372,3 +372,89 @@ document.querySelectorAll('[data-run-detail]').forEach((root) => {
 document.querySelectorAll('[data-run-stdout]').forEach((stdout) => {
   stdout.textContent = formatCodexStream(stdout.textContent) || 'Waiting for Codex stream…';
 });
+
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function addButtonDelight() {
+  document.querySelectorAll('.btn').forEach((button) => {
+    button.addEventListener('pointerdown', (event) => {
+      if (prefersReducedMotion()) return;
+      const rect = button.getBoundingClientRect();
+      const ripple = document.createElement('span');
+      const size = Math.max(rect.width, rect.height);
+      ripple.className = 'chef-ripple';
+      ripple.style.width = `${size}px`;
+      ripple.style.height = `${size}px`;
+      ripple.style.left = `${event.clientX - rect.left}px`;
+      ripple.style.top = `${event.clientY - rect.top}px`;
+      button.append(ripple);
+      ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+    });
+
+    button.addEventListener('click', (event) => {
+      if (prefersReducedMotion()) return;
+      const glyphs = ['✦', '✧', '•', '✨'];
+      for (let i = 0; i < 7; i += 1) {
+        const burst = document.createElement('span');
+        const angle = (Math.PI * 2 * i) / 7;
+        const distance = 28 + Math.random() * 16;
+        burst.className = 'chef-burst';
+        burst.textContent = glyphs[i % glyphs.length];
+        burst.style.left = `${event.clientX}px`;
+        burst.style.top = `${event.clientY}px`;
+        burst.style.setProperty('--burst-x', `${Math.cos(angle) * distance}px`);
+        burst.style.setProperty('--burst-y', `${Math.sin(angle) * distance}px`);
+        document.body.append(burst);
+        burst.addEventListener('animationend', () => burst.remove(), { once: true });
+      }
+    });
+  });
+}
+
+function addRecipeCardTilt() {
+  document.querySelectorAll('.recipe-card').forEach((card, index) => {
+    card.style.setProperty('--idle-rotate', `${(index % 3) - 1}deg`);
+    card.addEventListener('pointermove', (event) => {
+      if (prefersReducedMotion() || event.pointerType === 'touch') return;
+      const rect = card.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width - 0.5;
+      const y = (event.clientY - rect.top) / rect.height - 0.5;
+      card.classList.add('is-tilting');
+      card.style.transform = `perspective(900px) rotateX(${y * -5}deg) rotateY(${x * 7}deg) translateY(-7px)`;
+      card.style.boxShadow = `${10 + x * 10}px ${14 + y * 10}px 28px rgba(57,43,36,.24)`;
+    });
+    card.addEventListener('pointerleave', () => {
+      card.classList.remove('is-tilting');
+      card.style.transform = '';
+      card.style.boxShadow = '';
+    });
+    card.addEventListener('pointerdown', () => card.classList.add('is-selected'));
+    card.addEventListener('pointerup', () => setTimeout(() => card.classList.remove('is-selected'), 420));
+  });
+}
+
+function pauseOffscreenAnimations() {
+  if (!('IntersectionObserver' in window)) return;
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      entry.target.style.animationPlayState = entry.isIntersecting ? 'running' : 'paused';
+      entry.target.querySelectorAll('*').forEach((child) => { child.style.animationPlayState = entry.isIntersecting ? 'running' : 'paused'; });
+    });
+  }, { rootMargin: '120px' });
+  document.querySelectorAll('.recipe-card, .stat-card, .chef-loader, .timeline-item, .paper-panel').forEach((element) => observer.observe(element));
+}
+
+function animateNavigation() {
+  if (prefersReducedMotion()) return;
+  document.body.animate([
+    { opacity: 0, transform: 'translateY(10px) scale(.992)' },
+    { opacity: 1, transform: 'translateY(0) scale(1)' }
+  ], { duration: 420, easing: 'cubic-bezier(.2,.9,.25,1)', fill: 'both' });
+}
+
+addButtonDelight();
+addRecipeCardTilt();
+pauseOffscreenAnimations();
+animateNavigation();
