@@ -1,5 +1,7 @@
 # MVP Chef Codex
 
+![Alt Text](logo.png)
+
 MVP Chef Codex is a local web application for turning repeatable Codex CLI work into reusable, versioned recipes. It connects recipes to project folders, runs ordered prompts, streams structured Codex output, records run history in SQLite, and provides approval and recovery controls.
 
 > **Status:** This is an MVP developer tool. Review and test every generated change before relying on it.
