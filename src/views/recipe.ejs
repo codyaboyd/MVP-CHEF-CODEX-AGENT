@@ -11,9 +11,8 @@
       </div>
       <div class="action-row d-flex flex-wrap gap-2">
         <% if (recipe.projectId) { %>
-          <form action="/recipes/<%= recipe.id %>/run" method="post" class="d-flex flex-column gap-1">
+          <form action="/recipes/<%= recipe.id %>/run" method="post">
             <button class="btn btn-success rounded-pill" type="submit">▶️ Run on project</button>
-            <label class="small text-muted"><input type="checkbox" name="gitEnabled" value="1"> Use git branch/commit workflow</label>
           </form>
         <% } %>
         <a class="btn btn-primary rounded-pill" href="/recipes/<%= recipe.id %>/edit">✏️ Edit</a>

@@ -325,9 +325,12 @@ function updateRunDetail(root, snapshot) {
   if (progress) {
     progress.setAttribute('aria-valuenow', snapshot.progress);
     progress.setAttribute('aria-label', 'Run progress');
+    progress.dataset.progressState = snapshot.status === 'running' ? 'running' : 'idle';
     const description = progress.querySelector('[data-run-progress-description]');
-    if (description) description.textContent = 'Run in progress';
+    if (description) description.textContent = snapshot.status === 'running' ? 'Run in progress' : `Run ${snapshot.status}`;
   }
+  const caption = root.querySelector('[data-run-progress-caption]');
+  if (caption) caption.textContent = snapshot.status === 'running' ? 'Codex is cooking your recipe…' : `Run status: ${snapshot.status}.`;
   const quota = root.querySelector('[data-quota-status]');
   if (quota && snapshot.quotaStatus) {
     quota.classList.toggle('d-none', !snapshot.quotaStatus.waiting);
@@ -359,7 +362,10 @@ document.querySelectorAll('[data-run-detail]').forEach((root) => {
   const runId = root.getAttribute('data-run-id');
   const connection = root.querySelector('[data-run-connection]');
   const source = new EventSource(`/runs/${runId}/events`);
-  if (connection) connection.textContent = 'Live';
+  if (connection) connection.textContent = 'Connecting';
+  source.addEventListener('open', () => {
+    if (connection) connection.textContent = 'Live';
+  });
   source.addEventListener('run-update', (event) => {
     if (connection) connection.textContent = 'Live';
     updateRunDetail(root, JSON.parse(event.data));

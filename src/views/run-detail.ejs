@@ -1,5 +1,5 @@
 <%- include('partials/layout') %>
-<section class="container py-5" data-run-detail data-run-id="<%= run.id %>">
+<section class="container py-5 run-detail-page" data-run-detail data-run-id="<%= run.id %>">
   <a href="/" class="btn btn-link ps-0">← Back to dashboard</a>
   <div class="recipe-page p-4 p-lg-5">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
@@ -47,12 +47,12 @@
       <div class="d-flex justify-content-between gap-3 align-items-center mb-2">
         <h2 class="h4 m-0">Progress</h2>
       </div>
-      <div class="chef-loader" data-run-progress role="progressbar" aria-label="Run progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= runSnapshot ? runSnapshot.progress : 0 %>">
+      <div class="chef-loader" data-progress-state="<%= run.status === 'running' ? 'running' : 'idle' %>" data-run-progress role="progressbar" aria-label="Run progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= runSnapshot ? runSnapshot.progress : 0 %>">
         <span class="chef-loader-orbit" aria-hidden="true">🥄</span>
         <span class="chef-loader-dish" aria-hidden="true">🍲</span>
-        <span class="visually-hidden" data-run-progress-description>Run in progress</span>
+        <span class="visually-hidden" data-run-progress-description><%= run.status === 'running' ? 'Run in progress' : `Run ${run.status}` %></span>
       </div>
-      <p class="chef-loader-caption mb-0">Codex is cooking your recipe…</p>
+      <p class="chef-loader-caption mb-0" data-run-progress-caption><%= run.status === 'running' ? 'Codex is cooking your recipe…' : `Run status: ${run.status}.` %></p>
     </div>
 
 
