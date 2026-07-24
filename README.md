@@ -4,6 +4,8 @@ MVP Chef Codex is a local web application for turning repeatable Codex CLI work 
 
 > **Status:** This is an MVP developer tool. Review and test every generated change before relying on it.
 
+![Alt Text](screenshot.png)
+
 ## Capabilities
 
 - Compose a quick one-off run from a folder and one or more prompts.
