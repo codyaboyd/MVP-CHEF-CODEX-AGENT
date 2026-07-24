@@ -575,3 +575,31 @@ main, .chef-navbar, .chef-footer { position: relative; z-index: 1; }
 @keyframes firework-pop { 0%{opacity:1; transform:scale(.2)} 100%{opacity:0; transform:scale(2.8)} } @keyframes golden-spatula { 50%{transform:translate(-30vw,-20vh) rotate(25deg)} 100%{opacity:0;transform:translate(20vw,-80vh) rotate(540deg)} }
 @keyframes mouse-scurry { to{ opacity:0; transform:translateX(42vw) translateY(-8vh)} }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .001ms !important; } .chef-mascot { display:none; } }
+
+/* Usability refinements: keep motion intentional and chef branding tidy. */
+.kitchen-header::before,
+.hanging-utensils,
+.chef-logo .chef-steam,
+.chef-logo .chef-steam::before,
+.chef-logo .chef-steam::after,
+.cookbook-page,
+.recipe-particle { display: none !important; }
+.chef-logo { animation: none; overflow: hidden; }
+.chef-logo::before { animation: none; line-height: 1; }
+.chef-logo::after { bottom: .18rem; right: .18rem; }
+
+.run-detail-page .paper-panel,
+.run-detail-page .stat-card,
+.run-detail-page .timeline-item { animation: none; }
+.chef-loader[data-progress-state="idle"]::before,
+.chef-loader[data-progress-state="idle"] .chef-loader-orbit,
+.chef-loader[data-progress-state="idle"] .chef-loader-dish::after { animation: none; opacity: .45; }
+.chef-loader[data-progress-state="idle"] .chef-loader-dish { filter: grayscale(.2); }
+
+.chef-mascot { left: 1rem; right: auto; width: 8.8rem; }
+.chef-mascot-hat { align-items: flex-end; background: transparent; border: 0; box-shadow: none; cursor: pointer; display: flex; height: 2.6rem; justify-content: center; left: 1.45rem; padding: 0; top: -.9rem; width: 5.7rem; }
+.chef-mascot-hat span { background: #fff; border: 3px solid var(--chef-ink); border-radius: 50%; display: block; height: 2.15rem; margin: 0 -.22rem; width: 2.15rem; }
+.chef-mascot-hat span:nth-child(2) { height: 2.55rem; transform: translateY(-.25rem); width: 2.55rem; }
+.chef-mascot-face::before { background: #fff; border: 3px solid var(--chef-ink); border-radius: 0 0 999px 999px; content: ""; height: .8rem; left: 1rem; position: absolute; top: -.25rem; width: 3.5rem; }
+.chef-mascot-bubble { left: 7.25rem; right: auto; top: -.35rem; z-index: 3; }
+.chef-mascot-bubble::before { background: rgba(255,250,240,.95); border-bottom: 2px solid var(--chef-ink); border-left: 2px solid var(--chef-ink); bottom: -.38rem; content: ""; height: .75rem; left: 1.1rem; position: absolute; transform: rotate(-45deg); width: .75rem; }
