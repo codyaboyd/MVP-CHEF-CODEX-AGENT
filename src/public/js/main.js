@@ -331,6 +331,12 @@ function updateRunDetail(root, snapshot) {
   }
   const caption = root.querySelector('[data-run-progress-caption]');
   if (caption) caption.textContent = snapshot.status === 'running' ? 'Codex is cooking your recipe…' : `Run status: ${snapshot.status}.`;
+  const progressStep = root.querySelector('[data-run-progress-step]');
+  if (progressStep) {
+    const showStep = snapshot.status === 'running' && snapshot.currentStep;
+    progressStep.classList.toggle('d-none', !showStep);
+    progressStep.textContent = showStep ? `Step ${snapshot.currentStep.order} of ${snapshot.steps.length} · ${snapshot.currentStep.title}` : '';
+  }
   const quota = root.querySelector('[data-quota-status]');
   if (quota && snapshot.quotaStatus) {
     quota.classList.toggle('d-none', !snapshot.quotaStatus.waiting);

@@ -41,6 +41,7 @@ body {
 .recent-work h2 { font-size: 1.15rem; margin: 0; }
 .recent-run { align-items: center; background: rgba(255,255,255,.72); border-top: 1px solid #ddd7d1; color: inherit; display: flex; justify-content: space-between; padding: .9rem .3rem; text-decoration: none; }
 .recent-run small { color: #847b74; display: block; }
+.recent-run .recent-run-step { color: #55473f; font-weight: 800; margin-top: .2rem; }
 .eyebrow { color: #a24d32; font-weight: 900; letter-spacing: .04em; margin-bottom: .25rem; text-transform: uppercase; }
 
 .chef-navbar { background: linear-gradient(90deg, var(--chef-red), #ff8c42); border-bottom: 5px solid var(--chef-yellow); box-shadow: 0 8px 0 rgba(57,43,36,.08); }
