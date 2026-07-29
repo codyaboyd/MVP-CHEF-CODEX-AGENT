@@ -9,7 +9,7 @@ function getProjects() {
 
 
 function getRuns() {
-  return db.prepare(`
+  const runs = db.prepare(`
     SELECT runs.*, recipes.name AS recipe_name, recipes.description AS recipe_description, recipes.is_saved AS recipe_is_saved, projects.name AS project_name,
            project_run_locks.owner AS lock_owner, project_run_locks.expires_at AS lock_expires_at
     FROM runs
@@ -18,6 +18,32 @@ function getRuns() {
     LEFT JOIN project_run_locks ON project_run_locks.project_id = runs.project_id AND project_run_locks.run_id = runs.id
     ORDER BY runs.created_at DESC, runs.id ASC
   `).all();
+
+  const activeRunIds = runs.filter((run) => run.status === 'running').map((run) => run.id);
+  if (!activeRunIds.length) return runs;
+
+  const placeholders = activeRunIds.map(() => '?').join(', ');
+  const activeSteps = db.prepare(`
+    SELECT run_steps.*, recipe_steps.title AS recipe_step_title
+    FROM run_steps
+    LEFT JOIN recipe_steps ON recipe_steps.id = run_steps.recipe_step_id
+    WHERE run_steps.run_id IN (${placeholders})
+    ORDER BY run_steps.run_id ASC, run_steps.step_order ASC
+  `).all(...activeRunIds);
+
+  return runs.map((run) => {
+    if (run.status !== 'running') return run;
+    const steps = activeSteps.filter((step) => step.run_id === run.id);
+    const currentStep = getCurrentStep(steps);
+    return {
+      ...run,
+      stepProgress: currentStep ? {
+        current: currentStep.step_order,
+        total: steps.length,
+        title: currentStep.recipe_step_title || currentStep.title || `Step ${currentStep.step_order}`
+      } : null
+    };
+  });
 }
 
 function getRunById(id) {

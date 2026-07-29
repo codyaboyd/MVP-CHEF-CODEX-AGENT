@@ -53,6 +53,9 @@
         <span class="visually-hidden" data-run-progress-description><%= run.status === 'running' ? 'Run in progress' : `Run ${run.status}` %></span>
       </div>
       <p class="chef-loader-caption mb-0" data-run-progress-caption><%= run.status === 'running' ? 'Codex is cooking your recipe…' : `Run status: ${run.status}.` %></p>
+      <p class="text-center fw-bold mt-2 mb-0<%= run.status === 'running' && runSnapshot && runSnapshot.currentStep ? '' : ' d-none' %>" data-run-progress-step>
+        <% if (runSnapshot && runSnapshot.currentStep) { %>Step <%= runSnapshot.currentStep.order %> of <%= runSnapshot.steps.length %> · <%= runSnapshot.currentStep.title %><% } %>
+      </p>
     </div>
 
 

@@ -21,6 +21,36 @@ test('home page renders the folder-first Codex prompt composer', async () => {
   assert.doesNotMatch(response.text, /webkitdirectory/);
 });
 
+test('active runs show their current recipe step on the home page and in runner progress', async () => {
+  const project = db.prepare('INSERT INTO projects (name, repo_path) VALUES (?, ?)')
+    .run('Step Progress Project', '/tmp/step-progress-project');
+  const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
+    .run(project.lastInsertRowid, 'Step Progress Recipe', '1.0.0', 'Shows current build progress.');
+  const insertRecipeStep = db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)');
+  const firstRecipeStep = insertRecipeStep.run(recipe.lastInsertRowid, 1, 'Lay the foundation', 'Build the foundation.');
+  const secondRecipeStep = insertRecipeStep.run(recipe.lastInsertRowid, 2, 'Polish the kitchen', 'Polish the kitchen.');
+  const run = db.prepare(`
+    INSERT INTO runs (project_id, recipe_id, status, created_at, updated_at)
+    VALUES (?, ?, 'running', '2099-01-01 00:00:00', '2099-01-01 00:00:00')
+  `).run(project.lastInsertRowid, recipe.lastInsertRowid);
+  db.prepare('INSERT INTO run_steps (run_id, recipe_step_id, step_order, status) VALUES (?, ?, ?, ?)')
+    .run(run.lastInsertRowid, firstRecipeStep.lastInsertRowid, 1, 'succeeded');
+  db.prepare('INSERT INTO run_steps (run_id, recipe_step_id, step_order, status) VALUES (?, ?, ?, ?)')
+    .run(run.lastInsertRowid, secondRecipeStep.lastInsertRowid, 2, 'running');
+
+  const home = await request(app).get('/');
+  assert.equal(home.status, 200);
+  assert.match(home.text, /Step 2 of 2 · Polish the kitchen/);
+
+  const detail = await request(app).get(`/runs/${run.lastInsertRowid}`);
+  assert.equal(detail.status, 200);
+  assert.match(detail.text, /data-run-progress-step/);
+  assert.match(detail.text, /Step 2 of 2 · Polish the kitchen/);
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
+});
+
 test('quick run accepts an ordinary folder and chains prompts in order', async () => {
   const response = await request(app)
     .post('/run')

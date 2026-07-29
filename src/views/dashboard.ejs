@@ -46,7 +46,16 @@
     <section class="recent-work mx-auto mt-5">
       <div class="d-flex justify-content-between align-items-center mb-3"><h2>Recent runs</h2><a href="/recipes">Saved workflows</a></div>
       <% runs.slice(0, 4).forEach((run) => { %>
-        <a class="recent-run" href="/runs/<%= run.id %>"><span><strong><%= run.recipe_name %></strong><small><%= run.project_name %></small></span><span class="status-badge" data-status="<%= run.status %>"><%= run.status %></span></a>
+        <a class="recent-run" href="/runs/<%= run.id %>">
+          <span>
+            <strong><%= run.recipe_name %></strong>
+            <small><%= run.project_name %></small>
+            <% if (run.status === 'running' && run.stepProgress) { %>
+              <small class="recent-run-step">Step <%= run.stepProgress.current %> of <%= run.stepProgress.total %> · <%= run.stepProgress.title %></small>
+            <% } %>
+          </span>
+          <span class="status-badge" data-status="<%= run.status %>"><%= run.status %></span>
+        </a>
       <% }) %>
     </section>
   <% } %>
