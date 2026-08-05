@@ -10,6 +10,7 @@ require('./services/runStateManager').recoverInterruptedRuns();
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 const host = process.env.HOST || '0.0.0.0';
+const requestBodyLimit = process.env.REQUEST_BODY_LIMIT || '10mb';
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -20,8 +21,8 @@ app.use(morgan('dev', {
   },
   skip: (req) => /(?:token|key|secret|password|auth|cookie|session)/i.test(req.originalUrl)
 }));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: requestBodyLimit }));
+app.use(express.json({ limit: requestBodyLimit }));
 app.use('/bootstrap', express.static(path.join(__dirname, '..', 'node_modules', 'bootstrap', 'dist')));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -38,6 +39,13 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, _next) => {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).render('error', {
+      title: 'Upload Too Large',
+      error: `The upload is too large. Increase REQUEST_BODY_LIMIT above ${requestBodyLimit} if you need larger payloads.`
+    });
+  }
+
   console.error(logRedaction.redact(err?.stack || err?.message || err));
   res.status(500).render('error', {
     title: 'Kitchen Mishap',
