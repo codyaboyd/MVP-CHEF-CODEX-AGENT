@@ -99,6 +99,29 @@ test('quick run redirects to the active folder run instead of showing a server e
   fs.rmSync(repoPath, { recursive: true, force: true });
 });
 
+test('prompt improvement accepts JSON payloads larger than the Express default parser limit', async () => {
+  const largePrompt = `${'Review this generated JSON payload. '.repeat(4000)}Keep the structure intact.`;
+
+  const response = await request(app)
+    .post('/prompts/improve')
+    .send({ prompt: largePrompt });
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.improvedPrompt.length > 0);
+});
+
+test('quick run accepts URL-encoded payloads larger than the Express default parser limit', async () => {
+  const largePrompt = `${'Inspect this larger uploaded JSON block. '.repeat(4000)}Summarize it.`;
+
+  const response = await request(app)
+    .post('/run')
+    .type('form')
+    .send({ folderPath: process.cwd(), prompts: largePrompt });
+
+  assert.equal(response.status, 302);
+  assert.match(response.headers.location, /^\/runs\/\d+$/);
+});
+
 test('health endpoint reports service readiness', async () => {
   const response = await request(app).get('/healthz');
 
