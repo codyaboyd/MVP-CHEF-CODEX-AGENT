@@ -21,6 +21,7 @@ MVP Chef Codex is a local web application for turning repeatable Codex CLI work 
 - Pause on quota limits and optionally resume after a configured cooldown.
 - Persist recipes, projects, settings, runs, recovery actions, and locks in SQLite.
 - Optionally use local Git checkpoints and commits when a run enables Git behavior.
+- ChatGPT recipe builder at https://chatgpt.com/g/g-6a74004c1fc481918483146b69b404df-mvp-chef-recipe-builder
 
 The run progress bar does not estimate the number of steps. Each structured Codex `item.completed` event advances it by three percentage points, capped at 99% while work is active; a successful run displays 100%.
 
