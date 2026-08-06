@@ -94,6 +94,18 @@ function getLogs(runId, stepId = null) {
   };
 }
 
+function clearLogs(runId) {
+  const run = runStateManager.getRun(runId);
+  if (!run) throw new Error(`Run ${runId} was not found.`);
+  const timestamp = nowSql();
+  const clear = db.transaction(() => {
+    db.prepare('UPDATE runs SET stdout_log = NULL, stderr_log = NULL, updated_at = ? WHERE id = ?').run(timestamp, runId);
+    db.prepare('UPDATE run_steps SET stdout_log = NULL, stderr_log = NULL, updated_at = ? WHERE run_id = ?').run(timestamp, runId);
+  });
+  clear();
+  recordAction(runId, null, 'clear_run_logs', { clearedAt: timestamp });
+}
+
 function exportFailureReport(runId) {
   const run = getRunWithProject(runId);
   const steps = runStateManager.getRunSteps(runId);
@@ -101,4 +113,4 @@ function exportFailureReport(runId) {
   return { exportedAt: nowSql(), run, steps, recoveryActions: actions, logs: getLogs(runId) };
 }
 
-module.exports = { continueFromStep, exportFailureReport, getDiff, getLogs, recordAction, retryFailedStep, rollbackLastStep };
+module.exports = { clearLogs, continueFromStep, exportFailureReport, getDiff, getLogs, recordAction, retryFailedStep, rollbackLastStep };

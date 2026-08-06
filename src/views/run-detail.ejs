@@ -37,6 +37,12 @@
       </div>
     <% } %>
 
+    <% if (['paused', 'failed', 'cancelled'].includes(run.status)) { %>
+      <div class="alert alert-danger" data-run-stop-reason>
+        <strong>Why this run stopped:</strong> <%= run.error_message || 'No reason was recorded. Check the step logs, then resume or retry the run.' %>
+      </div>
+    <% } %>
+
     <div class="row g-4 my-3">
       <div class="col-md-4"><div class="stat-card"><span>⏲️</span><strong><span class="status-badge" data-run-status><%= run.status %></span></strong><small>Status</small></div></div>
       <div class="col-md-4"><div class="stat-card"><span>🥄</span><strong data-run-current-step><%= runSnapshot && runSnapshot.currentStep ? runSnapshot.currentStep.title : 'Pending' %></strong><small>Current step</small></div></div>
@@ -142,7 +148,12 @@
     <div class="paper-panel p-4">
       <div class="terminal-toolbar">
         <div class="d-flex align-items-center gap-2"><span class="terminal-dots"><span></span><span></span><span></span></span><h2 class="h5 m-0">Live terminal logs</h2></div>
-        <span class="status-badge" data-run-connection>Connecting</span>
+        <div class="d-flex align-items-center gap-2">
+          <span class="status-badge" data-run-connection>Connecting</span>
+          <form method="post" action="/runs/<%= run.id %>/logs/clear" onsubmit="return confirm('Clear all stored stdout and stderr logs for this run?');">
+            <button class="btn btn-sm btn-outline-light" type="submit">Clear logs</button>
+          </form>
+        </div>
       </div>
       <ul class="nav nav-pills terminal-tabs" id="terminalLogTabs" role="tablist" aria-label="Terminal log streams">
         <li class="nav-item" role="presentation">

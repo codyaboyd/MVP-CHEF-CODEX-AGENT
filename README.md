@@ -314,4 +314,6 @@ Browser -> Express routes/controllers -> services -> SQLite
 - **A run pauses for quota:** wait for the displayed refill time, set a new time, or resume after capacity returns.
 - **A prompt is blocked:** safe mode rejects prompt-lint warnings. Rewrite destructive, vague, or secret-exposing instructions.
 - **Logs contain redaction markers:** matching credential values were deliberately replaced before persistence.
+- **Disk space keeps growing after deployments:** preview cleanup with `sudo DRY_RUN=1 scripts/cleanup-old-builds.sh`, then run `sudo scripts/cleanup-old-builds.sh`. It prunes unused Docker/build artifacts older than seven days, verifies the npm cache, and removes database backups older than 30 days (`BACKUP_RETENTION_DAYS` is configurable).
+- **A run unexpectedly pauses:** the run page now displays the recorded stop reason. Long Codex turns refresh their project lock while active, so they do not pause or fail merely because the lock's five-minute lease elapsed.
 - **A service update fails:** inspect `journalctl`, confirm `.env` ownership, and restore the newest file from `backups/` if necessary.
