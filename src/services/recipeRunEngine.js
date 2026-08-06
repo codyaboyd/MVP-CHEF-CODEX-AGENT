@@ -10,6 +10,25 @@ const failureRecoveryService = require('./failureRecoveryService');
 const { STATUSES } = runStateManager;
 
 const quotaResumeTimers = new Map();
+const LOCK_HEARTBEAT_INTERVAL_MS = 60 * 1000;
+
+async function withProjectLockHeartbeat(projectId, runId, task) {
+  const heartbeat = setInterval(() => {
+    // Keep a long-running Codex turn from outliving the five-minute lock lease.
+    // A refresh failure is surfaced by the ownership check after Codex exits.
+    try {
+      runStateManager.refreshProjectLock(projectId, runId);
+    } catch {
+      clearInterval(heartbeat);
+    }
+  }, LOCK_HEARTBEAT_INTERVAL_MS);
+  heartbeat.unref();
+  try {
+    return await task();
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
 
 function getRefillTime(settings, override) {
   if (override) return new Date(override).toISOString();
@@ -238,7 +257,7 @@ async function executeRun(runId, options = {}) {
         await gitManager.createBranchForStep({ runId, stepId: nextStep.id, stepTitle: recipeStep.title });
       }
 
-      await codexRunner.executeStep({
+      await withProjectLockHeartbeat(run.project_id, runId, () => codexRunner.executeStep({
         runId,
         runStepId: nextStep.id,
         repoPath: project.repo_path,
@@ -249,7 +268,7 @@ async function executeRun(runId, options = {}) {
         codexModel: options.codexModel ?? appSettingsService.getSetting('codexModel')?.value,
         codexReasoningEffort: options.codexReasoningEffort ?? appSettingsService.getSetting('codexReasoningEffort')?.value,
         codexSandboxMode: options.codexSandboxMode ?? appSettingsService.getSetting('codexSandboxMode')?.value
-      });
+      }));
 
       if (requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.AFTER_CODEX) && !approvalSatisfied(nextStep, APPROVAL_POINTS.AFTER_CODEX, options)) {
         return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.AFTER_CODEX, 'Waiting for approval after Codex.');

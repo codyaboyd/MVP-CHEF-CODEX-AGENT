@@ -690,6 +690,14 @@ test('failure recovery tools persist actions and expose reports, logs, and retry
   assert.equal(logs.status, 200);
   assert.match(logs.text, /boom/);
 
+  const clearLogs = await request(app).post(`/runs/${created.id}/logs/clear`);
+  assert.equal(clearLogs.status, 302);
+  assert.equal(clearLogs.headers.location, `/runs/${created.id}`);
+  const clearedStep = db.prepare('SELECT stdout_log, stderr_log FROM run_steps WHERE id = ?').get(failedStep.id);
+  assert.equal(clearedStep.stdout_log, null);
+  assert.equal(clearedStep.stderr_log, null);
+  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM run_recovery_actions WHERE run_id = ? AND action = ?').get(created.id, 'clear_run_logs').total, 1);
+
   const retry = await request(app).post(`/runs/${created.id}/steps/${failedStep.id}/retry`);
   assert.equal(retry.status, 302);
   assert.equal(db.prepare('SELECT COUNT(*) AS total FROM run_recovery_actions WHERE run_id = ? AND action = ?').get(created.id, 'retry_failed_step').total, 1);
@@ -698,7 +706,7 @@ test('failure recovery tools persist actions and expose reports, logs, and retry
   assert.equal(report.status, 200);
   assert.equal(report.type, 'application/json');
   assert.equal(report.body.run.id, created.id);
-  assert.equal(report.body.recoveryActions[0].action, 'retry_failed_step');
+  assert.ok(report.body.recoveryActions.some((action) => action.action === 'retry_failed_step'));
 
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);

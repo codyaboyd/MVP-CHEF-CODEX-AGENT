@@ -326,6 +326,15 @@ function runLogs(req, res, next) {
   }
 }
 
+function clearRunLogs(req, res, next) {
+  try {
+    failureRecoveryService.clearLogs(Number(req.params.id));
+    redirectToRun(req, res);
+  } catch (error) {
+    next(error);
+  }
+}
+
 function exportFailureReport(req, res, next) {
   try {
     const report = failureRecoveryService.exportFailureReport(Number(req.params.id));
@@ -420,6 +429,7 @@ module.exports = {
   continueFromStep,
   runDiff,
   runLogs,
+  clearRunLogs,
   exportFailureReport,
   editPromptAndRetry,
   skipRunStep,
