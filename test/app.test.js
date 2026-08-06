@@ -1015,6 +1015,22 @@ test('.env remains ignored and app settings expose secrets scanner override as d
   assert.match(response.text, /Allow secrets scanner manual override/);
 });
 
+test('settings persist a supported Codex reasoning level', async () => {
+  const settingsService = require('../src/services/appSettingsService');
+  const response = await request(app)
+    .post('/settings')
+    .type('form')
+    .send({ codexReasoningEffort: 'xhigh' });
+
+  assert.equal(response.status, 302);
+  assert.equal(settingsService.getSetting('codexReasoningEffort').value, 'xhigh');
+
+  const page = await request(app).get('/settings');
+  assert.match(page.text, /<option value="xhigh" selected>Xhigh<\/option>/);
+
+  settingsService.updateSettings({ codexReasoningEffort: 'medium' });
+});
+
 test('PromptLintService detects risky prompts and improves them locally', () => {
   const promptLint = require('../src/services/promptLintService');
   const warnings = promptLint.lintPrompt('fix it and print the API key, then rm -rf everything');
