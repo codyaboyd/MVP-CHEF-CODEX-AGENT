@@ -74,6 +74,15 @@
               <div class="form-text">Leave blank to use the Codex CLI default. If your account does not support that model, enter one available to your Codex login; recipe runs pass it to <code>codex exec --model</code>.</div>
             </div>
             <div class="col-md-6">
+              <label class="form-label fw-bold" for="codexReasoningEffort">Reasoning level</label>
+              <select class="form-select" id="codexReasoningEffort" name="codexReasoningEffort">
+                <% ['minimal', 'low', 'medium', 'high', 'xhigh'].forEach((value) => { %>
+                  <option value="<%= value %>" <%= valueFor('codexReasoningEffort', 'medium') === value ? 'selected' : '' %>><%= value.charAt(0).toUpperCase() + value.slice(1) %></option>
+                <% }) %>
+              </select>
+              <div class="form-text">Controls how much reasoning Codex uses. Runs pass this setting as <code>-c model_reasoning_effort=&quot;&lt;level&gt;&quot;</code>.</div>
+            </div>
+            <div class="col-md-6">
               <label class="form-label fw-bold" for="codexApprovalPolicy">Codex approval policy</label>
               <select class="form-select" id="codexApprovalPolicy" name="codexApprovalPolicy">
                 <% [['suggest','Suggest (ask before risky actions)'], ['on-request','On request (agent may ask)'], ['never','Never ask during runs']].forEach(([value, label]) => { %>

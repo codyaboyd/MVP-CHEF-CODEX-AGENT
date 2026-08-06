@@ -225,19 +225,21 @@ process.stdin.on('end', () => {
       repoPath,
       prompt: 'Prompt provided through standard input.',
       codexCommand: mockCodexPath,
-      codexModel: 'account-supported-model'
+      codexModel: 'account-supported-model',
+      codexReasoningEffort: 'xhigh'
     });
 
     const output = JSON.parse(result.stdout);
     assert.deepEqual(output.args, [
+      '--search',
       'exec',
       '--cd', repoPath,
       '--sandbox', 'workspace-write',
       '--json',
-      '--search',
       '-c', 'sandbox_workspace_write.network_access=true',
       '--skip-git-repo-check',
       '--model', 'account-supported-model',
+      '-c', 'model_reasoning_effort=xhigh',
       '-'
     ]);
     assert.equal(output.prompt, 'Prompt provided through standard input.');

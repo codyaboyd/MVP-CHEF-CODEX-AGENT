@@ -381,6 +381,9 @@ function updateSettings(req, res) {
     codexApiKey: req.body.codexApiKey || '',
     codexConfigDir: req.body.codexConfigDir || '',
     codexModel: req.body.codexModel || '',
+    codexReasoningEffort: ['minimal', 'low', 'medium', 'high', 'xhigh'].includes(req.body.codexReasoningEffort)
+      ? req.body.codexReasoningEffort
+      : 'medium',
     codexApprovalPolicy: ['suggest', 'on-request', 'never'].includes(req.body.codexApprovalPolicy) ? req.body.codexApprovalPolicy : 'suggest',
     codexSandboxMode: ['workspace-write', 'read-only', 'danger-full-access'].includes(req.body.codexSandboxMode) ? req.body.codexSandboxMode : 'workspace-write',
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',

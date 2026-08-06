@@ -184,7 +184,7 @@ function validateRepoPath(repoPath) {
   return resolved;
 }
 
-function buildCodexArgs(prompt, extraArgs = [], model = '', repoPath) {
+function buildCodexArgs(prompt, extraArgs = [], model = '', reasoningEffort = '', repoPath) {
   if (extraArgs.length) return extraArgs;
 
   const args = [
@@ -199,6 +199,10 @@ function buildCodexArgs(prompt, extraArgs = [], model = '', repoPath) {
 
   if (typeof model === 'string' && model.trim()) {
     args.push('--model', model.trim());
+  }
+
+  if (['minimal', 'low', 'medium', 'high', 'xhigh'].includes(reasoningEffort)) {
+    args.push('-c', `model_reasoning_effort=${reasoningEffort}`);
   }
 
   args.push('-');
@@ -259,6 +263,7 @@ async function executeStep(options) {
     codexCommand = DEFAULT_CODEX_COMMAND,
     codexArgs = [],
     codexModel = '',
+    codexReasoningEffort = '',
     retries = 0,
     retryDelay = DEFAULT_RETRY_DELAY_MS
   } = options;
@@ -269,7 +274,7 @@ async function executeStep(options) {
 
   const redactor = createRedactor(repoPath);
   const maxAttempts = Math.max(1, Number.parseInt(retries, 10) + 1);
-  const args = buildCodexArgs(prompt, codexArgs, codexModel, safeRepoPath);
+  const args = buildCodexArgs(prompt, codexArgs, codexModel, codexReasoningEffort, safeRepoPath);
   const delayBetweenAttemptsMs = retryDelayMs(retryDelay);
 
   updateRunStatus(runId, 'running', { started_at: nowSql() });
