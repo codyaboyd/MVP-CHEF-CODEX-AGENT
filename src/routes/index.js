@@ -25,6 +25,7 @@ router.post('/recipes/:id', recipeController.updateRecipe);
 router.post('/recipes/:id/run', recipeController.runRecipe);
 router.post('/recipes/:id/duplicate', recipeController.duplicateRecipe);
 router.post('/recipes/:id/delete', recipeController.deleteRecipe);
+router.get('/runs', pageController.runs);
 router.get('/runs/:id', pageController.runDetail);
 router.get('/runs/:id/events', pageController.runEvents);
 router.get('/runs/:id/diff', pageController.runDiff);

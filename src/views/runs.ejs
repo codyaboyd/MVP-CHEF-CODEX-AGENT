@@ -1,0 +1,66 @@
+<%- include('partials/layout') %>
+<section class="runs-page container py-5">
+  <header class="runs-header mb-4">
+    <div>
+      <span class="eyebrow">Kitchen activity</span>
+      <h1 class="fw-black mb-2">All runs</h1>
+      <p class="text-muted mb-0">Find every Codex job across your projects and follow its progress.</p>
+    </div>
+    <a class="btn btn-dark rounded-pill px-4" href="/">Start a new task</a>
+  </header>
+
+  <form class="run-filters paper-panel" method="get" action="/runs">
+    <div>
+      <label for="run-status">Status</label>
+      <select class="form-select" id="run-status" name="status">
+        <option value="">All statuses</option>
+        <% statuses.forEach((status) => { %>
+          <option value="<%= status %>" <%= filters.status === status ? 'selected' : '' %>><%= status.replaceAll('_', ' ') %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div>
+      <label for="run-project">Project</label>
+      <select class="form-select" id="run-project" name="project">
+        <option value="">All projects</option>
+        <% projects.forEach((project) => { %>
+          <option value="<%= project.id %>" <%= Number(filters.project) === project.id ? 'selected' : '' %>><%= project.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <button class="btn btn-primary" type="submit">Apply filters</button>
+    <% if (filters.status || filters.project) { %><a class="btn btn-link" href="/runs">Clear</a><% } %>
+  </form>
+
+  <div class="runs-result-summary"><strong><%= pagination.total %></strong> <%= pagination.total === 1 ? 'run' : 'runs' %> found</div>
+  <% if (runs.length) { %>
+    <div class="run-list">
+      <% runs.forEach((run) => { %>
+        <a class="run-list-card" href="/runs/<%= run.id %>">
+          <span class="run-list-icon" aria-hidden="true"><%= run.status === 'running' ? '↻' : run.status === 'succeeded' ? '✓' : '⌁' %></span>
+          <span class="run-list-main">
+            <strong><%= run.recipe_name || 'One-off task' %></strong>
+            <small><%= run.project_name || 'No project' %> · Run #<%= run.id %></small>
+            <% if (run.status === 'running' && run.stepProgress) { %>
+              <small class="recent-run-step">Step <%= run.stepProgress.current %> of <%= run.stepProgress.total %> · <%= run.stepProgress.title %></small>
+            <% } %>
+          </span>
+          <time datetime="<%= run.created_at %>"><%= run.created_at %></time>
+          <span class="status-badge" data-status="<%= run.status %>"><%= run.status.replaceAll('_', ' ') %></span>
+          <span class="run-list-arrow" aria-hidden="true">→</span>
+        </a>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="empty-state paper-panel"><div class="empty-state-icon">🔎</div><h2 class="h4 fw-black">No matching runs</h2><p class="text-muted">Try clearing a filter or start a new task.</p></div>
+  <% } %>
+
+  <% if (pagination.pageCount > 1) { const filterQuery = `${filters.status ? `&status=${encodeURIComponent(filters.status)}` : ''}${filters.project ? `&project=${filters.project}` : ''}`; %>
+    <nav class="runs-pagination" aria-label="Runs pages">
+      <a class="btn btn-outline-dark <%= pagination.page === 1 ? 'disabled' : '' %>" href="/runs?page=<%= pagination.page - 1 %><%= filterQuery %>" aria-label="Previous page">← Previous</a>
+      <span>Page <strong><%= pagination.page %></strong> of <%= pagination.pageCount %></span>
+      <a class="btn btn-outline-dark <%= pagination.page === pagination.pageCount ? 'disabled' : '' %>" href="/runs?page=<%= pagination.page + 1 %><%= filterQuery %>" aria-label="Next page">Next →</a>
+    </nav>
+  <% } %>
+</section>
+<%- include('partials/footer') %>

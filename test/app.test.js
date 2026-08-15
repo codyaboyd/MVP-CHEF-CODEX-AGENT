@@ -51,6 +51,49 @@ test('active runs show their current recipe step on the home page and in runner 
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
 
+test('runs screen filters by status and project and paginates results', async () => {
+  const project = db.prepare('INSERT INTO projects (name, repo_path) VALUES (?, ?)').run('Runs Filter Project', '/tmp/runs-filter-project');
+  const insertRun = db.prepare('INSERT INTO runs (project_id, status, created_at, updated_at) VALUES (?, ?, datetime(\'now\', ?), CURRENT_TIMESTAMP)');
+  const runIds = [];
+  for (let index = 0; index < 12; index += 1) {
+    runIds.push(insertRun.run(project.lastInsertRowid, index === 0 ? 'failed' : 'succeeded', `+${index + 1} minutes`).lastInsertRowid);
+  }
+
+  const firstPage = await request(app).get('/runs').query({ project: project.lastInsertRowid, status: 'succeeded' });
+  assert.equal(firstPage.status, 200);
+  assert.match(firstPage.text, /All runs/);
+  assert.match(firstPage.text, /<strong>11<\/strong> runs found/);
+  assert.match(firstPage.text, /Page <strong>1<\/strong> of 2/);
+  assert.doesNotMatch(firstPage.text, /data-status="failed"/);
+
+  const secondPage = await request(app).get('/runs').query({ project: project.lastInsertRowid, status: 'succeeded', page: 2 });
+  assert.equal(secondPage.status, 200);
+  assert.match(secondPage.text, /Page <strong>2<\/strong> of 2/);
+
+  db.prepare(`DELETE FROM runs WHERE id IN (${runIds.map(() => '?').join(',')})`).run(...runIds);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
+});
+
+test('home page shows every running job even when newer completed runs exist', async () => {
+  const project = db.prepare('INSERT INTO projects (name, repo_path) VALUES (?, ?)').run('All Active Project', '/tmp/all-active-project');
+  const insertRun = db.prepare('INSERT INTO runs (project_id, status, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)');
+  const runIds = [];
+  for (let index = 0; index < 5; index += 1) {
+    runIds.push(insertRun.run(project.lastInsertRowid, 'running', `2001-01-0${index + 1} 00:00:00`).lastInsertRowid);
+  }
+  for (let index = 0; index < 5; index += 1) {
+    runIds.push(insertRun.run(project.lastInsertRowid, 'succeeded', `2099-01-0${index + 1} 00:00:00`).lastInsertRowid);
+  }
+
+  const response = await request(app).get('/');
+  assert.equal(response.status, 200);
+  assert.match(response.text, /Running now/);
+  runIds.slice(0, 5).forEach((id) => assert.match(response.text, new RegExp(`/runs/${id}`)));
+
+  db.prepare(`DELETE FROM runs WHERE id IN (${runIds.map(() => '?').join(',')})`).run(...runIds);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
+});
+
 test('quick run accepts an ordinary folder and chains prompts in order', async () => {
   const response = await request(app)
     .post('/run')
