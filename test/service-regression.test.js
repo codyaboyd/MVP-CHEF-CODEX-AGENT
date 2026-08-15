@@ -54,8 +54,8 @@ test('RecipeService imports, orders, and exports recipe steps deterministically'
     description: 'Exercise service-level recipe JSON round trips.',
     ingredients: ['Repo', 'Acceptance criteria'],
     steps: [
-      { title: 'Plan filling', prompt: 'Plan the implementation with acceptance criteria and tests.', requiredChecks: ['npm test'], maxRetries: 1, requiresApproval: false },
-      { title: 'Ship garnish', prompt: 'Implement the change and verify that npm test passes.', requiredChecks: ['npm run lint', 'npm test'], maxRetries: 2, requiresApproval: true, approvalOverride: 'before_commit' }
+      { title: 'Plan filling', prompt: 'Plan the implementation with acceptance criteria and tests.', requiredChecks: ['npm test'], maxRetries: 1 },
+      { title: 'Ship garnish', prompt: 'Implement the change and verify that npm test passes.', requiredChecks: ['npm run lint', 'npm test'], maxRetries: 2 }
     ]
   };
 

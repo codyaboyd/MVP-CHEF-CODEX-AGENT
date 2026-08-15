@@ -36,9 +36,9 @@ function retryFailedStep(runId, stepId) {
   if (![STATUSES.FAILED, STATUSES.PAUSED, STATUSES.WAITING_FOR_QUOTA].includes(step.status)) {
     throw new Error('Only failed, paused, or quota-waiting steps can be retried.');
   }
-  runStateManager.updateRunStep(stepId, STATUSES.PAUSED, { completed_at: null, approval_point: null, error_message: 'Retry requested by human reviewer.' });
+  runStateManager.updateRunStep(stepId, STATUSES.PAUSED, { completed_at: null, approval_point: null, error_message: 'Retry requested by operator.' });
   recordAction(runId, stepId, 'retry_failed_step', { previousStatus: step.status });
-  return runStateManager.updateRun(runId, STATUSES.PAUSED, { completed_at: null, error_message: 'Retry requested by human reviewer.' });
+  return runStateManager.updateRun(runId, STATUSES.PAUSED, { completed_at: null, error_message: 'Retry requested by operator.' });
 }
 
 function continueFromStep(runId, stepId) {
@@ -67,7 +67,7 @@ async function rollbackLastStep(runId) {
   if (!run.repo_path) throw new Error('Rollback requires a project repository path.');
   const manager = new GitManager({ repoPath: run.repo_path, mainBranch: run.default_branch });
   await manager.rollbackToCheckpoint(`${lastStep.commit_sha}^`);
-  runStateManager.updateRunStep(lastStep.id, STATUSES.PAUSED, { completed_at: null, error_message: 'Rolled back by human reviewer.' });
+  runStateManager.updateRunStep(lastStep.id, STATUSES.PAUSED, { completed_at: null, error_message: 'Rolled back by operator.' });
   recordAction(runId, lastStep.id, 'rollback_last_step', { commitSha: lastStep.commit_sha });
   return runStateManager.updateRun(runId, STATUSES.PAUSED, { completed_at: null, commit_sha: null, error_message: 'Last committed step rolled back.' });
 }

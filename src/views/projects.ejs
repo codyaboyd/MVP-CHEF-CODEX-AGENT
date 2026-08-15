@@ -34,7 +34,7 @@
           <option value="false" <%= !form.safeMode ? 'selected' : '' %>>Disabled</option>
           <option value="true" <%= form.safeMode ? 'selected' : '' %>>Enabled</option>
         </select>
-        <div class="form-text">Requires every approval checkpoint for project runs.</div>
+        <div class="form-text">Uses stricter prompt linting to block risky instructions before a run starts.</div>
       </div>
       <div class="col-md-8">
         <label class="form-label fw-bold" for="description">Description</label>

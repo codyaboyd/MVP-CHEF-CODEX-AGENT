@@ -74,24 +74,6 @@ function nowSql() {
 }
 
 
-const APPROVAL_POINTS = Object.freeze({
-  BEFORE_STEP: 'before_step',
-  AFTER_CODEX: 'after_codex',
-  BEFORE_COMMIT: 'before_commit'
-});
-
-function approvalModeForStep(recipe, recipeStep, project) {
-  if (project.safe_mode) return 'all';
-  if (recipeStep.approvalOverride && recipeStep.approvalOverride !== 'inherit') return recipeStep.approvalOverride;
-  if (recipeStep.humanApproval) return 'before_step';
-  return recipe.approvalMode || recipe.approval_mode || 'manual_steps';
-}
-
-function requiresApprovalAt(recipe, recipeStep, project, point) {
-  const mode = approvalModeForStep(recipe, recipeStep, project);
-  if (mode === 'none' || mode === 'manual_steps') return false;
-  return mode === 'all' || mode === point;
-}
 
 
 function lintPromptBeforeStep({ runId, nextStep, recipeStep, project }) {
@@ -114,18 +96,6 @@ function lintPromptBeforeStep({ runId, nextStep, recipeStep, project }) {
   return { blocked: false, nextStep: { ...nextStep, stdout_log: `${nextStep.stdout_log || ''}${warningLog}` }, stepPrompt };
 }
 
-function waitForApproval(runId, runStepId, point, message) {
-  runStateManager.updateRunStep(runStepId, STATUSES.WAITING_FOR_APPROVAL, {
-    approval_point: point,
-    error_message: message,
-    started_at: nowSql()
-  });
-  return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: message });
-}
-
-function approvalSatisfied(nextStep, point, options) {
-  return nextStep.approval_point !== point || options.approvedPoint === point || options.approved === true;
-}
 
 function getProject(projectId) {
   if (!projectId) return null;
@@ -174,27 +144,22 @@ function skipRunStep(runId, runStepId) {
   runStateManager.updateRunStep(runStepId, STATUSES.SUCCEEDED, {
     completed_at: nowSql(),
     skipped_at: nowSql(),
-    error_message: 'Skipped by human reviewer.'
+    error_message: 'Skipped by operator.'
   });
-  failureRecoveryService.recordAction(runId, runStepId, 'skip_failed_step', { reason: 'Skipped by human reviewer.' });
-  return runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: 'Step skipped by human reviewer.' });
+  failureRecoveryService.recordAction(runId, runStepId, 'skip_failed_step', { reason: 'Skipped by operator.' });
+  return runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: 'Step skipped by operator.' });
 }
 
-function rejectRunStep(runId, runStepId, reason = '') {
-  const message = reason || 'Rejected by human reviewer.';
-  runStateManager.updateRunStep(runStepId, STATUSES.FAILED, { completed_at: nowSql(), error_message: message });
-  return runStateManager.updateRun(runId, STATUSES.FAILED, { completed_at: nowSql(), error_message: message });
-}
 
 function editPromptAndRetry(runId, runStepId, prompt) {
   if (!prompt || !prompt.trim()) throw new Error('Edited prompt is required.');
   runStateManager.updateRunStep(runStepId, STATUSES.PAUSED, {
     prompt_override: prompt.trim(),
     approval_point: null,
-    error_message: 'Prompt edited by human reviewer; ready to retry.'
+    error_message: 'Prompt edited; ready to retry.'
   });
   failureRecoveryService.recordAction(runId, runStepId, 'edit_failed_prompt_and_retry', { prompt: prompt.trim() });
-  return runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: 'Prompt edited by human reviewer; ready to retry.' });
+  return runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: 'Prompt edited; ready to retry.' });
 }
 
 async function executeRun(runId, options = {}) {
@@ -229,19 +194,14 @@ async function executeRun(runId, options = {}) {
     const recipeStep = recipe.steps.find((step) => step.id === nextStep.recipe_step_id);
     if (!recipeStep) throw new Error(`Recipe step ${nextStep.recipe_step_id} was not found.`);
 
-    if (nextStep.status === STATUSES.WAITING_FOR_APPROVAL && nextStep.approval_point && !approvalSatisfied(nextStep, nextStep.approval_point, options)) {
-      return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: nextStep.error_message || 'Waiting for human approval.' });
-    }
 
     const lintResult = lintPromptBeforeStep({ runId, nextStep, recipeStep, project });
     if (lintResult.blocked) return runStateManager.getRun(runId);
     nextStep = lintResult.nextStep;
     const stepPrompt = lintResult.stepPrompt;
 
-    if (requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.BEFORE_STEP) && nextStep.status === STATUSES.PENDING) {
-      return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.BEFORE_STEP, 'Waiting for approval before running step.');
-    }
 
+    // Automatically continue runs saved with the retired approval status.
     if (nextStep.status === STATUSES.WAITING_FOR_APPROVAL) {
       runStateManager.updateRunStep(nextStep.id, STATUSES.PAUSED, { approval_point: null, error_message: null });
       nextStep = { ...nextStep, status: STATUSES.PAUSED, approval_point: null };
@@ -270,13 +230,6 @@ async function executeRun(runId, options = {}) {
         codexSandboxMode: options.codexSandboxMode ?? appSettingsService.getSetting('codexSandboxMode')?.value
       }));
 
-      if (requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.AFTER_CODEX) && !approvalSatisfied(nextStep, APPROVAL_POINTS.AFTER_CODEX, options)) {
-        return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.AFTER_CODEX, 'Waiting for approval after Codex.');
-      }
-
-      if (requiresApprovalAt(recipe, recipeStep, project, APPROVAL_POINTS.BEFORE_COMMIT) && !approvalSatisfied(nextStep, APPROVAL_POINTS.BEFORE_COMMIT, options)) {
-        return waitForApproval(runId, nextStep.id, APPROVAL_POINTS.BEFORE_COMMIT, 'Waiting for approval before commit.');
-      }
 
       if (gitManager) runStateManager.assertRunOwnsProjectLock(run.project_id, runId);
       const gitResult = gitManager
@@ -351,20 +304,16 @@ async function resumeRun(runId, options = {}) {
     runStateManager.updateRunStep(step.id, STATUSES.PAUSED, { error_message: null, quota_retry_count: retryCount + 1 });
     runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: null, quota_retry_count: retryCount + 1 });
   }
-  if (step.status === STATUSES.WAITING_FOR_APPROVAL && !options.approved) {
-    return runStateManager.updateRun(runId, STATUSES.WAITING_FOR_APPROVAL, { error_message: 'Waiting for human approval.' });
-  }
-  if (step.status === STATUSES.WAITING_FOR_APPROVAL && (options.approved || options.approvedPoint)) {
+  if (step.status === STATUSES.WAITING_FOR_APPROVAL) {
     runStateManager.updateRunStep(step.id, STATUSES.PAUSED, { error_message: null });
   }
   return executeRun(runId, options);
 }
 
 module.exports = {
-  RecipeRunEngine: { editPromptAndRetry, executeRun, rejectRunStep, resumeRun, skipRunStep, startRunFromRecipe },
+  RecipeRunEngine: { editPromptAndRetry, executeRun, resumeRun, skipRunStep, startRunFromRecipe },
   editPromptAndRetry,
   executeRun,
-  rejectRunStep,
   resumeRun,
   skipRunStep,
   startRunFromRecipe

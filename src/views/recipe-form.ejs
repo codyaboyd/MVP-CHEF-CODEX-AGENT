@@ -30,16 +30,7 @@
               <% }) %>
             </select>
           </div>
-          <div class="col-md-6">
-            <label class="form-label" for="approvalMode">Recipe approval mode</label>
-            <select class="form-select" id="approvalMode" name="approvalMode">
-              <% [['manual_steps','Manual approval steps only'], ['none','No approvals'], ['before_step','Before every step'], ['after_codex','After Codex'], ['before_commit','Before commit'], ['all','All approval points']].forEach(([value, label]) => { %>
-                <option value="<%= value %>" <%= (values.approvalMode || values.approval_mode || 'manual_steps') === value ? 'selected' : '' %>><%= label %></option>
-              <% }) %>
-            </select>
-            <div class="form-text">Controls human approval checkpoints for this recipe.</div>
-          </div>
-          <div class="col-md-6">
+          <div class="col-12">
             <label class="form-label" for="ingredients">Context notes (optional)</label>
             <textarea class="form-control" id="ingredients" name="ingredients" rows="4" placeholder="Optional repo notes, ticket links, constraints, or prerequisites"><%= values.ingredients || '' %></textarea>
             <div class="form-text">Optional supporting context only. The actual Codex work is defined in the prompt steps or raw text blocks below.</div>
@@ -61,12 +52,12 @@
               <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                   <h2 class="h4 mb-1">Structured prompt steps</h2>
-                  <p class="text-muted mb-0">Use this mode when you need step titles, retries, and approvals.</p>
+                  <p class="text-muted mb-0">Use this mode when you need step titles and retries.</p>
                 </div>
                 <button class="btn btn-outline-primary rounded-pill" type="button" data-add-step>+ Add step</button>
               </div>
               <div class="recipe-step-list" data-step-list>
-            <% const steps = values.steps && values.steps.length ? values.steps : [{ title: 'Step 1', prompt: '', requiredChecks: '', retryCount: 0, humanApproval: false }]; %>
+            <% const steps = values.steps && values.steps.length ? values.steps : [{ title: 'Step 1', prompt: '', requiredChecks: '', retryCount: 0 }]; %>
             <% steps.forEach((step, index) => { %>
               <div class="recipe-step-editor" data-step-editor>
                 <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
@@ -78,28 +69,13 @@
                   </div>
                 </div>
                 <div class="row g-3">
-                  <div class="col-md-8">
+                  <div class="col-md-10">
                     <label class="form-label">Step title</label>
                     <input class="form-control" name="stepTitles" value="<%= step.title || '' %>" required>
                   </div>
                   <div class="col-md-2">
                     <label class="form-label">Retries</label>
                     <input class="form-control" type="number" min="0" name="stepRetryCounts" value="<%= step.retryCount ?? step.retry_count ?? 0 %>">
-                  </div>
-                  <div class="col-md-2">
-                    <label class="form-label">Legacy approval</label>
-                    <select class="form-select" name="stepHumanApprovals">
-                      <option value="0" <%= !(step.humanApproval || step.human_approval) ? 'selected' : '' %>>No</option>
-                      <option value="1" <%= (step.humanApproval || step.human_approval) ? 'selected' : '' %>>Yes</option>
-                    </select>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Approval override</label>
-                    <select class="form-select" name="stepApprovalOverrides">
-                      <% [['inherit','Use recipe mode'], ['none','No approvals'], ['before_step','Before this step'], ['after_codex','After Codex'], ['before_commit','Before commit'], ['all','All approval points']].forEach(([value, label]) => { %>
-                        <option value="<%= value %>" <%= (step.approvalOverride || step.approval_override || 'inherit') === value ? 'selected' : '' %>><%= label %></option>
-                      <% }) %>
-                    </select>
                   </div>
                   <div class="col-12">
                     <div class="d-flex justify-content-between align-items-center gap-2">
@@ -118,7 +94,7 @@
               <div class="card border-dashed bg-light-subtle">
                 <div class="card-body">
                   <h2 class="h5 mb-2">Raw text block sequence</h2>
-                  <p class="text-muted mb-3">Paste prompt blocks when you do not need separate titles, retries, or approvals. Separate blocks with a blank line or a line containing <code>---</code>; each block becomes a prompt step named “Text block N”.</p>
+                  <p class="text-muted mb-3">Paste prompt blocks when you do not need separate titles or retries. Separate blocks with a blank line or a line containing <code>---</code>; each block becomes a prompt step named “Text block N”.</p>
                   <label class="form-label" for="rawTextBlocks">Raw prompt blocks</label>
                   <textarea class="form-control" id="rawTextBlocks" name="rawTextBlocks" rows="10" placeholder="First raw prompt block...&#10;&#10;---&#10;&#10;Second raw prompt block..."><%= values.rawTextBlocks || '' %></textarea>
                   <div class="form-text">Use either this raw sequence or structured steps. Raw blocks take precedence when this field contains text.</div>

@@ -211,8 +211,7 @@ test('recipe CRUD supports project association and step details', async () => {
       projectId: String(project.id),
       stepTitles: ['Draft', 'Review'],
       stepPrompts: ['Draft the change.', 'Review the change.'],
-      stepRetryCounts: ['1', '2'],
-      stepHumanApprovals: ['0', '1']
+      stepRetryCounts: ['1', '2']
     });
 
   assert.equal(createResponse.status, 302);
@@ -224,7 +223,7 @@ test('recipe CRUD supports project association and step details', async () => {
   assert.equal(steps.length, 2);
   assert.equal(steps[0].required_checks, '');
   assert.equal(steps[1].retry_count, 2);
-  assert.equal(steps[1].human_approval, 1);
+  assert.equal(steps[1].human_approval, 0);
 
   const updateResponse = await request(app)
     .post(`/recipes/${recipeId}`)
@@ -272,15 +271,13 @@ test('recipes can be imported from and exported to versioned JSON', async () => 
         title: 'First simmer',
         prompt: 'Do the first step.',
         requiredChecks: ['npm test'],
-        maxRetries: 1,
-        requiresApproval: false
+        maxRetries: 1
       },
       {
         title: 'Second garnish',
         prompt: 'Do the second step.',
         requiredChecks: ['npm run lint'],
-        maxRetries: 2,
-        requiresApproval: true
+        maxRetries: 2
       }
     ]
   };
@@ -933,36 +930,26 @@ test('RecipeRunEngine pauses on quota and does not start the next prompt until c
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
 
-test('human approval modes pause before a step and expose approval actions', async () => {
+test('legacy approval metadata no longer pauses recipe execution or exposes approval actions', async () => {
   const engine = require('../src/services/recipeRunEngine');
   const project = db.prepare(`
     INSERT INTO projects (name, repo_path, default_branch, lint_command, test_command, build_command)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run('Approval Project', process.cwd(), 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
+  `).run('Legacy Approval Project', process.cwd(), 'main', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"', 'node -e "process.exit(0)"');
   const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description, approval_mode) VALUES (?, ?, ?, ?, ?)')
-    .run(project.lastInsertRowid, 'Approval Cake', '1.0.0', 'Exercise human approval.', 'before_step');
-  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
-    .run(recipe.lastInsertRowid, 1, 'Review me', 'Do reviewed work.');
+    .run(project.lastInsertRowid, 'Automatic Cake', '1.0.0', 'Exercise automatic execution.', 'before_step');
+  db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt, human_approval) VALUES (?, ?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 1, 'Run me', 'Do the work.', 1);
 
   const created = await engine.startRunFromRecipe(recipe.lastInsertRowid, { autoExecute: false });
-  const waiting = await engine.executeRun(created.id, { ...FAKE_CODEX_OPTIONS });
-  let step = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
-  assert.equal(waiting.status, 'waiting_for_approval');
-  assert.equal(step.status, 'waiting_for_approval');
-  assert.equal(step.approval_point, 'before_step');
+  const completed = await engine.executeRun(created.id, { ...FAKE_CODEX_OPTIONS });
+  const step = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
+  assert.equal(completed.status, 'succeeded');
+  assert.equal(step.status, 'succeeded');
 
   const detail = await request(app).get(`/runs/${created.id}`);
   assert.equal(detail.status, 200);
-  assert.match(detail.text, /Approve/);
-  assert.match(detail.text, /Reject/);
-  assert.match(detail.text, /Edit prompt and retry/);
-  assert.match(detail.text, /Skip step/);
-  assert.match(detail.text, /Cancel run/);
-
-  const resumed = await engine.resumeRun(created.id, { ...FAKE_CODEX_OPTIONS, approved: true, approvedPoint: 'before_step' });
-  step = db.prepare('SELECT * FROM run_steps WHERE run_id = ?').get(created.id);
-  assert.equal(resumed.status, 'succeeded');
-  assert.equal(step.status, 'succeeded');
+  assert.doesNotMatch(detail.text, /Human approval required|>Approve<|>Reject</);
 
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);

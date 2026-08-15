@@ -6,15 +6,11 @@ function parseSteps(body) {
   const titles = Array.isArray(body.stepTitles) ? body.stepTitles : [body.stepTitles];
   const prompts = Array.isArray(body.stepPrompts) ? body.stepPrompts : [body.stepPrompts];
   const retries = Array.isArray(body.stepRetryCounts) ? body.stepRetryCounts : [body.stepRetryCounts];
-  const approvals = Array.isArray(body.stepHumanApprovals) ? body.stepHumanApprovals : [body.stepHumanApprovals];
-  const approvalOverrides = Array.isArray(body.stepApprovalOverrides) ? body.stepApprovalOverrides : [body.stepApprovalOverrides];
 
   return titles.map((title, index) => ({
     title,
     prompt: prompts[index],
     retryCount: retries[index],
-    humanApproval: approvals[index] === '1',
-    approvalOverride: approvalOverrides[index] || 'inherit'
   }));
 }
 
@@ -55,7 +51,7 @@ function newRecipeForm(req, res) {
   recipeForm(res, {
     pageTitle: 'Add a Recipe',
     action: '/recipes',
-    values: { approvalMode: 'manual_steps', steps: [{ title: 'Step 1', prompt: '', requiredChecks: '', retryCount: 0, humanApproval: false, approvalOverride: 'inherit' }] }
+    values: { steps: [{ title: 'Step 1', prompt: '', requiredChecks: '', retryCount: 0 }] }
   });
 }
 

@@ -2,7 +2,7 @@
 
 ![Alt Text](logo.png)
 
-MVP Chef Codex is a local web application for turning repeatable Codex CLI work into reusable, versioned recipes. It connects recipes to project folders, runs ordered prompts, streams structured Codex output, records run history in SQLite, and provides approval and recovery controls.
+MVP Chef Codex is a local web application for turning repeatable Codex CLI work into reusable, versioned recipes. It connects recipes to project folders, runs ordered prompts, streams structured Codex output, records run history in SQLite, and provides automated recovery controls.
 
 > **Status:** This is an MVP developer tool. Review and test every generated change before relying on it.
 
@@ -17,7 +17,6 @@ MVP Chef Codex is a local web application for turning repeatable Codex CLI work 
 - Run Codex with `workspace-write`, `read-only`, or `danger-full-access` sandbox settings.
 - Stream stdout and stderr to the run detail page with secret redaction.
 - Pause, resume, cancel, retry, skip, edit-and-retry, or continue a run.
-- Add approval checkpoints before a step, after Codex, or before a local commit.
 - Pause on quota limits and optionally resume after a configured cooldown.
 - Persist recipes, projects, settings, runs, recovery actions, and locks in SQLite.
 - Optionally use local Git checkpoints and commits when a run enables Git behavior.
@@ -128,7 +127,7 @@ After opening the app in your browser:
 
 1. Open **Settings**.
 2. Confirm the Codex command path. The default is `codex`.
-3. Confirm the auth mode, model, approval policy, sandbox, quota cooldown, safe-mode default, and display preferences.
+3. Confirm the auth mode, model, sandbox, quota cooldown, safe-mode default, and display preferences.
 4. Add or select a project folder. If the folder browser is too broad or too narrow, set `PROJECT_BROWSER_ROOTS` in `.env`.
 5. Create a quick one-off run or import a recipe.
 6. Start with the `workspace-write` sandbox and keep safe mode enabled for risky prompts.
@@ -194,7 +193,6 @@ Recipe imports use JSON shaped like this:
   "version": "1.0.0",
   "description": "Implement and verify one focused change.",
   "ingredients": ["Acceptance criteria", "Existing project"],
-  "approvalMode": "manual_steps",
   "steps": [
     {
       "title": "Inspect and plan",
@@ -202,7 +200,6 @@ Recipe imports use JSON shaped like this:
       "requiredChecks": ["Plan names affected files and tests"],
       "maxRetries": 1,
       "requiresApproval": false,
-      "approvalOverride": "inherit"
     },
     {
       "title": "Implement and verify",
@@ -210,22 +207,19 @@ Recipe imports use JSON shaped like this:
       "requiredChecks": ["npm test", "npm run lint", "npm run build"],
       "maxRetries": 2,
       "requiresApproval": true,
-      "approvalOverride": "before_commit"
     }
   ]
 }
 ```
 
-Supported recipe approval modes are `manual_steps`, `none`, `before_step`, `after_codex`, `before_commit`, and `all`. Step overrides also accept `inherit`. `requiredChecks` documents verification that the Codex prompt must perform; MVP Chef does not run a second hidden quality-gate process.
 
-The full example at `recipes/demo-node-saas-mvp.json` uses the same fields and approval points as the editor, importer, exporter, and run engine. Built-in templates cover SaaS foundations, landing pages, APIs, authentication, billing, admin dashboards, CRUD, chat, documentation, and test hardening.
 
 ## Run lifecycle and safety
 
 1. The app validates the target folder and obtains a per-project run lock.
 2. Each recipe step is sent to `codex exec --json` through stdin.
 3. Structured output is stored and streamed to the browser.
-4. Configured approval points pause execution for a human decision.
+4. Runs continue through their ordered prompts automatically and pause only for failures or quota cooldowns.
 5. Failures retain logs and expose retry, prompt editing, skip, continuation, and rollback controls.
 6. Terminal states release the project lock.
 
