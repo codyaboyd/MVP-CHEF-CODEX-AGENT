@@ -1,8 +1,13 @@
 const express = require('express');
 const pageController = require('../controllers/pageController');
 const recipeController = require('../controllers/recipeController');
+const apiController = require('../controllers/apiController');
 
 const router = express.Router();
+
+router.post('/api/jobs', apiController.startJob);
+router.get('/api/jobs/:id', apiController.getJob);
+router.post('/api/jobs/:id/prompts', apiController.addJobPrompt);
 
 router.get('/', pageController.dashboard);
 router.post('/run', pageController.quickRun);
@@ -30,6 +35,7 @@ router.get('/runs/:id', pageController.runDetail);
 router.get('/runs/:id/events', pageController.runEvents);
 router.get('/runs/:id/diff', pageController.runDiff);
 router.get('/runs/:id/logs', pageController.runLogs);
+router.post('/runs/:id/prompts', pageController.addRunPrompt);
 router.post('/runs/:id/logs/clear', pageController.clearRunLogs);
 router.get('/runs/:id/failure-report', pageController.exportFailureReport);
 router.post('/runs/:id/pause', pageController.pauseRun);

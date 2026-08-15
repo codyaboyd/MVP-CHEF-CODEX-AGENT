@@ -17,12 +17,56 @@ MVP Chef Codex is a local web application for turning repeatable Codex CLI work 
 - Run Codex with `workspace-write`, `read-only`, or `danger-full-access` sandbox settings.
 - Stream stdout and stderr to the run detail page with secret redaction.
 - Pause, resume, cancel, retry, skip, edit-and-retry, or continue a run.
+- Append prompts while a job is active; newly added prompts are queued after the current chain and never interrupt the running step.
+- Start jobs and inspect live status from a JSON REST API.
 - Pause on quota limits and optionally resume after a configured cooldown.
 - Persist recipes, projects, settings, runs, recovery actions, and locks in SQLite.
 - Optionally use local Git checkpoints and commits when a run enables Git behavior.
 - ChatGPT recipe builder at https://chatgpt.com/g/g-6a74004c1fc481918483146b69b404df-mvp-chef-recipe-builder
 
 The run progress bar does not estimate the number of steps. Each structured Codex `item.completed` event advances it by three percentage points, capped at 99% while work is active; a successful run displays 100%.
+
+## REST API
+
+The API uses JSON request and response bodies. It currently relies on the same local trust boundary as the web UI, so do not expose the app directly to an untrusted network without adding authentication and TLS at a reverse proxy.
+
+### Start a recipe job
+
+```bash
+curl --fail-with-body -X POST http://localhost:3000/api/jobs \
+  -H 'Content-Type: application/json' \
+  -d '{"recipeId": 1, "gitEnabled": false}'
+```
+
+The server responds immediately with HTTP `202 Accepted` while execution continues in the background:
+
+```json
+{
+  "jobId": 42,
+  "status": "pending",
+  "statusUrl": "/api/jobs/42"
+}
+```
+
+`recipeId` must identify a recipe associated with a project. Only one active job may use a project at a time; a conflicting request returns HTTP `409`.
+
+### Check job status
+
+```bash
+curl --fail-with-body http://localhost:3000/api/jobs/42
+```
+
+The response includes the job status, progress, current step, ordered steps, redacted stdout and stderr, quota state, retry count, and timestamps. Poll `statusUrl` until `status` is `succeeded`, `failed`, or `cancelled`.
+
+### Add a prompt during a job
+
+```bash
+curl --fail-with-body -X POST http://localhost:3000/api/jobs/42/prompts \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"After the existing work, run the focused tests and summarize any failures."}'
+```
+
+This returns HTTP `201 Created`. The prompt is appended after all steps already queued, so the currently running Codex step is not changed or interrupted. Prompts may be added while the job is `pending`, `running`, `paused`, or `waiting_for_quota`; terminal jobs return HTTP `409`. The run detail page exposes the same operation with its **Add prompt** form.
 
 ## Requirements
 
@@ -199,14 +243,14 @@ Recipe imports use JSON shaped like this:
       "prompt": "Inspect the project and describe the smallest implementation plan. Do not edit files yet.",
       "requiredChecks": ["Plan names affected files and tests"],
       "maxRetries": 1,
-      "requiresApproval": false,
+      "requiresApproval": false
     },
     {
       "title": "Implement and verify",
       "prompt": "Implement the plan, run the relevant test, lint, and build commands, and report exact results.",
       "requiredChecks": ["npm test", "npm run lint", "npm run build"],
       "maxRetries": 2,
-      "requiresApproval": true,
+      "requiresApproval": true
     }
   ]
 }
@@ -219,7 +263,7 @@ Recipe imports use JSON shaped like this:
 1. The app validates the target folder and obtains a per-project run lock.
 2. Each recipe step is sent to `codex exec --json` through stdin.
 3. Structured output is stored and streamed to the browser.
-4. Runs continue through their ordered prompts automatically and pause only for failures or quota cooldowns.
+4. Runs continue through their ordered prompts automatically and pause only for failures or quota cooldowns. Active runs can accept additional prompts, which are appended after the existing chain and picked up without interrupting the current step.
 5. Failures retain logs and expose retry, prompt editing, skip, continuation, and rollback controls.
 6. Terminal states release the project lock.
 

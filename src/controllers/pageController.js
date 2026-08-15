@@ -226,6 +226,15 @@ function pauseRun(req, res) {
   redirectToRun(req, res);
 }
 
+function addRunPrompt(req, res, next) {
+  try {
+    recipeRunEngine.addPromptToRun(Number(req.params.id), req.body.prompt);
+    redirectToRun(req, res);
+  } catch (error) {
+    next(error);
+  }
+}
+
 
 function saveRunRecipe(req, res, next) {
   try {
@@ -414,6 +423,7 @@ module.exports = {
   recipes,
   runDetail,
   runEvents,
+  addRunPrompt,
   saveRunRecipe,
   setQuotaRefill,
   pauseRun,

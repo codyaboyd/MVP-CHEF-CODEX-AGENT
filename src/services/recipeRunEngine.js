@@ -162,6 +162,38 @@ function editPromptAndRetry(runId, runStepId, prompt) {
   return runStateManager.updateRun(runId, STATUSES.PAUSED, { error_message: 'Prompt edited; ready to retry.' });
 }
 
+function addPromptToRun(runId, prompt) {
+  const normalizedPrompt = String(prompt || '').trim();
+  if (!normalizedPrompt) throw new Error('Prompt is required.');
+
+  const insert = db.transaction(() => {
+    const run = runStateManager.getRun(runId);
+    if (!run) throw new Error(`Run ${runId} was not found.`);
+    if (![STATUSES.PENDING, STATUSES.RUNNING, STATUSES.PAUSED, STATUSES.WAITING_FOR_QUOTA].includes(run.status)) {
+      const error = new Error(`Prompts cannot be added to a ${run.status} run.`);
+      error.code = 'RUN_NOT_ACTIVE';
+      throw error;
+    }
+
+    const currentOrder = db.prepare(`
+      SELECT COALESCE(MAX(step_order), 0) AS step_order
+      FROM run_steps
+      WHERE run_id = ? AND status = ?
+    `).get(runId, STATUSES.RUNNING).step_order;
+    const nextOrder = db.prepare('SELECT COALESCE(MAX(step_order), 0) + 1 AS step_order FROM run_steps WHERE run_id = ?')
+      .get(runId).step_order;
+    if (nextOrder <= currentOrder) throw new Error('The new prompt must be placed after the currently running step.');
+
+    const result = db.prepare(`
+      INSERT INTO run_steps (run_id, recipe_step_id, step_order, status, prompt_override, created_at, updated_at)
+      VALUES (?, NULL, ?, ?, ?, ?, ?)
+    `).run(runId, nextOrder, STATUSES.PENDING, normalizedPrompt, nowSql(), nowSql());
+    return db.prepare('SELECT * FROM run_steps WHERE id = ?').get(result.lastInsertRowid);
+  });
+
+  return insert();
+}
+
 async function executeRun(runId, options = {}) {
   const run = runStateManager.getRun(runId);
   if (!run) throw new Error(`Run ${runId} was not found.`);
@@ -191,8 +223,12 @@ async function executeRun(runId, options = {}) {
     const latestRun = runStateManager.getRun(runId);
     if (latestRun.status === STATUSES.CANCELLED) return latestRun;
 
-    const recipeStep = recipe.steps.find((step) => step.id === nextStep.recipe_step_id);
-    if (!recipeStep) throw new Error(`Recipe step ${nextStep.recipe_step_id} was not found.`);
+    const recipeStep = recipe.steps.find((step) => step.id === nextStep.recipe_step_id) || {
+      id: null,
+      title: `Added prompt ${nextStep.step_order}`,
+      prompt: nextStep.prompt_override,
+      retryCount: 0
+    };
 
 
     const lintResult = lintPromptBeforeStep({ runId, nextStep, recipeStep, project });
@@ -311,7 +347,8 @@ async function resumeRun(runId, options = {}) {
 }
 
 module.exports = {
-  RecipeRunEngine: { editPromptAndRetry, executeRun, resumeRun, skipRunStep, startRunFromRecipe },
+  RecipeRunEngine: { addPromptToRun, editPromptAndRetry, executeRun, resumeRun, skipRunStep, startRunFromRecipe },
+  addPromptToRun,
   editPromptAndRetry,
   executeRun,
   resumeRun,
