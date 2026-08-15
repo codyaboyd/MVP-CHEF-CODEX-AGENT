@@ -81,7 +81,9 @@ function getRunById(id) {
 
   if (run) {
     run.steps = db.prepare(`
-      SELECT run_steps.*, recipe_steps.title AS recipe_step_title, recipe_steps.prompt, recipe_steps.retry_count, recipe_steps.required_checks
+      SELECT run_steps.*, recipe_steps.title AS recipe_step_title,
+             COALESCE(recipe_steps.prompt, run_steps.prompt_override) AS prompt,
+             recipe_steps.retry_count, recipe_steps.required_checks
       FROM run_steps
       LEFT JOIN recipe_steps ON recipe_steps.id = run_steps.recipe_step_id
       WHERE run_steps.run_id = ?

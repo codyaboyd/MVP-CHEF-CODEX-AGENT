@@ -172,6 +172,44 @@ test('health endpoint reports service readiness', async () => {
   assert.deepEqual(response.body, { status: 'ok', service: 'mvp-chef-codex' });
 });
 
+test('REST API reports job status and appends a prompt after the active chain', async () => {
+  const project = db.prepare('INSERT INTO projects (name, repo_path) VALUES (?, ?)').run('API Project', process.cwd());
+  const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
+    .run(project.lastInsertRowid, 'API Recipe', '1.0.0', 'Exercises the jobs API.');
+  const recipeStep = db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 1, 'Current work', 'Complete the current work.');
+  const run = db.prepare('INSERT INTO runs (project_id, recipe_id, status) VALUES (?, ?, ?)')
+    .run(project.lastInsertRowid, recipe.lastInsertRowid, 'running');
+  db.prepare('INSERT INTO run_steps (run_id, recipe_step_id, step_order, status) VALUES (?, ?, ?, ?)')
+    .run(run.lastInsertRowid, recipeStep.lastInsertRowid, 1, 'running');
+
+  const added = await request(app)
+    .post(`/api/jobs/${run.lastInsertRowid}/prompts`)
+    .send({ prompt: 'Run the focused API tests after the current work.' });
+  assert.equal(added.status, 201);
+  assert.equal(added.body.step.order, 2);
+  assert.equal(added.body.step.status, 'pending');
+
+  const status = await request(app).get(`/api/jobs/${run.lastInsertRowid}`);
+  assert.equal(status.status, 200);
+  assert.equal(status.body.id, run.lastInsertRowid);
+  assert.equal(status.body.steps.length, 2);
+  assert.equal(status.body.steps[1].prompt, 'Run the focused API tests after the current work.');
+
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
+});
+
+test('REST API validates start requests and returns JSON for missing jobs', async () => {
+  const invalidStart = await request(app).post('/api/jobs').send({ recipeId: 'not-an-id' });
+  assert.equal(invalidStart.status, 400);
+  assert.match(invalidStart.body.error.message, /positive integer/);
+
+  const missing = await request(app).get('/api/jobs/999999');
+  assert.equal(missing.status, 404);
+  assert.match(missing.body.error.message, /not found/);
+});
+
 test('database initializes project, recipe, run, and settings schema', () => {
   const tables = db.prepare(`
     SELECT name
