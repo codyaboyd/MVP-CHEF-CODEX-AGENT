@@ -253,23 +253,10 @@ function saveRunRecipe(req, res, next) {
 }
 
 function resumeRun(req, res, next) {
-  recipeRunEngine.resumeRun(Number(req.params.id), { approved: true, approvedPoint: req.body.approvalPoint, quotaCooldownElapsed: req.body.ignoreQuotaCooldown === '1' }).catch(next);
+  recipeRunEngine.resumeRun(Number(req.params.id), { quotaCooldownElapsed: req.body.ignoreQuotaCooldown === '1' }).catch(next);
   redirectToRun(req, res);
 }
 
-function approveRunStep(req, res, next) {
-  recipeRunEngine.resumeRun(Number(req.params.id), { approved: true, approvedPoint: req.body.approvalPoint }).catch(next);
-  redirectToRun(req, res);
-}
-
-function rejectRunStep(req, res, next) {
-  try {
-    recipeRunEngine.rejectRunStep(Number(req.params.id), Number(req.params.stepId), req.body.reason);
-    redirectToRun(req, res);
-  } catch (error) {
-    next(error);
-  }
-}
 
 function editPromptAndRetry(req, res, next) {
   try {
@@ -393,7 +380,6 @@ function updateSettings(req, res) {
     codexReasoningEffort: ['minimal', 'low', 'medium', 'high', 'xhigh'].includes(req.body.codexReasoningEffort)
       ? req.body.codexReasoningEffort
       : 'medium',
-    codexApprovalPolicy: ['suggest', 'on-request', 'never'].includes(req.body.codexApprovalPolicy) ? req.body.codexApprovalPolicy : 'suggest',
     codexSandboxMode: ['workspace-write', 'read-only', 'danger-full-access'].includes(req.body.codexSandboxMode) ? req.body.codexSandboxMode : 'workspace-write',
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
     autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
@@ -423,8 +409,6 @@ module.exports = {
   setQuotaRefill,
   pauseRun,
   resumeRun,
-  approveRunStep,
-  rejectRunStep,
   retryRunStep,
   continueFromStep,
   runDiff,

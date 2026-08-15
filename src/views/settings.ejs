@@ -83,15 +83,6 @@
               <div class="form-text">Controls how much reasoning Codex uses. Runs pass this setting as <code>-c model_reasoning_effort=&quot;&lt;level&gt;&quot;</code>.</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label fw-bold" for="codexApprovalPolicy">Codex approval policy</label>
-              <select class="form-select" id="codexApprovalPolicy" name="codexApprovalPolicy">
-                <% [['suggest','Suggest (ask before risky actions)'], ['on-request','On request (agent may ask)'], ['never','Never ask during runs']].forEach(([value, label]) => { %>
-                  <option value="<%= value %>" <%= valueFor('codexApprovalPolicy', 'suggest') === value ? 'selected' : '' %>><%= label %></option>
-                <% }) %>
-              </select>
-              <div class="form-text">Controls when Codex may pause for operator permission. Use <strong>Suggest</strong> for the safest default; use <strong>Never</strong> only for fully unattended runs.</div>
-            </div>
-            <div class="col-md-6">
               <label class="form-label fw-bold" for="codexSandboxMode">Codex sandbox mode</label>
               <select class="form-select" id="codexSandboxMode" name="codexSandboxMode">
                 <% [['workspace-write','Workspace write (recommended)'], ['read-only','Read only'], ['danger-full-access','Full access (advanced)']].forEach(([value, label]) => { %>
@@ -107,7 +98,7 @@
       <div class="col-lg-6">
         <section class="paper-panel p-4 settings-section">
           <p class="eyebrow">🛡️ Safety settings</p>
-          <h2 class="h4 fw-black">Approval gates</h2>
+          <h2 class="h4 fw-black">Safety rails</h2>
           <div class="row g-3">
             <% boolSelect('projectSafeModeDefault', 'Default project safe mode', 'Start new projects with stricter prompt linting enabled.'); %>
             <% boolSelect('secretScannerAllowOverride', 'Allow secrets scanner manual override', 'Permit explicit operator override of secret-scan blocks.'); %>

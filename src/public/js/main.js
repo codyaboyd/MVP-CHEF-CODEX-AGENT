@@ -299,17 +299,6 @@ function renderRunSteps(root, snapshot) {
         <strong>${escapeHtml(step.title)}</strong> <span class="status-badge status-${step.status}" data-status="${step.status}">${step.status}</span>
         <p>${escapeHtml(step.prompt || '')}</p>
         <small>Retries: ${step.retryAttempts}/${step.maxRetries}</small>
-        ${step.status === 'waiting_for_approval' ? `
-          <div class="approval-panel alert alert-info mt-2">
-            <strong>Human approval required:</strong> ${escapeHtml(step.errorMessage || 'Review this checkpoint.')}
-            <div class="d-flex flex-wrap gap-2 mt-2">
-              <form method="post" action="/runs/${snapshot.id}/steps/${step.id}/approve"><input type="hidden" name="approvalPoint" value="${escapeHtml(step.approvalPoint || '')}"><button class="btn btn-sm btn-success" type="submit">Approve</button></form>
-              <form method="post" action="/runs/${snapshot.id}/steps/${step.id}/reject"><input class="form-control form-control-sm" name="reason" placeholder="Reject reason"><button class="btn btn-sm btn-outline-danger mt-1" type="submit">Reject</button></form>
-              <form method="post" action="/runs/${snapshot.id}/steps/${step.id}/skip"><button class="btn btn-sm btn-outline-secondary" type="submit">Skip step</button></form>
-              <form method="post" action="/runs/${snapshot.id}/cancel"><button class="btn btn-sm btn-danger" type="submit">Cancel run</button></form>
-            </div>
-            <form method="post" action="/runs/${snapshot.id}/steps/${step.id}/edit-retry" class="mt-2"><label class="form-label small fw-bold">Edit prompt and retry</label><textarea class="form-control form-control-sm" name="prompt" rows="3">${escapeHtml(step.promptOverride || step.prompt || '')}</textarea><button class="btn btn-sm btn-primary mt-1" type="submit">Retry with edited prompt</button></form>
-          </div>` : ''}
       </div>
     </div>
   `).join('') || '<div class="timeline-item"><span>1</span><div><strong>Preheat Codex</strong><p>No run steps have been recorded yet.</p></div></div>';

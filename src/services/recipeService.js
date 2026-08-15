@@ -27,17 +27,6 @@ function normalizeProjectId(projectId) {
   return projectId ? Number(projectId) : null;
 }
 
-const APPROVAL_MODES = new Set(['manual_steps', 'none', 'before_step', 'after_codex', 'before_commit', 'all']);
-const STEP_APPROVAL_OVERRIDES = new Set(['inherit', 'none', 'before_step', 'after_codex', 'before_commit', 'all']);
-
-function normalizeApprovalMode(value = 'manual_steps') {
-  return APPROVAL_MODES.has(value) ? value : 'manual_steps';
-}
-
-function normalizeStepApprovalOverride(value = 'inherit') {
-  return STEP_APPROVAL_OVERRIDES.has(value) ? value : 'inherit';
-}
-
 function normalizeStep(step = {}, index = 0) {
   const requiredChecks = Array.isArray(step.requiredChecks)
     ? step.requiredChecks.join('\n')
@@ -49,8 +38,6 @@ function normalizeStep(step = {}, index = 0) {
     prompt: (step.prompt || '').trim(),
     requiredChecks: requiredChecks.trim(),
     retryCount: Number.parseInt(step.retryCount ?? step.retry_count ?? step.maxRetries ?? 0, 10) || 0,
-    humanApproval: Boolean(step.humanApproval ?? step.human_approval ?? step.requiresApproval),
-    approvalOverride: normalizeStepApprovalOverride(step.approvalOverride || step.approval_override),
     stepOrder: index + 1
   };
 }
@@ -69,14 +56,11 @@ function getRecipeSteps(recipeId) {
     ...step,
     requiredChecks: step.required_checks || '',
     retryCount: step.retry_count || 0,
-    humanApproval: Boolean(step.human_approval),
-    approvalOverride: step.approval_override || 'inherit',
     orderIndex: step.step_order
   }));
 }
 
 function buildRecipeJson(recipe, steps, ingredients) {
-  const approvalMode = normalizeApprovalMode(recipe.approval_mode || recipe.approvalMode);
   const recipeJson = {
     name: recipe.title,
     version: recipe.phase || '1.0.0',
@@ -86,15 +70,11 @@ function buildRecipeJson(recipe, steps, ingredients) {
         title: step.title,
         prompt: step.prompt,
         requiredChecks: parseLines(step.requiredChecks),
-        maxRetries: step.retryCount,
-        requiresApproval: step.humanApproval
+        maxRetries: step.retryCount
       };
-      if ((step.approvalOverride || 'inherit') !== 'inherit') stepJson.approvalOverride = step.approvalOverride;
       return stepJson;
     })
   };
-
-  if (approvalMode !== 'manual_steps') recipeJson.approvalMode = approvalMode;
 
   if (ingredients.length) {
     recipeJson.ingredients = ingredients;
@@ -145,12 +125,6 @@ function validateRecipeJson(recipe) {
     if (!Number.isInteger(step.maxRetries) || step.maxRetries < 0) {
       errors.push(`${label} maxRetries must be a non-negative integer.`);
     }
-    if (typeof step.requiresApproval !== 'boolean') {
-      errors.push(`${label} requiresApproval must be true or false.`);
-    }
-    if (step.approvalOverride !== undefined && !STEP_APPROVAL_OVERRIDES.has(step.approvalOverride)) {
-      errors.push(`${label} approvalOverride must be inherit, none, before_step, after_codex, before_commit, or all.`);
-    }
   });
 
   return errors;
@@ -181,7 +155,6 @@ function serializeRecipe(row) {
     projectRepoPath: row.project_repo_path,
     projectId: row.project_id,
     title: row.name,
-    approvalMode: row.approval_mode || 'manual_steps',
     phase: row.version,
     summary: row.description,
     ingredients: ingredients.join('\n'),
@@ -216,17 +189,17 @@ function getProjects() {
   return db.prepare('SELECT id, name FROM projects ORDER BY name ASC').all();
 }
 
-function createRecipe({ title, phase, summary, ingredients = '', projectId = null, approvalMode = 'manual_steps', steps = [], instructions = '', rawTextBlocks = '', isSaved = true }) {
+function createRecipe({ title, phase, summary, ingredients = '', projectId = null, steps = [], instructions = '', rawTextBlocks = '', isSaved = true }) {
   const rawSteps = parseRawTextBlocks(rawTextBlocks).map((prompt, index) => ({ title: `Text block ${index + 1}`, prompt }));
   const normalizedSteps = normalizeSteps(rawSteps.length ? rawSteps : (steps.length ? steps : parseLines(instructions).map((prompt, index) => ({ title: `Step ${index + 1}`, prompt }))));
   const ingredientList = parseLines(ingredients);
-  const recipeJson = buildRecipeJson({ title, phase, summary, projectId: normalizeProjectId(projectId), approvalMode: normalizeApprovalMode(approvalMode) }, normalizedSteps, ingredientList);
+  const recipeJson = buildRecipeJson({ title, phase, summary, projectId: normalizeProjectId(projectId) }, normalizedSteps, ingredientList);
 
   const create = db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO recipes (project_id, name, version, description, approval_mode, imported_json, exported_json, is_saved)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(normalizeProjectId(projectId), title, phase, summary, normalizeApprovalMode(approvalMode), JSON.stringify(recipeJson, null, 2), JSON.stringify(recipeJson, null, 2), isSaved ? 1 : 0);
+    `).run(normalizeProjectId(projectId), title, phase, summary, 'none', JSON.stringify(recipeJson, null, 2), JSON.stringify(recipeJson, null, 2), isSaved ? 1 : 0);
 
     saveSteps(result.lastInsertRowid, normalizedSteps);
     return result.lastInsertRowid;
@@ -250,14 +223,11 @@ function importRecipeFromJson(jsonText, projectId = null) {
     summary: recipe.description.trim(),
     ingredients: (recipe.ingredients || []).join('\n'),
     projectId,
-    approvalMode: normalizeApprovalMode(recipe.approvalMode),
     steps: recipe.steps.map((step) => ({
       title: step.title,
       prompt: step.prompt,
       requiredChecks: step.requiredChecks,
-      retryCount: step.maxRetries,
-      humanApproval: step.requiresApproval,
-      approvalOverride: step.approvalOverride || 'inherit'
+      retryCount: step.maxRetries
     }))
   });
 }
@@ -269,15 +239,12 @@ function getRecipeExport(id) {
   return buildRecipeJson({
     title: recipe.title,
     phase: recipe.phase,
-    summary: recipe.summary,
-    approvalMode: recipe.approvalMode
+    summary: recipe.summary
   }, recipe.steps.map((step) => ({
     title: step.title,
     prompt: step.prompt,
     requiredChecks: step.requiredChecks,
-    retryCount: step.retryCount,
-    humanApproval: step.humanApproval,
-    approvalOverride: step.approvalOverride || 'inherit'
+    retryCount: step.retryCount
   })), recipe.ingredientsList);
 }
 
@@ -288,22 +255,22 @@ function saveSteps(recipeId, steps) {
   `);
 
   steps.forEach((step) => {
-    insertStep.run({ ...step, recipeId, humanApproval: step.humanApproval ? 1 : 0 });
+    insertStep.run({ ...step, recipeId, humanApproval: 0, approvalOverride: 'inherit' });
   });
 }
 
-function updateRecipe(id, { title, phase, summary, ingredients = '', projectId = null, approvalMode = 'manual_steps', steps = [], rawTextBlocks = '' }) {
+function updateRecipe(id, { title, phase, summary, ingredients = '', projectId = null, steps = [], rawTextBlocks = '' }) {
   const rawSteps = parseRawTextBlocks(rawTextBlocks).map((prompt, index) => ({ title: `Text block ${index + 1}`, prompt }));
   const normalizedSteps = normalizeSteps(rawSteps.length ? rawSteps : steps);
   const ingredientList = parseLines(ingredients);
-  const recipeJson = buildRecipeJson({ title, phase, summary, projectId: normalizeProjectId(projectId), approvalMode: normalizeApprovalMode(approvalMode) }, normalizedSteps, ingredientList);
+  const recipeJson = buildRecipeJson({ title, phase, summary, projectId: normalizeProjectId(projectId) }, normalizedSteps, ingredientList);
 
   const update = db.transaction(() => {
     db.prepare(`
       UPDATE recipes
       SET project_id = ?, name = ?, version = ?, description = ?, approval_mode = ?, exported_json = ?, is_saved = 1, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(normalizeProjectId(projectId), title, phase, summary, normalizeApprovalMode(approvalMode), JSON.stringify(recipeJson, null, 2), id);
+    `).run(normalizeProjectId(projectId), title, phase, summary, 'none', JSON.stringify(recipeJson, null, 2), id);
     db.prepare('DELETE FROM recipe_steps WHERE recipe_id = ?').run(id);
     saveSteps(id, normalizedSteps);
   });
@@ -321,7 +288,6 @@ function duplicateRecipe(id) {
     summary: recipe.summary,
     ingredients: recipe.ingredients,
     projectId: recipe.projectId,
-    approvalMode: normalizeApprovalMode(recipe.approvalMode),
     steps: recipe.steps.map((step) => ({ ...step }))
   });
 }
@@ -341,7 +307,5 @@ module.exports = {
   importRecipeFromJson,
   parseRawTextBlocks,
   parseRecipeJson,
-  normalizeApprovalMode,
-  normalizeStepApprovalOverride,
   updateRecipe
 };

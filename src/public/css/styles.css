@@ -89,7 +89,8 @@ body {
 .oven-progress { background: #fff; border: 3px solid var(--chef-ink); border-radius: 999px; height: 1.6rem; }
 .oven-progress .progress-bar { background: linear-gradient(90deg, var(--chef-red), var(--chef-yellow)); color: var(--chef-ink); font-weight: 900; }
 
-.settings-list .list-group-item { background: transparent; display: flex; justify-content: space-between; gap: 1rem; }
+.settings-list .list-group-item { background: transparent; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .35rem 1rem; min-width: 0; }
+.settings-list .list-group-item > * { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
 .timeline { display: grid; gap: 1rem; }
 .timeline-item { display: flex; gap: 1rem; }
 .timeline-item > span { align-items: center; background: var(--chef-yellow); border: 3px solid var(--chef-ink); border-radius: 50%; display: flex; flex: 0 0 2.5rem; font-weight: 900; height: 2.5rem; justify-content: center; }
@@ -132,7 +133,10 @@ body {
 .settings-page .settings-section { height: 100%; }
 .settings-page .form-control, .settings-page .form-select { border: 2px solid rgba(57,43,36,.35); border-radius: .9rem; }
 .settings-summary { display: flex; flex-wrap: wrap; gap: .75rem; }
-.settings-summary span { background: rgba(255,217,90,.32); border: 2px dashed rgba(57,43,36,.25); border-radius: 999px; padding: .45rem .8rem; }
+.settings-summary span { background: rgba(255,217,90,.32); border: 2px dashed rgba(57,43,36,.25); border-radius: 1rem; max-width: 100%; overflow-wrap: anywhere; padding: .45rem .8rem; word-break: break-word; }
+.settings-page .form-text, .settings-page code, .settings-page label { overflow-wrap: anywhere; word-break: break-word; }
+.settings-page .row > *, .run-detail-page .row > *, .run-detail-page .d-flex > * { min-width: 0; }
+.run-detail-page .lead, .run-detail-page .badge, .run-detail-page [data-run-current-step], .run-detail-page [data-run-progress-step] { max-width: 100%; overflow-wrap: anywhere; white-space: normal; word-break: break-word; }
 .settings-section .form-text { color: #7a665a; font-weight: 700; }
 
 /* Heavy UI polish pass: richer cookbook surfaces while staying Bootstrap-only. */
@@ -597,7 +601,7 @@ main, .chef-navbar, .chef-footer { position: relative; z-index: 1; }
 .chef-loader[data-progress-state="idle"] .chef-loader-dish::after { animation: none; opacity: .45; }
 .chef-loader[data-progress-state="idle"] .chef-loader-dish { filter: grayscale(.2); }
 
-.chef-mascot { left: 1rem; right: auto; width: 8.8rem; }
+.chef-mascot { left: .5rem; right: auto; scale: .72; transform-origin: left bottom; width: 8.8rem; }
 .chef-mascot-hat { align-items: flex-end; background: transparent; border: 0; box-shadow: none; cursor: pointer; display: flex; height: 2.6rem; justify-content: center; left: 1.45rem; padding: 0; top: -.9rem; width: 5.7rem; }
 .chef-mascot-hat span { background: #fff; border: 3px solid var(--chef-ink); border-radius: 50%; display: block; height: 2.15rem; margin: 0 -.22rem; width: 2.15rem; }
 .chef-mascot-hat span:nth-child(2) { height: 2.55rem; transform: translateY(-.25rem); width: 2.55rem; }
