@@ -12,11 +12,19 @@ const os = require('node:os');
 const path = require('node:path');
 
 function dashboard(req, res) {
+  const dashboardData = dashboardService.getDashboard();
   res.render('dashboard', {
     title: 'Dashboard',
-    ...dashboardService.getDashboard(),
+    ...dashboardData,
     composer: { folderPath: '', prompts: [''] },
     composerErrors: []
+  });
+}
+
+function runs(req, res) {
+  res.render('runs', {
+    title: 'Runs',
+    ...dashboardService.getRunsPage(req.query)
   });
 }
 
@@ -396,6 +404,7 @@ function updateSettings(req, res) {
 
 module.exports = {
   dashboard,
+  runs,
   quickRun,
   projects,
   createProject,

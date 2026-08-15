@@ -1,4 +1,5 @@
 <%- include('partials/layout') %>
+<% const currentlyRunning = runs.filter((run) => run.status === 'running'); %>
 <section class="codex-home container py-5">
   <div class="codex-intro text-center mx-auto">
     <span class="codex-mark" aria-hidden="true">⌁</span>
@@ -42,10 +43,10 @@
     <span>⌘ Runs locally</span><span>↳ Prompts run in order</span><span>◌ Review every change</span>
   </div>
 
-  <% if (runs && runs.length) { %>
+  <% if (currentlyRunning.length) { %>
     <section class="recent-work mx-auto mt-5">
-      <div class="d-flex justify-content-between align-items-center mb-3"><h2>Recent runs</h2><a href="/recipes">Saved workflows</a></div>
-      <% runs.slice(0, 4).forEach((run) => { %>
+      <div class="d-flex justify-content-between align-items-center mb-3"><h2>Running now <span class="active-run-count"><%= currentlyRunning.length %></span></h2><a href="/runs">View all runs</a></div>
+      <% currentlyRunning.forEach((run) => { %>
         <a class="recent-run" href="/runs/<%= run.id %>">
           <span>
             <strong><%= run.recipe_name %></strong>
@@ -57,6 +58,12 @@
           <span class="status-badge" data-status="<%= run.status %>"><%= run.status %></span>
         </a>
       <% }) %>
+    </section>
+  <% } else { %>
+    <section class="recent-work mx-auto mt-5 text-center empty-active-runs">
+      <h2>No jobs running right now</h2>
+      <p class="text-muted mb-2">Start a task above or review previous work.</p>
+      <a href="/runs">View all runs</a>
     </section>
   <% } %>
 </section>

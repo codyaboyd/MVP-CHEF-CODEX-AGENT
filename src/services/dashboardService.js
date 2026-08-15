@@ -46,6 +46,28 @@ function getRuns() {
   });
 }
 
+function getRunsPage(query = {}) {
+  const allRuns = getRuns();
+  const projects = getProjects();
+  const statuses = [...new Set(allRuns.map((run) => run.status))].sort();
+  const status = statuses.includes(String(query.status || '')) ? String(query.status) : '';
+  const requestedProject = Number(query.project);
+  const project = projects.some((item) => item.id === requestedProject) ? requestedProject : null;
+  const pageSize = 10;
+  const filteredRuns = allRuns.filter((run) => (!status || run.status === status) && (!project || run.project_id === project));
+  const pageCount = Math.max(1, Math.ceil(filteredRuns.length / pageSize));
+  const requestedPage = Number.parseInt(query.page, 10) || 1;
+  const page = Math.min(Math.max(requestedPage, 1), pageCount);
+
+  return {
+    runs: filteredRuns.slice((page - 1) * pageSize, page * pageSize),
+    projects,
+    statuses,
+    filters: { status, project: project || '' },
+    pagination: { page, pageCount, pageSize, total: filteredRuns.length }
+  };
+}
+
 function getRunById(id) {
   const run = db.prepare(`
     SELECT runs.*, recipes.name AS recipe_name, recipes.description AS recipe_description, recipes.is_saved AS recipe_is_saved, projects.name AS project_name,
@@ -179,5 +201,6 @@ module.exports = {
   getRunById,
   getRunSnapshot,
   getRuns,
+  getRunsPage,
   getSettings
 };
