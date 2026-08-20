@@ -1,6 +1,7 @@
 const { execFile } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
+const path = require('node:path');
 const appSettingsService = require('./appSettingsService');
 
 function runCommand(command, args = [], options = {}) {
@@ -38,6 +39,33 @@ function configDirLooksReady(configDir) {
   return fs.readdirSync(resolved).some((entry) => /config|auth|credentials|token|json|toml/i.test(entry));
 }
 
+function codexConfigCandidates() {
+  const homeCandidates = [];
+  try {
+    fs.readdirSync('/home', { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .forEach((entry) => homeCandidates.push(path.join('/home', entry.name, '.codex')));
+  } catch {
+    // /home is optional in containers and on non-Unix hosts.
+  }
+  return [...new Set([
+    process.env.CODEX_HOME,
+    path.join(os.homedir(), '.codex'),
+    path.join(process.cwd(), '.codex'),
+    ...homeCandidates
+  ].filter(Boolean))];
+}
+
+function findCodexConfigDir(preferredDir = '') {
+  const candidates = [preferredDir, ...codexConfigCandidates()]
+    .map((candidate) => candidate.replace(/^~(?=$|\/|\\)/, os.homedir()));
+  return candidates.find(configDirLooksReady)
+    || candidates.find((candidate) => {
+      try { return fs.statSync(candidate).isDirectory(); } catch { return false; }
+    })
+    || null;
+}
+
 async function validateCodexSetup(overrides = {}) {
   const settings = { ...rowsByKey(), ...overrides };
   const command = settings.codexCommandPath || 'codex';
@@ -61,31 +89,15 @@ async function validateCodexSetup(overrides = {}) {
     detail: version.ok ? `${version.stdout || version.stderr || `${resolvedCommand} responded`} (${resolvedCommand})` : (version.error?.code === 'ENOENT' ? `${command} was not found on PATH or common install locations such as /snap/bin/codex.` : version.stderr || version.error?.message || 'Codex command failed.')
   });
 
-  const authMode = settings.codexAuthMode || 'environment';
-  let authOk = false;
-  let authDetail = '';
-  if (authMode === 'api_key') {
-    authOk = Boolean(settings.codexApiKey || process.env.OPENAI_API_KEY || process.env.CODEX_API_KEY);
-    authDetail = authOk ? 'API key is configured.' : 'No API key found in settings, OPENAI_API_KEY, or CODEX_API_KEY.';
-  } else if (authMode === 'config_dir') {
-    authOk = configDirLooksReady(settings.codexConfigDir);
-    authDetail = authOk ? `Config directory looks ready: ${settings.codexConfigDir}` : 'Configured Codex config directory is missing or empty.';
-  } else {
-    const authEnvironment = { ...process.env };
-    if (settings.codexConfigDir) {
-      authEnvironment.CODEX_HOME = settings.codexConfigDir.replace(/^~(?=$|\/|\\)/, os.homedir());
-    }
-    const loginStatus = version.ok
-      ? await runCommand(resolvedCommand, ['login', 'status'], { env: authEnvironment })
-      : { ok: false, stdout: '', stderr: '' };
-    const environmentCredential = Boolean(process.env.OPENAI_API_KEY || process.env.CODEX_API_KEY);
-    authOk = loginStatus.ok || environmentCredential;
-    authDetail = loginStatus.ok
-      ? (loginStatus.stdout || loginStatus.stderr || 'Codex CLI reports an active login.')
-      : environmentCredential
-        ? 'An API credential is available in the service environment.'
-        : (loginStatus.stderr || loginStatus.stdout || 'Codex CLI is unavailable, or `codex login status` reports no active login. Ensure the app service runs as the user who authenticated.');
-  }
+  const authEnvironment = { ...process.env };
+  if (settings.codexConfigDir) authEnvironment.CODEX_HOME = settings.codexConfigDir.replace(/^~(?=$|\/|\\)/, os.homedir());
+  const loginStatus = version.ok
+    ? await runCommand(resolvedCommand, ['login', 'status'], { env: authEnvironment })
+    : { ok: false, stdout: '', stderr: '' };
+  const authOk = loginStatus.ok;
+  const authDetail = loginStatus.ok
+    ? (loginStatus.stdout || loginStatus.stderr || 'Codex CLI reports an active login.')
+    : (loginStatus.stderr || loginStatus.stdout || 'Codex CLI is unavailable, or `codex login status` reports no active login. Ensure the app service runs as the user who authenticated.');
   checks.push({ key: 'codex_auth_ready', label: 'Codex auth is configured', ok: authOk, detail: authDetail });
   return { ok: checks.every((check) => check.ok), checks };
 }
@@ -95,4 +107,4 @@ async function validateSetup(overrides = {}) {
   return { ok: codex.ok, codex };
 }
 
-module.exports = { findUsableCodexCommand, validateCodexSetup, validateSetup };
+module.exports = { findCodexConfigDir, findUsableCodexCommand, validateCodexSetup, validateSetup };

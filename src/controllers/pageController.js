@@ -390,8 +390,6 @@ async function settings(req, res, next) {
 function updateSettings(req, res) {
   appSettingsService.updateSettings({
     codexCommandPath: req.body.codexCommandPath || 'codex',
-    codexAuthMode: ['environment', 'api_key', 'config_dir'].includes(req.body.codexAuthMode) ? req.body.codexAuthMode : 'environment',
-    codexApiKey: req.body.codexApiKey || '',
     codexConfigDir: req.body.codexConfigDir || '',
     codexModel: req.body.codexModel || '',
     codexReasoningEffort: ['minimal', 'low', 'medium', 'high', 'xhigh'].includes(req.body.codexReasoningEffort)
@@ -409,6 +407,20 @@ function updateSettings(req, res) {
     secretScannerAllowOverride: req.body.secretScannerAllowOverride === 'true' ? 'true' : 'false'
   });
   res.redirect('/settings');
+}
+
+async function discoverCodexSetup(req, res) {
+  const requested = String(req.query.target || 'all');
+  const result = { ok: false };
+  if (requested === 'all' || requested === 'command') {
+    const discovered = await setupValidationService.findUsableCodexCommand('codex');
+    if (discovered) result.commandPath = discovered.command;
+  }
+  if (requested === 'all' || requested === 'config') {
+    result.configDir = setupValidationService.findCodexConfigDir();
+  }
+  result.ok = Boolean(result.commandPath || result.configDir);
+  res.status(result.ok ? 200 : 404).json(result);
 }
 
 module.exports = {
@@ -439,5 +451,6 @@ module.exports = {
   cancelRun,
   help,
   settings,
+  discoverCodexSetup,
   updateSettings
 };

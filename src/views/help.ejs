@@ -33,8 +33,7 @@
         <h2 class="h4 fw-black">3. Runs execute recipes through the Codex CLI</h2>
         <p>When you start a recipe run, MVP Chef Codex creates ordered run steps, launches the configured <code>codex</code> command, captures stdout/stderr, and tracks status in the dashboard.</p>
         <ul class="prep-list mb-0">
-          <li>Authentication normally comes from your local Codex CLI login or environment.</li>
-          <li>The app does not need an API key when the CLI is already authenticated.</li>
+          <li>Authentication is managed by the Codex CLI login available to the app service user.</li>
           <li>If the CLI cannot be launched, the run fails and its error is shown in the run logs.</li>
         </ul>
       </section>
