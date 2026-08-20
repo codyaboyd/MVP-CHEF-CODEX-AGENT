@@ -49,6 +49,7 @@ router.post('/runs/:id/quota-refill', pageController.setQuotaRefill);
 router.post('/runs/:id/cancel', pageController.cancelRun);
 router.get('/help', pageController.help);
 router.get('/settings', pageController.settings);
+router.get('/settings/discover-codex', pageController.discoverCodexSetup);
 router.post('/settings', pageController.updateSettings);
 
 module.exports = router;

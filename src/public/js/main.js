@@ -1,5 +1,28 @@
 document.documentElement.classList.add('js-enabled');
 
+document.querySelectorAll('[data-codex-scan]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const target = button.dataset.codexScan;
+    const status = document.querySelector('[data-codex-scan-status]');
+    button.disabled = true;
+    if (status) status.textContent = `Scanning for the Codex ${target === 'command' ? 'command' : 'config directory'}…`;
+    try {
+      const response = await fetch(`/settings/discover-codex?target=${encodeURIComponent(target)}`);
+      const result = await response.json();
+      if (!response.ok) throw new Error('No matching installation was found.');
+      const input = document.querySelector(target === 'command' ? '#codexCommandPath' : '#codexConfigDir');
+      const value = target === 'command' ? result.commandPath : result.configDir;
+      if (!input || !value) throw new Error('No matching installation was found.');
+      input.value = value;
+      if (status) status.textContent = `Found ${value}. Save settings to use it.`;
+    } catch (error) {
+      if (status) status.textContent = `${error.message} You can still enter the path manually.`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+});
+
 function attachFolderBrowser(container, onSelect, setStatus) {
   const button = container.querySelector('[data-folder-browser-button]');
   const selector = container.querySelector('[data-folder-browser]');

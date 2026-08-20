@@ -2,8 +2,6 @@ const db = require('../db');
 
 const DEFAULT_SETTINGS = Object.freeze({
   codexCommandPath: 'codex',
-  codexAuthMode: 'environment',
-  codexApiKey: '',
   codexConfigDir: '',
   codexModel: '',
   codexReasoningEffort: 'medium',
@@ -37,6 +35,9 @@ function ensureDefaultSettings() {
     ON CONFLICT(key) DO NOTHING
   `);
   Object.entries(DEFAULT_SETTINGS).forEach(([key, value]) => insert.run(key, value));
+  // These legacy settings stored credentials and selected API-key authentication.
+  // Codex authentication is now owned entirely by the CLI.
+  db.prepare('DELETE FROM app_settings WHERE key IN (?, ?)').run('codexApiKey', 'codexAuthMode');
 }
 
 function getSetting(key) {

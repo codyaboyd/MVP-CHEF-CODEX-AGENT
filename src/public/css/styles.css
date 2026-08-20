@@ -87,7 +87,7 @@ body {
 
 .pantry-row { background: rgba(255,217,90,.25); border: 2px dashed rgba(57,43,36,.25); border-radius: 1rem; margin-top: .75rem; padding: .75rem; }
 .pantry-row span { display: block; font-weight: 900; }
-.project-badge { font-size: 3rem; }
+.project-badge { font-size: 1.35rem; }
 .oven-progress { background: #fff; border: 3px solid var(--chef-ink); border-radius: 999px; height: 1.6rem; }
 .oven-progress .progress-bar { background: linear-gradient(90deg, var(--chef-red), var(--chef-yellow)); color: var(--chef-ink); font-weight: 900; }
 
@@ -634,3 +634,6 @@ main, .chef-navbar, .chef-footer { position: relative; z-index: 1; }
 .chef-mascot-face::before { background: #fff; border: 3px solid var(--chef-ink); border-radius: 0 0 999px 999px; content: ""; height: .8rem; left: 1rem; position: absolute; top: -.25rem; width: 3.5rem; }
 .chef-mascot-bubble { left: 7.25rem; right: auto; top: -.35rem; z-index: 3; }
 .chef-mascot-bubble::before { background: rgba(255,250,240,.95); border-bottom: 2px solid var(--chef-ink); border-left: 2px solid var(--chef-ink); bottom: -.38rem; content: ""; height: .75rem; left: 1.1rem; position: absolute; transform: rotate(-45deg); width: .75rem; }
+
+/* The fixed mascot must never cover page actions or footer content. */
+@media (max-width: 767.98px) { .chef-mascot { display: none; } }
