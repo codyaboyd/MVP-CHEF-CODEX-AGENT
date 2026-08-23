@@ -50,6 +50,11 @@
     </div>
 
     <div class="paper-panel p-4 mb-4">
+      <div class="run-now-banner mb-3" data-run-now>
+        <span class="run-now-label">Working on now</span>
+        <strong data-run-now-step><%= runSnapshot && runSnapshot.currentStep ? `Step ${runSnapshot.currentStep.order} of ${runSnapshot.steps.length}: ${runSnapshot.currentStep.title}` : 'No active step' %></strong>
+        <code data-run-now-item><%= runSnapshot && runSnapshot.currentItemId ? `item_id: ${runSnapshot.currentItemId}` : 'item_id: waiting…' %></code>
+      </div>
       <div class="d-flex justify-content-between gap-3 align-items-center mb-2">
         <h2 class="h4 m-0">Progress</h2>
       </div>
@@ -138,9 +143,9 @@
       </details>
     </div>
 
-    <div class="paper-panel p-4">
+    <div class="paper-panel p-4" data-run-output>
       <div class="terminal-toolbar">
-        <div class="d-flex align-items-center gap-2"><span class="terminal-dots"><span></span><span></span><span></span></span><h2 class="h5 m-0">Live terminal logs</h2></div>
+        <div class="d-flex align-items-center gap-2"><span class="terminal-dots"><span></span><span></span><span></span></span><h2 class="h5 m-0">Live run activity</h2></div>
         <div class="d-flex align-items-center gap-2">
           <span class="status-badge" data-run-connection>Connecting</span>
           <form method="post" action="/runs/<%= run.id %>/logs/clear" onsubmit="return confirm('Clear all stored stdout and stderr logs for this run?');">
@@ -148,6 +153,15 @@
           </form>
         </div>
       </div>
+      <div class="run-output-toggle btn-group w-100" role="group" aria-label="Run activity display mode">
+        <button class="btn btn-light active" type="button" data-output-mode="visual" aria-pressed="true">✨ Agent activity</button>
+        <button class="btn btn-outline-light" type="button" data-output-mode="terminal" aria-pressed="false">⌨ Terminal</button>
+      </div>
+      <div data-output-pane="visual">
+        <div class="agent-activity" data-agent-activity aria-live="polite"></div>
+        <nav class="log-pagination" data-pagination="visual" aria-label="Agent activity pages"></nav>
+      </div>
+      <div data-output-pane="terminal" hidden>
       <ul class="nav nav-pills terminal-tabs" id="terminalLogTabs" role="tablist" aria-label="Terminal log streams">
         <li class="nav-item" role="presentation">
           <button class="nav-link active" id="stdout-log-tab" data-bs-toggle="tab" data-bs-target="#stdoutLogPane" type="button" role="tab" aria-controls="stdoutLogPane" aria-selected="true">Codex stream</button>
@@ -161,12 +175,15 @@
           <div class="terminal-panel" data-run-terminal="stdout" aria-live="polite">
             <pre><code data-run-stdout><%= runSnapshot && runSnapshot.stdout ? runSnapshot.stdout : 'Waiting for Codex stream…' %></code></pre>
           </div>
+          <nav class="log-pagination" data-pagination="stdout" aria-label="Codex stream pages"></nav>
         </div>
         <div class="tab-pane fade" id="stderrLogPane" role="tabpanel" aria-labelledby="stderr-log-tab" tabindex="0">
           <div class="terminal-panel terminal-panel-stderr" data-run-terminal="stderr" aria-live="polite">
             <pre><code data-run-stderr><%= runSnapshot && runSnapshot.stderr ? runSnapshot.stderr : 'No stderr output.' %></code></pre>
           </div>
+          <nav class="log-pagination" data-pagination="stderr" aria-label="stderr pages"></nav>
         </div>
+      </div>
       </div>
     </div>
   </div>

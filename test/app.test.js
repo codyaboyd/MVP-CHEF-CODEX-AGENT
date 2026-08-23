@@ -794,7 +794,7 @@ test('run events stream live run snapshots with progress, logs, and retries', as
   const run = db.prepare('INSERT INTO runs (status, stdout_log, stderr_log, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)')
     .run('running', 'run stdout\n', 'run stderr\n');
   const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status, stdout_log, stderr_log) VALUES (?, ?, ?, ?, ?)')
-    .run(run.lastInsertRowid, 1, 'running', '[CodexRunner] Attempt 1 of 2.\n[CodexRunner] Attempt 2 of 2.\nstep stdout\n', 'step stderr\n');
+    .run(run.lastInsertRowid, 1, 'running', '[CodexRunner] Attempt 1 of 2.\n[CodexRunner] Attempt 2 of 2.\n{"type":"item.started","item":{"id":"item-42","type":"agent_message"}}\nstep stdout\n', 'step stderr\n');
 
   const response = await request(app).get(`/runs/${run.lastInsertRowid}/events`).buffer(true).parse((res, callback) => {
     let body = '';
@@ -813,6 +813,24 @@ test('run events stream live run snapshots with progress, logs, and retries', as
   assert.match(eventBody, /run stdout/);
   assert.match(eventBody, /step stderr/);
   assert.match(eventBody, /"retryAttempts":1/);
+  assert.match(eventBody, /"currentItemId":"item-42"/);
+
+  db.prepare('DELETE FROM run_steps WHERE id = ?').run(step.lastInsertRowid);
+  db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
+});
+
+test('run detail offers paginated agent activity and terminal modes with a current-work banner', async () => {
+  const run = db.prepare('INSERT INTO runs (status, updated_at) VALUES (?, CURRENT_TIMESTAMP)').run('running');
+  const step = db.prepare('INSERT INTO run_steps (run_id, step_order, status, stdout_log) VALUES (?, ?, ?, ?)')
+    .run(run.lastInsertRowid, 1, 'running', '{"type":"item.completed","item":{"id":"change-7","type":"file_change","path":"src/app.js"}}\n');
+
+  const response = await request(app).get(`/runs/${run.lastInsertRowid}`);
+  assert.equal(response.status, 200);
+  assert.match(response.text, /Agent activity/);
+  assert.match(response.text, /data-output-mode="terminal"/);
+  assert.match(response.text, /data-pagination="visual"/);
+  assert.match(response.text, /Working on now/);
+  assert.match(response.text, /item_id: change-7/);
 
   db.prepare('DELETE FROM run_steps WHERE id = ?').run(step.lastInsertRowid);
   db.prepare('DELETE FROM runs WHERE id = ?').run(run.lastInsertRowid);
