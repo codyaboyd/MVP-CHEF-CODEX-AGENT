@@ -1109,18 +1109,18 @@ test('.env remains ignored and app settings expose secrets scanner override as d
   assert.match(response.text, /Allow secrets scanner manual override/);
 });
 
-test('settings persist a supported Codex reasoning level', async () => {
+test('settings persist the max Codex reasoning level', async () => {
   const settingsService = require('../src/services/appSettingsService');
   const response = await request(app)
     .post('/settings')
     .type('form')
-    .send({ codexReasoningEffort: 'xhigh' });
+    .send({ codexReasoningEffort: 'max' });
 
   assert.equal(response.status, 302);
-  assert.equal(settingsService.getSetting('codexReasoningEffort').value, 'xhigh');
+  assert.equal(settingsService.getSetting('codexReasoningEffort').value, 'max');
 
   const page = await request(app).get('/settings');
-  assert.match(page.text, /<option value="xhigh" selected>Xhigh<\/option>/);
+  assert.match(page.text, /<option value="max" selected>Max<\/option>/);
 
   settingsService.updateSettings({ codexReasoningEffort: 'medium' });
 });
