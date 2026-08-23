@@ -226,7 +226,7 @@ process.stdin.on('end', () => {
       prompt: 'Prompt provided through standard input.',
       codexCommand: mockCodexPath,
       codexModel: 'account-supported-model',
-      codexReasoningEffort: 'xhigh'
+      codexReasoningEffort: 'max'
     });
 
     const output = JSON.parse(result.stdout);
@@ -239,7 +239,7 @@ process.stdin.on('end', () => {
       '-c', 'sandbox_workspace_write.network_access=true',
       '--skip-git-repo-check',
       '--model', 'account-supported-model',
-      '-c', 'model_reasoning_effort=xhigh',
+      '-c', 'model_reasoning_effort=max',
       '-'
     ]);
     assert.equal(output.prompt, 'Prompt provided through standard input.');

@@ -392,7 +392,7 @@ function updateSettings(req, res) {
     codexCommandPath: req.body.codexCommandPath || 'codex',
     codexConfigDir: req.body.codexConfigDir || '',
     codexModel: req.body.codexModel || '',
-    codexReasoningEffort: ['minimal', 'low', 'medium', 'high', 'xhigh'].includes(req.body.codexReasoningEffort)
+    codexReasoningEffort: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(req.body.codexReasoningEffort)
       ? req.body.codexReasoningEffort
       : 'medium',
     codexSandboxMode: ['workspace-write', 'read-only', 'danger-full-access'].includes(req.body.codexSandboxMode) ? req.body.codexSandboxMode : 'workspace-write',

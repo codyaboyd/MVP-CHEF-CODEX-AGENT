@@ -201,7 +201,7 @@ function buildCodexArgs(prompt, extraArgs = [], model = '', reasoningEffort = ''
     args.push('--model', model.trim());
   }
 
-  if (['minimal', 'low', 'medium', 'high', 'xhigh'].includes(reasoningEffort)) {
+  if (['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) {
     args.push('-c', `model_reasoning_effort=${reasoningEffort}`);
   }
 
