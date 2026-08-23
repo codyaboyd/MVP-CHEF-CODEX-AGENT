@@ -118,6 +118,81 @@ function formatCodexStream(output = '') {
   return formatted.join('\n');
 }
 
+const RUN_PAGE_SIZE = 100;
+
+function paginateRunOutput(root, key, entries, renderPage) {
+  root._runPages ||= {};
+  const pageCount = Math.max(1, Math.ceil(entries.length / RUN_PAGE_SIZE));
+  const previous = root._runPages[key];
+  const page = previous == null || previous >= pageCount - 2 ? pageCount - 1 : Math.min(previous, pageCount - 1);
+  root._runPages[key] = page;
+  renderPage(entries.slice(page * RUN_PAGE_SIZE, (page + 1) * RUN_PAGE_SIZE));
+  const nav = root.querySelector(`[data-pagination="${key}"]`);
+  if (!nav) return;
+  nav.replaceChildren();
+  const previousButton = document.createElement('button');
+  previousButton.className = 'btn btn-sm btn-outline-light';
+  previousButton.textContent = '← Previous';
+  previousButton.disabled = page === 0;
+  const status = document.createElement('span');
+  status.textContent = `Page ${page + 1} of ${pageCount} · ${entries.length} items`;
+  const nextButton = document.createElement('button');
+  nextButton.className = 'btn btn-sm btn-outline-light';
+  nextButton.textContent = 'Next →';
+  nextButton.disabled = page === pageCount - 1;
+  previousButton.addEventListener('click', () => { root._runPages[key] = page - 1; paginateRunOutput(root, key, entries, renderPage); });
+  nextButton.addEventListener('click', () => { root._runPages[key] = page + 1; paginateRunOutput(root, key, entries, renderPage); });
+  nav.append(previousButton, status, nextButton);
+}
+
+function activityFromOutput(output = '') {
+  return String(output).split(/\r?\n/).filter((line) => line.trim()).map((line) => {
+    try {
+      const event = JSON.parse(line);
+      const item = event.item || {};
+      const type = item.type || event.type || 'update';
+      const body = item.text || item.content || item.message || event.message || event.delta || event.text || '';
+      if (/file|patch|change/i.test(type)) return { icon: '📝', title: 'File change declared', body: body || item.path || item.name || type, kind: 'file' };
+      if (/agent_message|message|reasoning/i.test(type)) return { icon: '💬', title: 'Agent message', body: body || item.summary || type, kind: 'message' };
+      if (/command/i.test(type)) return { icon: '⚙️', title: 'Command execution', body: item.command || body || type, kind: 'command' };
+      if (/error|fail/i.test(type)) return { icon: '⚠️', title: 'Needs attention', body: body || JSON.stringify(event), kind: 'error' };
+      return { icon: event.type === 'item.completed' ? '✅' : '•', title: type.replaceAll('_', ' '), body: body || item.title || '', kind: 'update' };
+    } catch {
+      return { icon: '›', title: 'Run output', body: line, kind: 'update' };
+    }
+  });
+}
+
+function renderActivity(root, output) {
+  const activity = root.querySelector('[data-agent-activity]');
+  if (!activity) return;
+  const entries = activityFromOutput(output);
+  paginateRunOutput(root, 'visual', entries, (pageEntries) => {
+    activity.replaceChildren();
+    (pageEntries.length ? pageEntries : [{ icon: '⏳', title: 'Waiting for agent activity', body: '', kind: 'update' }]).forEach((entry) => {
+      const card = document.createElement('article');
+      card.className = `activity-card activity-card-${entry.kind}`;
+      const icon = document.createElement('span');
+      icon.className = 'activity-card-icon';
+      icon.textContent = entry.icon;
+      const title = document.createElement('strong');
+      title.textContent = entry.title;
+      const body = document.createElement('p');
+      body.textContent = typeof entry.body === 'string' ? entry.body : JSON.stringify(entry.body);
+      card.append(icon, title, body);
+      activity.append(card);
+    });
+  });
+}
+
+function renderLogPage(root, key, output, fallback) {
+  const lines = String(output || '').split(/\r?\n/).filter((line) => line.length);
+  paginateRunOutput(root, key, lines, (pageLines) => {
+    const target = root.querySelector(`[data-run-${key}]`);
+    if (target) target.textContent = (key === 'stdout' ? formatCodexStream(pageLines.join('\n')) : pageLines.join('\n')) || fallback;
+  });
+}
+
 document.querySelectorAll('[data-quick-run-form]').forEach((form) => {
   const chain = form.querySelector('[data-prompt-chain]');
   const folderInput = form.querySelector('[data-project-path]');
@@ -349,6 +424,10 @@ function updateRunDetail(root, snapshot) {
     progressStep.classList.toggle('d-none', !showStep);
     progressStep.textContent = showStep ? `Step ${snapshot.currentStep.order} of ${snapshot.steps.length} · ${snapshot.currentStep.title}` : '';
   }
+  const nowStep = root.querySelector('[data-run-now-step]');
+  if (nowStep) nowStep.textContent = snapshot.currentStep ? `Step ${snapshot.currentStep.order} of ${snapshot.steps.length}: ${snapshot.currentStep.title}` : 'No active step';
+  const nowItem = root.querySelector('[data-run-now-item]');
+  if (nowItem) nowItem.textContent = snapshot.currentItemId ? `item_id: ${snapshot.currentItemId}` : 'item_id: waiting…';
   const quota = root.querySelector('[data-quota-status]');
   if (quota && snapshot.quotaStatus) {
     quota.classList.toggle('d-none', !snapshot.quotaStatus.waiting);
@@ -361,21 +440,39 @@ function updateRunDetail(root, snapshot) {
   }
   const stdout = root.querySelector('[data-run-stdout]');
   if (stdout) {
-    stdout.textContent = formatCodexStream(snapshot.stdout) || 'Waiting for Codex stream…';
+    renderLogPage(root, 'stdout', snapshot.stdout, 'Waiting for Codex stream…');
     const terminal = root.querySelector('[data-run-terminal="stdout"]');
     if (terminal) terminal.scrollTop = terminal.scrollHeight;
   }
   const stderr = root.querySelector('[data-run-stderr]');
   if (stderr) {
-    stderr.textContent = snapshot.stderr || 'No stderr output.';
+    renderLogPage(root, 'stderr', snapshot.stderr, 'No stderr output.');
     const terminal = root.querySelector('[data-run-terminal="stderr"]');
     if (terminal) terminal.scrollTop = terminal.scrollHeight;
   }
+  renderActivity(root, snapshot.stdout);
   renderRunSteps(root, snapshot);
   updateRunControls(root, snapshot);
 }
 
 document.querySelectorAll('[data-run-detail]').forEach((root) => {
+  root.querySelectorAll('[data-output-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const mode = button.dataset.outputMode;
+      root.querySelectorAll('[data-output-mode]').forEach((candidate) => {
+        const active = candidate === button;
+        candidate.classList.toggle('active', active);
+        candidate.classList.toggle('btn-light', active);
+        candidate.classList.toggle('btn-outline-light', !active);
+        candidate.setAttribute('aria-pressed', String(active));
+      });
+      root.querySelectorAll('[data-output-pane]').forEach((pane) => { pane.hidden = pane.dataset.outputPane !== mode; });
+    });
+  });
+  const initialStdout = root.querySelector('[data-run-stdout]')?.textContent || '';
+  renderActivity(root, initialStdout);
+  renderLogPage(root, 'stdout', initialStdout, 'Waiting for Codex stream…');
+  renderLogPage(root, 'stderr', root.querySelector('[data-run-stderr]')?.textContent || '', 'No stderr output.');
   if (!window.EventSource) return;
   const runId = root.getAttribute('data-run-id');
   const connection = root.querySelector('[data-run-connection]');
@@ -391,10 +488,6 @@ document.querySelectorAll('[data-run-detail]').forEach((root) => {
   source.onerror = () => {
     if (connection) connection.textContent = 'Reconnecting';
   };
-});
-
-document.querySelectorAll('[data-run-stdout]').forEach((stdout) => {
-  stdout.textContent = formatCodexStream(stdout.textContent) || 'Waiting for Codex stream…';
 });
 
 function prefersReducedMotion() {

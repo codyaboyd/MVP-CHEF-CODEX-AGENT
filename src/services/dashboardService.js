@@ -121,6 +121,21 @@ function getCurrentStep(steps = []) {
     || null;
 }
 
+function getCurrentItemId(step) {
+  if (!step) return null;
+  const lines = String(step.stdout || '').split(/\r?\n/).reverse();
+  for (const line of lines) {
+    try {
+      const event = JSON.parse(line);
+      const itemId = event.item_id || event.item?.id || event.id;
+      if (itemId) return String(itemId);
+    } catch {
+      // Runner annotations and command output can be mixed into the JSONL stream.
+    }
+  }
+  return null;
+}
+
 function normalizeStepForSnapshot(step) {
   return {
     id: step.id,
@@ -164,6 +179,7 @@ function getRunSnapshot(id) {
     },
     progress: calculateProgress(steps, run.status),
     currentStep,
+    currentItemId: getCurrentItemId(currentStep),
     stdout: [run.stdout_log || '', ...steps.map((step) => step.stdout)].filter(Boolean).join('\n'),
     stderr: [run.stderr_log || '', ...steps.map((step) => step.stderr)].filter(Boolean).join('\n'),
     retryAttempts: steps.reduce((total, step) => total + step.retryAttempts, 0),

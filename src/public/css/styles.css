@@ -154,6 +154,20 @@ body {
 .terminal-tabs .nav-link { border: 2px solid rgba(255,255,255,.18); color: #fff5d9; font-weight: 900; }
 .terminal-tabs .nav-link.active { background: #fff5d9; color: var(--chef-ink); }
 .terminal-tab-content .terminal-panel { border-top: 0; }
+.run-output-toggle { background: #2a221c; padding: .75rem 1rem; }
+.run-now-banner { align-items: center; background: linear-gradient(110deg, #fff1a8, #ffe0c7); border: 3px solid var(--chef-ink); border-radius: 1rem; display: grid; gap: .2rem 1rem; grid-template-columns: auto 1fr; padding: .85rem 1rem; }
+.run-now-label { background: var(--chef-ink); border-radius: 999px; color: white; font-size: .75rem; font-weight: 900; grid-row: 1 / span 2; padding: .45rem .7rem; text-transform: uppercase; }
+.run-now-banner code { color: #67513f; font-weight: 800; }
+.agent-activity { background: #fffaf0; border: 4px solid var(--chef-ink); min-height: 12rem; padding: 1rem; }
+.activity-card { background: white; border: 2px solid #ded2c5; border-radius: .9rem; display: grid; gap: .2rem; grid-template-columns: 2rem 1fr; margin-bottom: .65rem; padding: .75rem; }
+.activity-card-icon { font-size: 1.25rem; grid-row: 1 / span 2; }
+.activity-card strong { overflow-wrap: anywhere; }
+.activity-card p { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.activity-card-file { border-left: 6px solid #5aaf78; }
+.activity-card-error { border-left: 6px solid #d65045; }
+.log-pagination { align-items: center; background: #2a221c; color: white; display: flex; gap: .7rem; justify-content: center; padding: .65rem; }
+.log-pagination button { border: 1px solid #fff5d9; border-radius: .4rem; }
+@media (max-width: 575px) { .run-now-banner { grid-template-columns: 1fr; } .run-now-label { grid-row: auto; justify-self: start; } }
 .timeline-item.is-current { background: rgba(77,150,255,.14); border: 2px dashed rgba(57,43,36,.25); border-radius: 1rem; padding: .75rem; }
 
 .settings-page .settings-section { height: 100%; }
