@@ -75,6 +75,44 @@ function attachFolderBrowser(container, onSelect, setStatus) {
       ? `${matchCount} matching folder${matchCount === 1 ? '' : 's'}.`
       : 'No matching folders. You can still paste an absolute path.');
   });
+
+  const creatorButton = container.querySelector('[data-folder-creator-button]');
+  const creator = container.querySelector('[data-folder-creator]');
+  const parentInput = container.querySelector('[data-folder-parent]');
+  const nameInput = container.querySelector('[data-folder-name]');
+  const createButton = container.querySelector('[data-folder-create-submit]');
+  if (!creatorButton || !creator || !parentInput || !nameInput || !createButton) return;
+
+  creatorButton.addEventListener('click', () => {
+    creator.hidden = !creator.hidden;
+    if (!creator.hidden) {
+      const selectedPath = container.querySelector('[data-project-path]')?.value.trim();
+      if (!parentInput.value && selectedPath) parentInput.value = selectedPath;
+      parentInput.focus();
+    }
+  });
+
+  createButton.addEventListener('click', async () => {
+    createButton.disabled = true;
+    setStatus('Creating the new project directory…');
+    try {
+      const response = await fetch('/projects/create-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parentPath: parentInput.value, folderName: nameInput.value })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to create that directory.');
+      await onSelect(result.folder.path);
+      creator.hidden = true;
+      nameInput.value = '';
+      setStatus(`✅ Created and selected ${result.folder.path}`);
+    } catch (error) {
+      setStatus(error.message || 'Unable to create that directory.');
+    } finally {
+      createButton.disabled = false;
+    }
+  });
 }
 
 function summarizeCodexEvent(event) {
