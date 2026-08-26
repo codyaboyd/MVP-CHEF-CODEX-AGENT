@@ -113,6 +113,19 @@ function browseProjectFolders(req, res) {
   res.json(folderBrowserService.scanProjectFolders());
 }
 
+function createProjectFolder(req, res) {
+  try {
+    const folder = folderBrowserService.createProjectFolder(req.body.parentPath, req.body.folderName);
+    res.status(201).json({ ok: true, folder });
+  } catch (error) {
+    if (error.code && ['INVALID_PARENT_FOLDER', 'INVALID_FOLDER_NAME', 'FOLDER_EXISTS', 'FOLDER_PERMISSION_DENIED'].includes(error.code)) {
+      res.status(400).json({ ok: false, message: error.message });
+      return;
+    }
+    throw error;
+  }
+}
+
 function resolveProjectFolder(req, res) {
   const requestedPath = String(req.query.path || '').trim();
   if (requestedPath) {
@@ -431,6 +444,7 @@ module.exports = {
   createProject,
   resolveProjectFolder,
   browseProjectFolders,
+  createProjectFolder,
   inspectProjectPath,
   recipes,
   runDetail,

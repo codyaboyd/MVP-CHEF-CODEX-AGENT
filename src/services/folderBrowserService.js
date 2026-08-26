@@ -64,4 +64,46 @@ function scanProjectFolders(options = {}) {
   return { folders, roots, maxDepth };
 }
 
-module.exports = { DEFAULT_MAX_DEPTH, IGNORED_DIRECTORIES, defaultRoots, scanProjectFolders };
+function createProjectFolder(parentPath, folderName) {
+  const parent = String(parentPath || '').trim();
+  const name = String(folderName || '').trim();
+
+  if (!parent || parent.includes('\0') || !path.isAbsolute(parent)) {
+    const error = new Error('Choose an existing absolute parent folder.');
+    error.code = 'INVALID_PARENT_FOLDER';
+    throw error;
+  }
+  if (!name || name === '.' || name === '..' || name.includes('\0') || path.basename(name) !== name) {
+    const error = new Error('Directory name must be a single folder name without slashes.');
+    error.code = 'INVALID_FOLDER_NAME';
+    throw error;
+  }
+
+  const resolvedParent = path.resolve(parent);
+  if (!isDirectory(resolvedParent)) {
+    const error = new Error('The parent folder does not exist or is not a directory.');
+    error.code = 'INVALID_PARENT_FOLDER';
+    throw error;
+  }
+
+  const folderPath = path.join(resolvedParent, name);
+  try {
+    fs.mkdirSync(folderPath);
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      const conflict = new Error('A file or directory with that name already exists.');
+      conflict.code = 'FOLDER_EXISTS';
+      throw conflict;
+    }
+    if (error.code === 'EACCES' || error.code === 'EPERM' || error.code === 'EROFS') {
+      const denied = new Error('The application cannot create a directory in that parent folder.');
+      denied.code = 'FOLDER_PERMISSION_DENIED';
+      throw denied;
+    }
+    throw error;
+  }
+
+  return { name, path: folderPath, parent: resolvedParent };
+}
+
+module.exports = { createProjectFolder, DEFAULT_MAX_DEPTH, IGNORED_DIRECTORIES, defaultRoots, scanProjectFolders };

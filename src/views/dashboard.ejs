@@ -18,9 +18,11 @@
       <span aria-hidden="true">📁</span>
       <input class="folder-path-input" name="folderPath" value="<%= composer.folderPath %>" placeholder="Select a folder or paste its absolute path" required data-project-path>
       <button class="btn btn-light btn-sm" type="button" data-folder-browser-button>Browse folders</button>
+      <button class="btn btn-light btn-sm" type="button" data-folder-creator-button>Create new</button>
     </div>
     <input class="form-control form-control-sm folder-browser-search" type="search" placeholder="Type to search folders…" aria-label="Search server project folders" hidden data-folder-browser-search>
     <select class="form-select form-select-sm folder-browser" aria-label="Server project folders" hidden data-folder-browser></select>
+    <div class="row g-2 mt-1" hidden data-folder-creator><div class="col-md-7"><input class="form-control form-control-sm" aria-label="Parent folder" placeholder="Parent folder (absolute path)" data-folder-parent></div><div class="col-md-3"><input class="form-control form-control-sm" aria-label="New directory name" placeholder="New directory name" data-folder-name></div><div class="col-md-2"><button class="btn btn-success btn-sm w-100" type="button" data-folder-create-submit>Create</button></div></div>
     <p class="folder-hint" data-quick-folder-status>Codex works directly in this folder.</p>
 
     <div class="prompt-chain" data-prompt-chain>

@@ -40,8 +40,15 @@
         <label class="form-label fw-bold" for="description">Description</label>
         <textarea class="form-control" id="description" name="description" rows="2"><%= form.description %></textarea>
       </div>
-      <div class="col-12 d-flex flex-wrap gap-2 align-items-center"><button class="btn btn-outline-secondary rounded-pill" type="button" data-folder-browser-button>Browse folders</button><button class="btn btn-primary rounded-pill chef-button" type="submit">+ Add project</button></div>
+      <div class="col-12 d-flex flex-wrap gap-2 align-items-center"><button class="btn btn-outline-secondary rounded-pill" type="button" data-folder-browser-button>Browse folders</button><button class="btn btn-outline-secondary rounded-pill" type="button" data-folder-creator-button>Create new folder</button><button class="btn btn-primary rounded-pill chef-button" type="submit">+ Add project</button></div>
       <div class="col-12"><input class="form-control form-control-sm folder-browser-search" type="search" placeholder="Type to search folders…" aria-label="Search server project folders" hidden data-folder-browser-search><select class="form-select form-select-sm folder-browser mt-2" aria-label="Server project folders" hidden data-folder-browser></select></div>
+      <div class="col-12" hidden data-folder-creator>
+        <div class="row g-2 align-items-end p-3 rounded border bg-light">
+          <div class="col-md-7"><label class="form-label fw-bold" for="newFolderParent">Parent folder</label><input class="form-control form-control-sm" id="newFolderParent" placeholder="/absolute/path/to/parent" data-folder-parent></div>
+          <div class="col-md-3"><label class="form-label fw-bold" for="newFolderName">New directory name</label><input class="form-control form-control-sm" id="newFolderName" placeholder="my-new-project" data-folder-name></div>
+          <div class="col-md-2"><button class="btn btn-success btn-sm w-100" type="button" data-folder-create-submit>Create</button></div>
+        </div>
+      </div>
     </form>
   </article>
 

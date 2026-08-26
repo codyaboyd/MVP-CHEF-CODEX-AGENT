@@ -258,6 +258,29 @@ test('project folder browser returns absolute server paths without file uploads'
   assert.equal(response.body.maxDepth, 4);
 });
 
+test('project folder creator makes and returns a new directory', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const parentPath = fs.mkdtempSync(require('node:path').join(os.tmpdir(), 'mvp-chef-folder-parent-'));
+
+  const response = await request(app)
+    .post('/projects/create-folder')
+    .send({ parentPath, folderName: 'fresh-project' });
+
+  assert.equal(response.status, 201);
+  assert.equal(response.body.ok, true);
+  assert.equal(response.body.folder.path, require('node:path').join(parentPath, 'fresh-project'));
+  assert.equal(fs.statSync(response.body.folder.path).isDirectory(), true);
+
+  const traversalResponse = await request(app)
+    .post('/projects/create-folder')
+    .send({ parentPath, folderName: '../outside' });
+  assert.equal(traversalResponse.status, 400);
+  assert.match(traversalResponse.body.message, /single folder name/);
+
+  fs.rmSync(parentPath, { recursive: true, force: true });
+});
+
 test('recipe form accepts raw text blocks as prompt steps', async () => {
   const createResponse = await request(app)
     .post('/recipes')
