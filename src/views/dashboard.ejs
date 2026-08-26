@@ -25,6 +25,18 @@
     <div class="row g-2 mt-1" hidden data-folder-creator><div class="col-md-7"><input class="form-control form-control-sm" aria-label="Parent folder" placeholder="Parent folder (absolute path)" data-folder-parent></div><div class="col-md-3"><input class="form-control form-control-sm" aria-label="New directory name" placeholder="New directory name" data-folder-name></div><div class="col-md-2"><button class="btn btn-success btn-sm w-100" type="button" data-folder-create-submit>Create</button></div></div>
     <p class="folder-hint" data-quick-folder-status>Codex works directly in this folder.</p>
 
+    <fieldset class="prompt-input-picker mb-3">
+      <legend class="visually-hidden">Prompt input format</legend>
+      <div class="btn-group btn-group-sm" role="group" aria-label="Prompt input format">
+        <input class="btn-check" type="radio" name="promptInputMode" id="promptInputBuilder" value="builder" <%= composer.promptInputMode !== 'json' ? 'checked' : '' %> data-prompt-mode>
+        <label class="btn btn-outline-secondary" for="promptInputBuilder">Prompt builder</label>
+        <input class="btn-check" type="radio" name="promptInputMode" id="promptInputJson" value="json" <%= composer.promptInputMode === 'json' ? 'checked' : '' %> data-prompt-mode>
+        <label class="btn btn-outline-secondary" for="promptInputJson">JSON array</label>
+      </div>
+      <small class="text-muted">Build prompts one at a time or paste an ordered JSON array of strings.</small>
+    </fieldset>
+
+    <div data-prompt-builder <%= composer.promptInputMode === 'json' ? 'hidden' : '' %>>
     <div class="prompt-chain" data-prompt-chain>
       <% composer.prompts.forEach((prompt, index) => { %>
         <div class="prompt-chain-item" data-prompt-chain-item>
@@ -33,6 +45,13 @@
           <button class="prompt-remove" type="button" aria-label="Remove prompt" data-remove-prompt>×</button>
         </div>
       <% }) %>
+    </div>
+    </div>
+
+    <div class="prompt-json-input" data-prompt-json-container <%= composer.promptInputMode === 'json' ? '' : 'hidden' %>>
+      <label for="promptJson" class="form-label fw-semibold">Ordered prompt JSON</label>
+      <textarea class="form-control font-monospace" id="promptJson" name="promptJson" rows="7" placeholder='[&quot;Inspect the existing code.&quot;, &quot;Implement the change.&quot;, &quot;Run the tests.&quot;]' data-prompt-json><%= composer.promptJson || '' %></textarea>
+      <div class="form-text">Every array item must be a non-empty string. Prompts run from first to last.</div>
     </div>
 
     <div class="composer-actions">

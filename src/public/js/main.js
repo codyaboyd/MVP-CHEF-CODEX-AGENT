@@ -233,6 +233,10 @@ function renderLogPage(root, key, output, fallback) {
 
 document.querySelectorAll('[data-quick-run-form]').forEach((form) => {
   const chain = form.querySelector('[data-prompt-chain]');
+  const builder = form.querySelector('[data-prompt-builder]');
+  const jsonContainer = form.querySelector('[data-prompt-json-container]');
+  const jsonInput = form.querySelector('[data-prompt-json]');
+  const addPromptButton = form.querySelector('[data-add-prompt]');
   const folderInput = form.querySelector('[data-project-path]');
   const folderStatus = form.querySelector('[data-quick-folder-status]');
 
@@ -242,6 +246,23 @@ document.querySelectorAll('[data-quick-run-form]').forEach((form) => {
       item.querySelector('[data-remove-prompt]').hidden = chain.children.length === 1;
     });
   }
+
+  function selectPromptMode(mode) {
+    const useJson = mode === 'json';
+    builder.hidden = useJson;
+    jsonContainer.hidden = !useJson;
+    addPromptButton.hidden = useJson;
+    jsonInput.required = useJson;
+    chain.querySelectorAll('textarea').forEach((textarea) => {
+      textarea.disabled = useJson;
+      textarea.required = !useJson;
+    });
+  }
+
+  form.querySelectorAll('[data-prompt-mode]').forEach((input) => {
+    input.addEventListener('change', () => selectPromptMode(input.value));
+    if (input.checked) selectPromptMode(input.value);
+  });
 
   form.querySelector('[data-add-prompt]').addEventListener('click', () => {
     const item = chain.firstElementChild.cloneNode(true);

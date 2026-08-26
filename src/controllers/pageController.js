@@ -16,7 +16,7 @@ function dashboard(req, res) {
   res.render('dashboard', {
     title: 'Dashboard',
     ...dashboardData,
-    composer: { folderPath: '', prompts: [''] },
+    composer: { folderPath: '', prompts: [''], promptInputMode: 'builder', promptJson: '' },
     composerErrors: []
   });
 }
@@ -37,13 +37,47 @@ function renderComposerError(res, composer, message, status = 400) {
   });
 }
 
+function parseQuickRunPrompts(body) {
+  if (body.promptInputMode !== 'json') {
+    return (Array.isArray(body.prompts) ? body.prompts : [body.prompts])
+      .map((prompt) => String(prompt || '').trim())
+      .filter(Boolean);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(String(body.promptJson || ''));
+  } catch {
+    const error = new Error('Prompt JSON must be a valid JSON array of strings.');
+    error.code = 'INVALID_PROMPT_JSON';
+    throw error;
+  }
+
+  if (!Array.isArray(parsed) || !parsed.length || parsed.some((prompt) => typeof prompt !== 'string' || !prompt.trim())) {
+    const error = new Error('Prompt JSON must be a non-empty array containing only non-empty strings.');
+    error.code = 'INVALID_PROMPT_JSON';
+    throw error;
+  }
+  return parsed.map((prompt) => prompt.trim());
+}
+
 async function quickRun(req, res, next) {
-  const prompts = (Array.isArray(req.body.prompts) ? req.body.prompts : [req.body.prompts])
-    .map((prompt) => String(prompt || '').trim())
-    .filter(Boolean);
-  const composer = { folderPath: String(req.body.folderPath || '').trim(), prompts: prompts.length ? prompts : [''] };
+  let prompts = [];
+  let promptError = null;
+  try {
+    prompts = parseQuickRunPrompts(req.body);
+  } catch (error) {
+    if (error.code !== 'INVALID_PROMPT_JSON') throw error;
+    promptError = error.message;
+  }
+  const composer = {
+    folderPath: String(req.body.folderPath || '').trim(),
+    prompts: prompts.length ? prompts : [''],
+    promptInputMode: req.body.promptInputMode === 'json' ? 'json' : 'builder',
+    promptJson: String(req.body.promptJson || '')
+  };
   const validation = projectService.validateProjectPath(composer.folderPath);
-  const errors = [!validation.ok ? validation.message : null, !prompts.length ? 'Type at least one prompt.' : null].filter(Boolean);
+  const errors = [!validation.ok ? validation.message : null, promptError || (!prompts.length ? 'Type at least one prompt.' : null)].filter(Boolean);
 
   if (errors.length) {
     res.status(400).render('dashboard', {

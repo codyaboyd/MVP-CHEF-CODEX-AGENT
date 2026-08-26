@@ -16,6 +16,7 @@ test('home page renders the folder-first Codex prompt composer', async () => {
   assert.match(response.text, /MVP Chef Codex/);
   assert.match(response.text, /What do you want to build/);
   assert.match(response.text, /Add another prompt/);
+  assert.match(response.text, /JSON array/);
   assert.match(response.text, /Browse folders/);
   assert.match(response.text, /Type to search folders/);
   assert.doesNotMatch(response.text, /webkitdirectory/);
@@ -111,6 +112,44 @@ test('quick run accepts an ordinary folder and chains prompts in order', async (
     ORDER BY run_steps.step_order
   `).all(runId);
   assert.deepEqual(steps.map((step) => step.prompt), ['Inspect the folder.', 'Summarize what you found.']);
+});
+
+test('quick run accepts a JSON array of strings and chains prompts in order', async () => {
+  const response = await request(app)
+    .post('/run')
+    .type('form')
+    .send({
+      folderPath: process.cwd(),
+      promptInputMode: 'json',
+      promptJson: '["Inspect the folder.", "Implement the requested change.", "Run the tests."]'
+    });
+
+  assert.equal(response.status, 302);
+  const runId = Number(response.headers.location.split('/').pop());
+  const steps = db.prepare(`
+    SELECT recipe_steps.prompt
+    FROM run_steps
+    JOIN recipe_steps ON recipe_steps.id = run_steps.recipe_step_id
+    WHERE run_steps.run_id = ?
+    ORDER BY run_steps.step_order
+  `).all(runId);
+  assert.deepEqual(steps.map((step) => step.prompt), [
+    'Inspect the folder.',
+    'Implement the requested change.',
+    'Run the tests.'
+  ]);
+});
+
+test('quick run reports invalid prompt JSON on the home screen', async () => {
+  const response = await request(app)
+    .post('/run')
+    .type('form')
+    .send({ folderPath: process.cwd(), promptInputMode: 'json', promptJson: '["Valid", 42]' });
+
+  assert.equal(response.status, 400);
+  assert.match(response.text, /Prompt JSON must be a non-empty array containing only non-empty strings/);
+  assert.match(response.text, /\[&#34;Valid&#34;, 42\]/);
+  assert.match(response.text, /id="promptInputJson" value="json" checked/);
 });
 
 test('quick run redirects to the active folder run instead of showing a server error', async () => {
