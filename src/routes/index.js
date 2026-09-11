@@ -2,6 +2,7 @@ const express = require('express');
 const pageController = require('../controllers/pageController');
 const recipeController = require('../controllers/recipeController');
 const apiController = require('../controllers/apiController');
+const wizardController = require('../controllers/wizardController');
 
 const router = express.Router();
 
@@ -11,6 +12,14 @@ router.post('/api/jobs/:id/prompts', apiController.addJobPrompt);
 
 router.get('/', pageController.dashboard);
 router.post('/run', pageController.quickRun);
+router.get('/wizard', wizardController.index);
+router.post('/wizard', wizardController.selectWorkspace);
+router.get('/wizard/:id', wizardController.show);
+router.get('/wizard/:id/status', wizardController.status);
+router.post('/wizard/:id/trust', wizardController.retryTrust);
+router.post('/wizard/:id/generate', wizardController.generate);
+router.post('/wizard/:id/retry', wizardController.retry);
+router.post('/wizard/:id/cancel', wizardController.cancel);
 router.get('/projects', pageController.projects);
 router.get('/projects/resolve-folder', pageController.resolveProjectFolder);
 router.get('/projects/browse-folders', pageController.browseProjectFolders);

@@ -1,0 +1,38 @@
+<%- include('partials/layout') %>
+<% const labels = ['Workspace', 'Describe', 'Architecture', 'Build Plan', 'Prompt Chain', 'Building']; const stageIndex = session ? Math.max(0, ['workspace','describe','architecture','plan','chain','building'].indexOf(session.stage)) : 0; const busy = session && /^generating_|creating_|trusting_|starting_/.test(session.status); %>
+<main class="container py-4 py-lg-5 wizard-page" <%= session ? `data-wizard-session="${session.id}"` : '' %>>
+  <header class="wizard-hero mx-auto text-center mb-4">
+    <div class="mode-switcher mx-auto mb-3" role="navigation" aria-label="Build mode"><a class="btn btn-outline-dark" href="/">Quick Run</a><a class="btn btn-dark" href="/wizard">Wizard Build</a></div>
+    <span class="badge text-bg-warning mb-2">Guided production build</span><h1>Turn your product idea into a complete build</h1>
+    <p class="text-muted">MVP Chef asks Codex to architect, plan, and create a production-grade prompt chain—then hands it to the normal reliable run engine.</p>
+  </header>
+  <ol class="wizard-stepper mx-auto mb-4" aria-label="Wizard progress">
+    <% labels.forEach((label, index) => { %><li class="<%= index < stageIndex ? 'complete' : index === stageIndex ? 'active' : '' %>" <%= index === stageIndex ? 'aria-current="step"' : '' %>><span><%= index + 1 %></span><small><%= label %></small></li><% }) %>
+  </ol>
+  <section class="wizard-card card border-0 shadow-sm mx-auto"><div class="card-body p-4 p-lg-5">
+    <% if (errors.length || session?.error) { %><div class="alert alert-danger" role="alert"><strong>Wizard needs attention.</strong><div><%= errors[0] || session.error %></div></div><% } %>
+    <% if (!session) { %>
+      <h2 class="h4">1. Choose a workspace</h2><p class="text-muted">Select or create the exact directory where your application will be built. MVP Chef canonicalizes and validates it on the server.</p>
+      <form method="post" action="/wizard" data-wizard-workspace>
+        <div class="folder-picker-row"><span aria-hidden="true">📁</span><input class="folder-path-input" name="folderPath" placeholder="Paste an absolute path" required data-project-path><button class="btn btn-light btn-sm" type="button" data-folder-browser-button>Browse folders</button><button class="btn btn-light btn-sm" type="button" data-folder-creator-button>Create new</button></div>
+        <input class="form-control form-control-sm folder-browser-search" type="search" placeholder="Type to search folders…" aria-label="Search server project folders" hidden data-folder-browser-search><select class="form-select form-select-sm folder-browser" aria-label="Server project folders" hidden data-folder-browser></select>
+        <div class="row g-2 mt-1" hidden data-folder-creator><div class="col-md-7"><input class="form-control form-control-sm" aria-label="Parent folder" placeholder="Parent folder (absolute path)" data-folder-parent></div><div class="col-md-3"><input class="form-control form-control-sm" aria-label="New directory name" placeholder="New directory name" data-folder-name></div><div class="col-md-2"><button class="btn btn-success btn-sm w-100" type="button" data-folder-create-submit>Create</button></div></div>
+        <p class="form-text" data-wizard-folder-status>After validation, MVP Chef opens a temporary Codex terminal only to establish directory trust.</p><button class="btn btn-primary mt-3" type="submit">Validate and trust workspace</button>
+      </form>
+    <% } else { %>
+      <div class="d-flex flex-wrap justify-content-between gap-2"><div><small class="text-uppercase text-muted fw-bold">Canonical workspace</small><div class="font-monospace text-break"><%= session.target_directory %></div></div><span class="badge rounded-pill <%= session.status === 'failed' ? 'text-bg-danger' : session.status === 'build_running' ? 'text-bg-success' : 'text-bg-primary' %> align-self-start" data-wizard-status><%= session.status.replaceAll('_', ' ') %></span></div>
+      <% if (session.status === 'failed' && session.stage === 'workspace') { %><form method="post" action="/wizard/<%= session.id %>/trust" class="mt-3"><button class="btn btn-warning">Retry workspace trust</button></form><% } %>
+      <% if (session.stage === 'describe' && !busy) { %>
+        <hr><h2 class="h4">2. Describe the software in detail</h2><p class="text-muted">More detail produces a stronger architecture and implementation chain. Include purpose, users, platforms, features, workflows, data/APIs, authentication, UI, technology, constraints, deployment, security, performance, accessibility, integrations, tests, and acceptance criteria.</p>
+        <form method="post" action="/wizard/<%= session.id %>/generate"><label class="form-label fw-bold" for="wizardBrief">Software build brief</label><textarea class="form-control wizard-brief" id="wizardBrief" name="brief" rows="16" required placeholder="Describe the complete product you want Codex to build…"><%= session.original_brief %></textarea><div class="form-text">Your original brief is preserved exactly in this recoverable wizard session.</div><button class="btn btn-primary btn-lg mt-3">Generate architecture and start build</button></form>
+      <% } %>
+      <% if (busy || ['architecture_complete','production_plan_complete','chain_complete'].includes(session.status)) { %><div class="wizard-working text-center py-5" role="status"><div class="spinner-border text-primary mb-3" aria-hidden="true"></div><h2 class="h4" data-wizard-status-heading><%= session.status.replaceAll('_', ' ') %></h2><p class="text-muted">This work continues on the server. You can safely refresh or return later.</p><form method="post" action="/wizard/<%= session.id %>/cancel"><button class="btn btn-outline-danger btn-sm">Cancel generation</button></form></div><% } %>
+      <% if (session.architecture) { %><details class="artifact mt-3"><summary class="fw-bold">Generated architecture</summary><pre><%= session.architecture %></pre></details><% } %>
+      <% if (session.production_plan) { %><details class="artifact mt-3"><summary class="fw-bold">Production build plan</summary><pre><%= session.production_plan %></pre></details><% } %>
+      <% if (session.generatedChain) { %><div class="alert alert-success mt-3"><strong>Prompt chain validated:</strong> <%= session.generatedChain.steps.length %> ordered implementation steps.</div><% } %>
+      <% if (session.status === 'failed' && session.stage !== 'workspace') { %><form method="post" action="/wizard/<%= session.id %>/retry"><button class="btn btn-warning">Retry failed stage</button></form><% } %>
+      <% if (session.run_id) { %><a class="btn btn-success btn-lg mt-3" href="/runs/<%= session.run_id %>">Open the live build →</a><% } %>
+    <% } %>
+  </div></section>
+</main>
+<%- include('partials/footer') %>

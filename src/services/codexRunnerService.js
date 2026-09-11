@@ -371,4 +371,4 @@ function shutdown() {
   }
 }
 
-module.exports = { cancel, collectSecretValues, createNdjsonAggregator, createRedactor, detectQuotaLimit, parseQuotaRemaining, parseCodexJsonOutput, readProcessTreeRssBytes, reliabilitySettings, retryDelayMs, validateRepoPath, executeStep, spawnCodex, shutdown, _activeProcesses: activeProcesses, TRUNCATION_MARKER };
+module.exports = { byteTail, cancel, collectSecretValues, createNdjsonAggregator, createRedactor, detectQuotaLimit, parseQuotaRemaining, parseCodexJsonOutput, readProcessTreeRssBytes, reliabilitySettings, retryDelayMs, terminateProcessTree, validateRepoPath, executeStep, spawnCodex, shutdown, _activeProcesses: activeProcesses, TRUNCATION_MARKER };

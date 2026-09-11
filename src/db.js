@@ -261,6 +261,33 @@ function runMigrations(db) {
       sql: `
         ALTER TABLE recipes ADD COLUMN is_saved INTEGER NOT NULL DEFAULT 1;
       `
+    },
+    {
+      version: 12,
+      name: 'add_wizard_sessions',
+      sql: `
+        CREATE TABLE wizard_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_id INTEGER,
+          target_directory TEXT NOT NULL,
+          original_brief TEXT NOT NULL DEFAULT '',
+          architecture TEXT,
+          production_plan TEXT,
+          generated_chain TEXT,
+          recipe_id INTEGER,
+          run_id INTEGER,
+          stage TEXT NOT NULL DEFAULT 'workspace',
+          status TEXT NOT NULL DEFAULT 'selecting_workspace',
+          error TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+          FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE SET NULL,
+          FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE SET NULL
+        );
+        CREATE INDEX idx_wizard_sessions_updated_at ON wizard_sessions(updated_at);
+        CREATE INDEX idx_wizard_sessions_run_id ON wizard_sessions(run_id);
+      `
     }
   ];
 

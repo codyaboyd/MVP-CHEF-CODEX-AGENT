@@ -1,6 +1,7 @@
 <%- include('partials/layout') %>
 <% const currentlyRunning = runs.filter((run) => run.status === 'running'); %>
 <section class="codex-home container py-5">
+  <div class="mode-switcher mx-auto mb-4" role="navigation" aria-label="Build mode"><a class="btn btn-dark" href="/">Quick Run</a><a class="btn btn-outline-dark" href="/wizard">Wizard Build</a></div>
   <div class="codex-intro text-center mx-auto">
     <span class="codex-mark" aria-hidden="true">⌁</span>
     <h1>What do you want to build?</h1>

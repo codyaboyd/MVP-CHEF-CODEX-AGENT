@@ -283,6 +283,40 @@ document.querySelectorAll('[data-quick-run-form]').forEach((form) => {
   renumberPrompts();
 });
 
+document.querySelectorAll('[data-wizard-workspace]').forEach((form) => {
+  const input = form.querySelector('[data-project-path]');
+  const status = form.querySelector('[data-wizard-folder-status]');
+  attachFolderBrowser(form, async (folderPath) => {
+    input.value = folderPath;
+    const response = await fetch(`/projects/resolve-folder?path=${encodeURIComponent(folderPath)}`);
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.message || 'Invalid project directory.');
+    input.value = result.path;
+    status.textContent = `Canonical directory: ${result.path}`;
+  }, (message) => { status.textContent = message; });
+});
+
+document.querySelectorAll('[data-wizard-session]').forEach((root) => {
+  const id = root.dataset.wizardSession;
+  const initialStatus = root.querySelector('[data-wizard-status]')?.textContent.trim().replaceAll(' ', '_');
+  if (!initialStatus || !/^(generating_|creating_|starting_|trusting_)|_complete$/.test(initialStatus)) return;
+  const poll = setInterval(async () => {
+    try {
+      const response = await fetch(`/wizard/${id}/status`);
+      const state = await response.json();
+      if (!response.ok) return;
+      if (state.runId) { window.location.assign(`/runs/${state.runId}`); return; }
+      if (state.status === 'failed' || state.status === 'cancelled' || !/^(generating_|creating_|starting_|trusting_)|_complete$/.test(state.status)) window.location.reload();
+      const badge = root.querySelector('[data-wizard-status]');
+      const heading = root.querySelector('[data-wizard-status-heading]');
+      const label = state.status.replaceAll('_', ' ');
+      if (badge) badge.textContent = label;
+      if (heading) heading.textContent = label;
+    } catch { /* keep polling; refresh remains a server-rendered recovery path */ }
+  }, 1500);
+  window.addEventListener('pagehide', () => clearInterval(poll), { once: true });
+});
+
 function refreshStepNumbers(list) {
   list.querySelectorAll('[data-step-editor]').forEach((step, index) => {
     step.querySelector('.step-number').textContent = `Step ${index + 1}`;
