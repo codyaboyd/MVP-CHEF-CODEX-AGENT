@@ -402,7 +402,7 @@ function setQuotaRefill(req, res, next) {
     const refillAt = req.body.quotaRefillAt ? new Date(req.body.quotaRefillAt).toISOString() : null;
     if (!refillAt) throw new Error('Quota refill time is required.');
     const run = runStateManager.updateRun(runId, runStateManager.STATUSES.WAITING_FOR_QUOTA, { quota_refill_at: refillAt });
-    const step = runStateManager.getRunSteps(runId).find((candidate) => candidate.status === runStateManager.STATUSES.WAITING_FOR_QUOTA);
+    const step = runStateManager.getRunStepSummaries(runId).find((candidate) => candidate.status === runStateManager.STATUSES.WAITING_FOR_QUOTA);
     if (step) runStateManager.updateRunStep(step.id, runStateManager.STATUSES.WAITING_FOR_QUOTA, { quota_refill_at: refillAt });
     recipeRunEngine.resumeRun(run.id, { approved: true }).catch(next);
     redirectToRun(req, res);

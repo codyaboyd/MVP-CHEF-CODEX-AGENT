@@ -54,10 +54,21 @@ app.use((err, req, res, _next) => {
 });
 
 if (require.main === module) {
-  app.listen(port, host, () => {
+  const server = app.listen(port, host, () => {
     const displayHost = host === '0.0.0.0' ? 'localhost' : host;
     console.log(`🍳 MVP Chef Codex is simmering at http://${displayHost}:${port}`);
   });
+  let shuttingDown = false;
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    require('./services/codexRunnerService').shutdown();
+    server.close(() => process.exit(0));
+    const timer = setTimeout(() => process.exit(1), Number(process.env.CODEX_KILL_GRACE_MS || 2000) + 1000);
+    timer.unref();
+  };
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
 }
 
 module.exports = app;

@@ -12,6 +12,13 @@ const { STATUSES } = runStateManager;
 const quotaResumeTimers = new Map();
 const LOCK_HEARTBEAT_INTERVAL_MS = 60 * 1000;
 
+function clearQuotaResumeTimer(runId) {
+  const timer = quotaResumeTimers.get(Number(runId)) || quotaResumeTimers.get(runId);
+  if (timer) clearTimeout(timer);
+  quotaResumeTimers.delete(Number(runId));
+  quotaResumeTimers.delete(runId);
+}
+
 async function withProjectLockHeartbeat(projectId, runId, task) {
   const heartbeat = setInterval(() => {
     // Keep a long-running Codex turn from outliving the five-minute lock lease.
@@ -38,7 +45,7 @@ function getRefillTime(settings, override) {
 function scheduleQuotaResume(runId, refillAt, options = {}) {
   const delayMs = new Date(refillAt).getTime() - Date.now();
   if (!Number.isFinite(delayMs) || delayMs <= 0) return;
-  if (quotaResumeTimers.has(runId)) clearTimeout(quotaResumeTimers.get(runId));
+  clearQuotaResumeTimer(runId);
   const timer = setTimeout(() => {
     quotaResumeTimers.delete(runId);
     resumeRun(runId, { ...options, quotaCooldownElapsed: true }).catch(() => {});
@@ -205,7 +212,7 @@ async function executeRun(runId, options = {}) {
   const project = getProject(run.project_id);
   if (!project) throw new Error(`Project ${run.project_id} was not found.`);
 
-  let runSteps = runStateManager.getRunSteps(runId);
+  let runSteps = runStateManager.getRunStepSummaries(runId);
   let nextStep = findResumeStep(runSteps);
   if (!nextStep) {
     return runStateManager.updateRun(runId, STATUSES.SUCCEEDED, { completed_at: nowSql(), error_message: null });
@@ -302,7 +309,7 @@ Rollback failed: ${rollbackError.message}`;
       return failed;
     }
 
-    runSteps = runStateManager.getRunSteps(runId);
+    runSteps = runStateManager.getRunStepSummaries(runId);
     nextStep = findResumeStep(runSteps);
   }
 
@@ -322,9 +329,10 @@ async function startRunFromRecipe(recipeId, options = {}) {
 }
 
 async function resumeRun(runId, options = {}) {
+  clearQuotaResumeTimer(runId);
   const run = runStateManager.getRun(runId);
   if (!run) throw new Error(`Run ${runId} was not found.`);
-  const step = findResumeStep(runStateManager.getRunSteps(runId));
+  const step = findResumeStep(runStateManager.getRunStepSummaries(runId));
   if (!step) return run;
   if (step.status === STATUSES.WAITING_FOR_QUOTA) {
     const quotaSettings = appSettingsService.getQuotaSettings(options);
@@ -348,6 +356,7 @@ async function resumeRun(runId, options = {}) {
 
 module.exports = {
   RecipeRunEngine: { addPromptToRun, editPromptAndRetry, executeRun, resumeRun, skipRunStep, startRunFromRecipe },
+  clearQuotaResumeTimer,
   addPromptToRun,
   editPromptAndRetry,
   executeRun,

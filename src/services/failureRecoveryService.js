@@ -43,7 +43,7 @@ function retryFailedStep(runId, stepId) {
 
 function continueFromStep(runId, stepId) {
   const selected = getStep(runId, stepId);
-  const steps = runStateManager.getRunSteps(runId);
+  const steps = runStateManager.getRunStepSummaries(runId);
   steps.forEach((step) => {
     if (step.step_order < selected.step_order && ![STATUSES.SUCCEEDED, STATUSES.CANCELLED].includes(step.status)) {
       runStateManager.updateRunStep(step.id, STATUSES.SUCCEEDED, { completed_at: nowSql(), skipped_at: nowSql(), error_message: 'Skipped while continuing from selected step.' });

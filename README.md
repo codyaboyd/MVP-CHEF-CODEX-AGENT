@@ -202,8 +202,49 @@ Copy `.env.example` to `.env`. Supported environment values are:
 | `APP_NAME` | Display name used by the app/environment | `MVP Chef Codex` |
 | `PROJECT_BROWSER_ROOTS` | Optional colon-separated roots exposed by the server folder browser | unset |
 | `CODEX_RETRY_DELAY_MS` | Delay before retrying a failed Codex prompt step | `300000` (5 minutes) |
+| `CODEX_STDOUT_MEMORY_TAIL_BYTES` | Maximum stdout retained by one worker in Node memory | `262144` |
+| `CODEX_STDERR_MEMORY_TAIL_BYTES` | Maximum stderr retained by one worker in Node memory | `131072` |
+| `CODEX_STEP_LOG_MAX_BYTES` | Maximum UI-visible stdout and stderr SQLite value per step | `2097152` each |
+| `CODEX_LOG_FLUSH_BYTES` | Buffered log flush threshold | `65536` |
+| `CODEX_LOG_FLUSH_INTERVAL_MS` | Maximum time before buffered logs flush | `250` |
+| `CODEX_MAX_PROCESS_TREE_RSS_MB` | Linux Codex worker-tree RSS limit; `0` disables it | 50% of host RAM, clamped to 512–8192 MB |
+| `CODEX_MEMORY_POLL_INTERVAL_MS` | Linux `/proc` watchdog interval | `1000` |
+| `CODEX_KILL_GRACE_MS` | Grace between process-group `SIGTERM` and `SIGKILL` | `2000` |
+| `CODEX_MEMORY_TELEMETRY` | Log memory at worker launch/cleanup (`1` enables) | `0` |
 
 Do not commit `.env` or place credentials in recipes. Logs redact values from secret-like environment variables and the target folder's `.env` file.
+
+### Long-run memory and worker isolation
+
+Every recipe attempt runs as a fresh, detached Codex process group. MVP Chef parses
+Codex JSON Lines incrementally, keeps only small stdout/stderr tails in Node, and
+flushes logs to SQLite in bounded batches. Once a display log reaches its configured
+limit, its oldest content is replaced with an explicit truncation notice; run history
+and live output therefore remain useful without historical output growing forever.
+
+On Linux, a `/proc` watchdog totals RSS for Codex and its descendants (never the MVP
+Chef Node process). A worker over the threshold is terminated as a group, first with
+`SIGTERM` and then `SIGKILL` after the configured grace period. The step reports the
+typed `CODEX_MEMORY_LIMIT` failure and normal retry policy starts a completely new
+worker. Set `CODEX_MAX_PROCESS_TREE_RSS_MB` to an appropriate explicit limit for the
+host, or to `0` only when another worker-level memory controller provides protection.
+The default is deliberately capped even on very large machines.
+
+Enable `CODEX_MEMORY_TELEMETRY=1` to log Node RSS/heap/external memory and worker-tree
+RSS at launch and cleanup. Watchdog events are always logged. A watchdog termination
+means the expendable Codex/native worker grew beyond its boundary; inspect the bounded
+step stderr and retry with a fresh worker rather than increasing Node's heap.
+
+Run the fake-worker regression soak without Codex credentials or API usage:
+
+```bash
+npm run soak
+```
+
+It executes 75 sequential output-heavy workers, reports RSS, heap, elapsed time and
+database size, then checks growth after warmup against a tolerant plateau envelope.
+Use `SOAK_STEPS`, `SOAK_EVENTS_PER_STEP`, or `SOAK_MAX_GROWTH_MB` to tune CI duration
+and its allocator-tolerant envelope.
 
 ## Codex setup and app settings
 
