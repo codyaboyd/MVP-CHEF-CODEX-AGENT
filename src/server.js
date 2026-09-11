@@ -63,6 +63,7 @@ if (require.main === module) {
     if (shuttingDown) return;
     shuttingDown = true;
     require('./services/codexRunnerService').shutdown();
+    require('./services/codexPlanningService').shutdown();
     server.close(() => process.exit(0));
     const timer = setTimeout(() => process.exit(1), Number(process.env.CODEX_KILL_GRACE_MS || 2000) + 1000);
     timer.unref();

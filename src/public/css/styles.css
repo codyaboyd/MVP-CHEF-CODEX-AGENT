@@ -653,3 +653,16 @@ main, .chef-navbar, .chef-footer { position: relative; z-index: 1; }
 
 /* The fixed mascot must never cover page actions or footer content. */
 @media (max-width: 767.98px) { .chef-mascot { display: none; } }
+
+.mode-switcher { background: rgba(255,255,255,.72); border: 1px solid rgba(57,43,36,.14); border-radius: 999px; display: flex; gap: .35rem; padding: .3rem; width: fit-content; }
+.mode-switcher .btn { border-radius: 999px; }
+.wizard-hero, .wizard-stepper, .wizard-card { max-width: 980px; }
+.wizard-stepper { display: grid; grid-template-columns: repeat(6,1fr); list-style: none; padding: 0; position: relative; }
+.wizard-stepper::before { background: #d9d2c5; content: ""; height: 3px; left: 8%; position: absolute; right: 8%; top: 1.05rem; }
+.wizard-stepper li { color: #766f66; display: grid; gap: .35rem; justify-items: center; position: relative; text-align: center; }
+.wizard-stepper li span { align-items: center; background: #eee9df; border: 2px solid #d2cabd; border-radius: 50%; display: flex; font-weight: 800; height: 2.2rem; justify-content: center; width: 2.2rem; z-index: 1; }
+.wizard-stepper li.complete span { background: var(--chef-green,#6bcb77); border-color: #348947; color: #173d20; }
+.wizard-stepper li.active { color: var(--chef-ink); font-weight: 800; }.wizard-stepper li.active span { background: var(--chef-yellow,#ffd95a); border-color: var(--chef-ink); box-shadow: 0 0 0 .25rem rgba(255,217,90,.28); }
+.wizard-card { background: rgba(255,250,240,.96); border-radius: 1.4rem; }.wizard-brief { line-height: 1.55; min-height: 23rem; resize: vertical; }
+.artifact summary { cursor: pointer; }.artifact pre { background: #211d1a; border-radius: .8rem; color: #f9f3e8; max-height: 34rem; overflow: auto; padding: 1rem; white-space: pre-wrap; }
+@media (max-width: 575.98px) { .wizard-stepper small { font-size: .62rem; }.wizard-stepper li span { height: 1.75rem; width: 1.75rem; }.wizard-stepper::before { top: .82rem; }.wizard-card .card-body { padding: 1.2rem !important; } }

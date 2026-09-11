@@ -141,7 +141,8 @@ function validateProjectPath(repoPath) {
   if (!fs.statSync(resolved).isDirectory()) {
     return { ok: false, message: 'Local project folder path must be a directory.' };
   }
-  return { ok: true, repoPath: resolved, isGitRepository: fs.existsSync(path.join(resolved, '.git')) };
+  const canonical = fs.realpathSync(resolved);
+  return { ok: true, repoPath: canonical, isGitRepository: fs.existsSync(path.join(canonical, '.git')) };
 }
 
 function getHealthChecks(project) {

@@ -4,6 +4,14 @@
 
 MVP Chef Codex is a local web application for turning repeatable Codex CLI work into reusable, versioned recipes. It connects recipes to project folders, runs ordered prompts, streams structured Codex output, records run history in SQLite, and provides automated recovery controls.
 
+## Wizard Mode
+
+**Wizard Build** is the guided path from a product idea to a running, long-chain build. Choose or create a directory, then MVP Chef validates its canonical server path and opens the configured Codex CLI as the same operating-system user in a temporary pseudo-terminal. It answers affirmatively only after recognizing Codex's directory/workspace trust dialog, verifies that the dialog has cleared, and exits without submitting a development prompt. Unknown prompts fail safely and can be retried.
+
+After you submit a detailed brief, a persisted background workflow runs three fresh, read-only `codex exec` passes: (1) architecture grounded in existing repository files, (2) a zero-to-production implementation plan, and (3) a strict machine-readable implementation chain. The chain is locally validated and receives one bounded repair attempt when malformed. Successful artifacts remain in SQLite if a later stage fails, so **Retry failed stage** resumes from the first missing artifact.
+
+The validated chain is saved as a normal MVP Chef recipe and launched through the existing run engine. The browser redirects to normal Run Detail, retaining project locking, isolated workers, bounded logs and memory, retries, quota pauses, recovery, pause/resume, and cancellation. Codex CLI must be installed and authenticated for the app service user. As with any generated software, review code, tests, security, deployment configuration, and resulting changes before release.
+
 > **Status:** This is an MVP developer tool. Review and test every generated change before relying on it.
 
 ![Alt Text](screenshot.png)
