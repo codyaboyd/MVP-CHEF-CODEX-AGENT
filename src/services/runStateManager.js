@@ -106,6 +106,15 @@ function getRunSteps(runId) {
   return db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_order ASC').all(runId);
 }
 
+function getRunStepSummaries(runId) {
+  return db.prepare(`
+    SELECT id, run_id, recipe_step_id, step_order, status, commit_sha,
+           error_message, started_at, completed_at, created_at, updated_at,
+           quota_refill_at, quota_retry_count, approval_point, prompt_override, skipped_at
+    FROM run_steps WHERE run_id = ? ORDER BY step_order ASC
+  `).all(runId);
+}
+
 function updateRun(runId, status, patch = {}) {
   assertStatus(status);
   const current = getRun(runId);
@@ -137,6 +146,8 @@ function updateRun(runId, status, patch = {}) {
 
   if (TERMINAL_RUN_STATUSES.includes(status)) {
     releaseProjectLock(current.project_id, runId);
+    // Loaded lazily to avoid the run-engine/state-manager module cycle at startup.
+    require('./recipeRunEngine').clearQuotaResumeTimer(runId);
   }
 
   return getRun(runId);
@@ -144,33 +155,17 @@ function updateRun(runId, status, patch = {}) {
 
 function updateRunStep(runStepId, status, patch = {}) {
   assertStatus(status);
-  const current = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(runStepId);
+  const current = db.prepare('SELECT id FROM run_steps WHERE id = ?').get(runStepId);
   if (!current) {
     throw new Error(`Run step ${runStepId} was not found.`);
   }
 
-  db.prepare(`
-    UPDATE run_steps
-    SET status = @status,
-        stdout_log = @stdout_log,
-        stderr_log = @stderr_log,
-        commit_sha = @commit_sha,
-        error_message = @error_message,
-        started_at = @started_at,
-        completed_at = @completed_at,
-        quota_refill_at = @quota_refill_at,
-        quota_retry_count = @quota_retry_count,
-        approval_point = @approval_point,
-        prompt_override = @prompt_override,
-        skipped_at = @skipped_at,
-        updated_at = @updated_at
-    WHERE id = @id
-  `).run({
-    ...current,
-    ...patch,
-    status,
-    updated_at: nowSql()
-  });
+  const allowed = new Set(['stdout_log', 'stderr_log', 'commit_sha', 'error_message', 'started_at', 'completed_at', 'quota_refill_at', 'quota_retry_count', 'approval_point', 'prompt_override', 'skipped_at']);
+  const entries = Object.entries(patch).filter(([key]) => allowed.has(key));
+  const values = { id: runStepId, status, updated_at: nowSql() };
+  const assignments = ['status = @status', 'updated_at = @updated_at'];
+  entries.forEach(([key, value]) => { assignments.push(`${key} = @${key}`); values[key] = value; });
+  db.prepare(`UPDATE run_steps SET ${assignments.join(', ')} WHERE id = @id`).run(values);
 }
 
 function activeRunForProject(projectId, exceptRunId = null) {
@@ -211,7 +206,7 @@ function pauseRun(runId) {
     throw new Error(`Run ${runId} was not found.`);
   }
 
-  const steps = getRunSteps(runId);
+  const steps = getRunStepSummaries(runId);
   steps
     .filter((step) => [STATUSES.PENDING, STATUSES.RUNNING, STATUSES.WAITING_FOR_QUOTA, STATUSES.WAITING_FOR_APPROVAL].includes(step.status))
     .forEach((step) => {
@@ -228,7 +223,7 @@ function pauseRun(runId) {
 function recoverInterruptedRuns() {
   const interruptedRuns = db.prepare('SELECT * FROM runs WHERE status = ?').all(STATUSES.RUNNING);
   interruptedRuns.forEach((run) => {
-    getRunSteps(run.id)
+    getRunStepSummaries(run.id)
       .filter((step) => step.status === STATUSES.RUNNING)
       .forEach((step) => updateRunStep(step.id, STATUSES.PAUSED, {
         completed_at: null,
@@ -248,7 +243,7 @@ function cancelRun(runId) {
     throw new Error(`Run ${runId} was not found.`);
   }
 
-  const steps = getRunSteps(runId);
+  const steps = getRunStepSummaries(runId);
   steps
     .filter((step) => [STATUSES.PENDING, STATUSES.RUNNING, STATUSES.PAUSED, STATUSES.WAITING_FOR_QUOTA, STATUSES.WAITING_FOR_APPROVAL].includes(step.status))
     .forEach((step) => {
@@ -279,6 +274,7 @@ module.exports = {
   cancelRun,
   getProjectLock,
   getRun,
+  getRunStepSummaries,
   getRunSteps,
   pauseRun,
   recoverInterruptedRuns,

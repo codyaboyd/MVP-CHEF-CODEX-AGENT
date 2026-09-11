@@ -12,7 +12,8 @@
     "start": "node src/server.js",
     "test": "node --test",
     "build": "node -e \"console.log('No build step configured for MVP Chef Codex.')\"",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "soak": "node scripts/soak-long-run.js"
   },
   "keywords": [
     "express",

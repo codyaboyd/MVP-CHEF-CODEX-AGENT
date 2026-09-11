@@ -231,11 +231,11 @@ process.stdin.on('end', () => {
 
     const output = JSON.parse(result.stdout);
     assert.deepEqual(output.args, [
-      '--search',
       'exec',
       '--cd', repoPath,
       '--sandbox', 'workspace-write',
       '--json',
+      '--search',
       '-c', 'sandbox_workspace_write.network_access=true',
       '--skip-git-repo-check',
       '--model', 'account-supported-model',

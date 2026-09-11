@@ -10,7 +10,9 @@ function getProjects() {
 
 function getRuns() {
   const runs = db.prepare(`
-    SELECT runs.*, recipes.name AS recipe_name, recipes.description AS recipe_description, recipes.is_saved AS recipe_is_saved, projects.name AS project_name,
+    SELECT runs.id, runs.project_id, runs.recipe_id, runs.status, runs.commit_sha, runs.error_message,
+           runs.started_at, runs.completed_at, runs.created_at, runs.updated_at, runs.quota_refill_at, runs.quota_retry_count,
+           recipes.name AS recipe_name, recipes.description AS recipe_description, recipes.is_saved AS recipe_is_saved, projects.name AS project_name,
            project_run_locks.owner AS lock_owner, project_run_locks.expires_at AS lock_expires_at
     FROM runs
     LEFT JOIN recipes ON recipes.id = runs.recipe_id
@@ -24,7 +26,7 @@ function getRuns() {
 
   const placeholders = activeRunIds.map(() => '?').join(', ');
   const activeSteps = db.prepare(`
-    SELECT run_steps.*, recipe_steps.title AS recipe_step_title
+    SELECT run_steps.id, run_steps.run_id, run_steps.step_order, run_steps.status, recipe_steps.title AS recipe_step_title
     FROM run_steps
     LEFT JOIN recipe_steps ON recipe_steps.id = run_steps.recipe_step_id
     WHERE run_steps.run_id IN (${placeholders})

@@ -162,6 +162,7 @@ function validateProject(input) {
   const errors = [];
 
   if (!project.name) errors.push('Project name is required.');
+  if (!project.defaultBranch) errors.push('Default branch is required.');
   const repoPathValidation = validateProjectPath(project.repoPath);
   if (!repoPathValidation.ok) {
     errors.push(repoPathValidation.message);
