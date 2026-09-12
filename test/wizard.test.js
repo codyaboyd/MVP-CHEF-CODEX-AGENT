@@ -96,6 +96,24 @@ test('wizard persists the exact brief, artifacts, failure state, and prevents ba
   fs.rmSync(folder, { recursive: true, force: true });
 });
 
+test('wizard landing page lists saved sessions with progress and resume links', async () => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'wizard-list-'));
+  const session = wizardService.create(folder);
+  wizardService.update(session.id, { stage: 'architecture', status: 'generating_architecture', original_brief: 'A saved product idea' });
+
+  const listed = wizardService.list();
+  assert.ok(listed.some((item) => item.id === session.id));
+  const response = await request(app).get('/wizard');
+  assert.equal(response.status, 200);
+  assert.match(response.text, /Your wizard builds/);
+  assert.match(response.text, new RegExp(`/wizard/${session.id}`));
+  assert.match(response.text, /Stage 3 of 6: Architecture/);
+
+  db.prepare('DELETE FROM wizard_sessions WHERE id = ?').run(session.id);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(session.project_id);
+  fs.rmSync(folder, { recursive: true, force: true });
+});
+
 test('wizard prompts contain the correct artifacts and the page exposes accessible workspace controls', async () => {
   const sample = { target_directory: '/tmp/product', original_brief: 'Build a secure app', architecture: 'Layered architecture', production_plan: 'Task 1 then Task 2' };
   assert.match(wizardService.architecturePrompt(sample), /DO NOT modify files/);

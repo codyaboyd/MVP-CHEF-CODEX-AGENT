@@ -12,6 +12,17 @@ const jobs = new Map();
 const allowedStages = ['workspace', 'describe', 'architecture', 'plan', 'chain', 'building'];
 function settings() { return Object.fromEntries(appSettingsService.getSettings().map((row) => [row.key, row.value])); }
 function get(id) { return db.prepare('SELECT * FROM wizard_sessions WHERE id = ?').get(Number(id)) || null; }
+function list(limit = 50) {
+  const normalizedLimit = Math.min(100, Math.max(1, Number(limit) || 50));
+  return db.prepare(`
+    SELECT wizard_sessions.*, projects.name AS project_name, runs.status AS run_status
+    FROM wizard_sessions
+    LEFT JOIN projects ON projects.id = wizard_sessions.project_id
+    LEFT JOIN runs ON runs.id = wizard_sessions.run_id
+    ORDER BY wizard_sessions.updated_at DESC, wizard_sessions.id DESC
+    LIMIT ?
+  `).all(normalizedLimit);
+}
 function serialize(row) { return row ? { ...row, generatedChain: row.generated_chain ? JSON.parse(row.generated_chain) : null } : null; }
 function update(id, patch) {
   const allowed = new Set(['project_id', 'target_directory', 'original_brief', 'architecture', 'production_plan', 'generated_chain', 'recipe_id', 'run_id', 'stage', 'status', 'error']);
@@ -110,4 +121,4 @@ function startBackground(id, brief) {
 }
 function cancel(id) { const cancelled = planningService.cancel(id); update(id, { status: 'cancelled', error: null }); return cancelled; }
 
-module.exports = { architecturePrompt, cancel, chainPrompt, create, generate, get, launch, planPrompt, runPlanningPass, serialize, startBackground, trust, update, _jobs: jobs };
+module.exports = { architecturePrompt, cancel, chainPrompt, create, generate, get, launch, list, planPrompt, runPlanningPass, serialize, startBackground, trust, update, _jobs: jobs };

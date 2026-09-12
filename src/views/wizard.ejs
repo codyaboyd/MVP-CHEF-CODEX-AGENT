@@ -6,13 +6,30 @@
     <span class="badge text-bg-warning mb-2">Guided production build</span><h1>Turn your product idea into a complete build</h1>
     <p class="text-muted">MVP Chef asks Codex to architect, plan, and create a production-grade prompt chain—then hands it to the normal reliable run engine.</p>
   </header>
+  <% if (session) { %><div class="wizard-card mx-auto mb-3"><a href="/wizard" class="btn btn-sm btn-outline-dark">← All wizard builds</a></div><% } %>
   <ol class="wizard-stepper mx-auto mb-4" aria-label="Wizard progress">
     <% labels.forEach((label, index) => { %><li class="<%= index < stageIndex ? 'complete' : index === stageIndex ? 'active' : '' %>" <%= index === stageIndex ? 'aria-current="step"' : '' %>><span><%= index + 1 %></span><small><%= label %></small></li><% }) %>
   </ol>
   <section class="wizard-card card border-0 shadow-sm mx-auto"><div class="card-body p-4 p-lg-5">
     <% if (errors.length || session?.error) { %><div class="alert alert-danger" role="alert"><strong>Wizard needs attention.</strong><div><%= errors[0] || session.error %></div></div><% } %>
     <% if (!session) { %>
-      <h2 class="h4">1. Choose a workspace</h2><p class="text-muted">Select or create the exact directory where your application will be built. MVP Chef canonicalizes and validates it on the server.</p>
+      <h2 class="h4">Your wizard builds</h2>
+      <p class="text-muted">Every wizard is saved as it moves through architecture, planning, prompt-chain generation, and building. Open one to review its artifacts or continue following its progress.</p>
+      <% if (sessions.length) { %>
+        <div class="vstack gap-3 mb-5" data-wizard-session-list>
+          <% sessions.forEach((item) => { const itemStageIndex = Math.max(0, ['workspace','describe','architecture','plan','chain','building'].indexOf(item.stage)); const displayStatus = item.run_status || item.status; %>
+            <article class="border rounded-3 p-3">
+              <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                <div><h3 class="h6 mb-1"><%= item.project_name || 'Wizard build' %></h3><div class="small font-monospace text-muted text-break"><%= item.target_directory %></div></div>
+                <span class="badge rounded-pill <%= ['failed','cancelled'].includes(displayStatus) ? 'text-bg-danger' : ['succeeded','build_running'].includes(displayStatus) ? 'text-bg-success' : 'text-bg-primary' %> align-self-start"><%= displayStatus.replaceAll('_', ' ') %></span>
+              </div>
+              <div class="progress mb-2" role="progressbar" aria-label="Wizard progress" aria-valuemin="0" aria-valuemax="6" aria-valuenow="<%= itemStageIndex + 1 %>"><div class="progress-bar" style="width: <%= ((itemStageIndex + 1) / 6) * 100 %>%"></div></div>
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2"><small class="text-muted">Stage <%= itemStageIndex + 1 %> of 6: <%= labels[itemStageIndex] %> · Updated <%= item.updated_at %></small><div class="d-flex gap-2"><a class="btn btn-sm btn-primary" href="/wizard/<%= item.id %>">Open wizard</a><% if (item.run_id) { %><a class="btn btn-sm btn-outline-success" href="/runs/<%= item.run_id %>">View run</a><% } %></div></div>
+            </article>
+          <% }) %>
+        </div>
+      <% } else { %><div class="alert alert-light border mb-5">No wizard builds yet. Start your first one below.</div><% } %>
+      <hr class="mb-4"><h2 class="h4">Start a new wizard build</h2><h3 class="h6 mt-3">1. Choose a workspace</h3><p class="text-muted">Select or create the exact directory where your application will be built. MVP Chef canonicalizes and validates it on the server.</p>
       <form method="post" action="/wizard" data-wizard-workspace>
         <div class="folder-picker-row"><span aria-hidden="true">📁</span><input class="folder-path-input" name="folderPath" placeholder="Paste an absolute path" required data-project-path><button class="btn btn-light btn-sm" type="button" data-folder-browser-button>Browse folders</button><button class="btn btn-light btn-sm" type="button" data-folder-creator-button>Create new</button></div>
         <input class="form-control form-control-sm folder-browser-search" type="search" placeholder="Type to search folders…" aria-label="Search server project folders" hidden data-folder-browser-search><select class="form-select form-select-sm folder-browser" aria-label="Server project folders" hidden data-folder-browser></select>
