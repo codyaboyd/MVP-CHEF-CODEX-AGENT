@@ -161,9 +161,9 @@ const RUN_PAGE_SIZE = 100;
 function paginateRunOutput(root, key, entries, renderPage) {
   root._runPages ||= {};
   const pageCount = Math.max(1, Math.ceil(entries.length / RUN_PAGE_SIZE));
-  const previous = root._runPages[key];
-  const page = previous == null || previous >= pageCount - 2 ? pageCount - 1 : Math.min(previous, pageCount - 1);
-  root._runPages[key] = page;
+  const state = root._runPages[key] || { page: pageCount - 1, followLatest: true };
+  const page = state.followLatest ? pageCount - 1 : Math.min(state.page, pageCount - 1);
+  root._runPages[key] = { ...state, page };
   renderPage(entries.slice(page * RUN_PAGE_SIZE, (page + 1) * RUN_PAGE_SIZE));
   const nav = root.querySelector(`[data-pagination="${key}"]`);
   if (!nav) return;
@@ -178,8 +178,15 @@ function paginateRunOutput(root, key, entries, renderPage) {
   nextButton.className = 'btn btn-sm btn-outline-light';
   nextButton.textContent = 'Next →';
   nextButton.disabled = page === pageCount - 1;
-  previousButton.addEventListener('click', () => { root._runPages[key] = page - 1; paginateRunOutput(root, key, entries, renderPage); });
-  nextButton.addEventListener('click', () => { root._runPages[key] = page + 1; paginateRunOutput(root, key, entries, renderPage); });
+  previousButton.addEventListener('click', () => {
+    root._runPages[key] = { page: page - 1, followLatest: false };
+    paginateRunOutput(root, key, entries, renderPage);
+  });
+  nextButton.addEventListener('click', () => {
+    const nextPage = page + 1;
+    root._runPages[key] = { page: nextPage, followLatest: nextPage === pageCount - 1 };
+    paginateRunOutput(root, key, entries, renderPage);
+  });
   nav.append(previousButton, status, nextButton);
 }
 
