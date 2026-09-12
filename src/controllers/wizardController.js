@@ -1,7 +1,12 @@
 const wizardService = require('../services/wizardService');
 
 function render(res, session = null, errors = [], status = 200) {
-  res.status(status).render('wizard', { title: 'Wizard Build', session: wizardService.serialize(session), errors });
+  res.status(status).render('wizard', {
+    title: session ? 'Wizard Build' : 'Wizard Builds',
+    session: wizardService.serialize(session),
+    sessions: session ? [] : wizardService.list().map(wizardService.serialize),
+    errors
+  });
 }
 function index(_req, res) { render(res); }
 function show(req, res, next) { const session = wizardService.get(req.params.id); if (!session) return next(); render(res, session); }
