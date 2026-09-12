@@ -7,7 +7,7 @@ const codexRunner = require('./codexRunnerService');
 const active = new Map();
 
 function planningArgs({ cwd, outputFile, model, reasoningEffort }) {
-  const args = ['exec', '--cd', cwd, '--sandbox', 'read-only', '--ask-for-approval', 'never', '--skip-git-repo-check', '--json', '--search', '--output-last-message', outputFile];
+  const args = ['--search', 'exec', '--cd', cwd, '--sandbox', 'read-only', '--ask-for-approval', 'never', '--skip-git-repo-check', '--json', '--output-last-message', outputFile];
   if (model) args.push('--model', model);
   if (['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) args.push('-c', `model_reasoning_effort=${reasoningEffort}`);
   args.push('-');

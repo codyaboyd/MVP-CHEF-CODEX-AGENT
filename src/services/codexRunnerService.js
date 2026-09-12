@@ -188,7 +188,11 @@ function validateRepoPath(repoPath) {
 }
 function buildCodexArgs(prompt, extraArgs = [], model = '', reasoningEffort = '', repoPath) {
   if (extraArgs.length) return extraArgs;
-  const args = ['exec', '--cd', repoPath, '--sandbox', DEFAULT_SANDBOX_MODE, '--json', '--search', '-c', 'sandbox_workspace_write.network_access=true', '--skip-git-repo-check'];
+  // `--search` is a top-level Codex option, so it must precede the `exec`
+  // subcommand. Putting it after `exec` makes supported Codex CLI versions
+  // reject the invocation immediately; the generic retry policy then repeats
+  // the same deterministic argument error after every retry delay.
+  const args = ['--search', 'exec', '--cd', repoPath, '--sandbox', DEFAULT_SANDBOX_MODE, '--json', '-c', 'sandbox_workspace_write.network_access=true', '--skip-git-repo-check'];
   if (typeof model === 'string' && model.trim()) args.push('--model', model.trim());
   if (['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) args.push('-c', `model_reasoning_effort=${reasoningEffort}`);
   args.push('-'); return args;
