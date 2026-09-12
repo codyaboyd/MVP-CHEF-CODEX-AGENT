@@ -67,6 +67,7 @@ test('planning executor uses read-only Codex args and captures then removes last
   assert.equal(result.answer, 'final architecture');
   assert.equal(observed.options.cwd, process.cwd());
   assert.equal(observed.options.shell, false);
+  assert.deepEqual(observed.args.slice(0, 2), ['--search', 'exec']);
   assert.ok(observed.args.includes('read-only'));
   assert.ok(observed.args.includes('never'));
   assert.equal(fs.existsSync(path.dirname(observed.args[observed.args.indexOf('--output-last-message') + 1])), false);
