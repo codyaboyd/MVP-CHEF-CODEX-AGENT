@@ -2,7 +2,9 @@ const path = require('node:path');
 const pty = require('node-pty');
 
 const TRUST_PROMPT = /(?:trust|allow)\s+(?:this\s+)?(?:directory|folder|workspace)|(?:directory|folder|workspace).{0,40}(?:trust|trusted)/i;
-const READY = /(?:what (?:would you like|can i help)|codex>|type \/help)/i;
+// Keep this limited to text rendered by Codex's idle composer. The current TUI
+// uses "Ask Codex to do anything"; older releases used the other variants.
+const READY = /(?:ask codex to do anything|what (?:would you like|can i help)|codex>|type \/help)/i;
 const UNKNOWN_PROMPT = /(?:\?|\[y\/n\]|press enter)\s*$/i;
 
 function stripAnsi(value = '') {

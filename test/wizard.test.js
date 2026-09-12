@@ -30,7 +30,7 @@ function fakePty(transcript, exitCode = null) {
 
 test('trust service strips ANSI and approves only a recognized trust dialog', async () => {
   assert.equal(trustService.stripAnsi('\u001b[31mTrust\u001b[0m'), 'Trust');
-  const fake = fakePty(['\u001b[33mTrust this directory?\u001b[0m', 'OpenAI Codex · type /help']);
+  const fake = fakePty(['\u001b[33mTrust this folder?\u001b[0m', '› Ask Codex to do anything']);
   const result = await trustService.establishTrust({ cwd: process.cwd(), spawnPty: () => fake.terminal, timeoutMs: 100 });
   assert.equal(result.trusted, true);
   assert.deepEqual(fake.writes, ['\r']);
@@ -38,7 +38,7 @@ test('trust service strips ANSI and approves only a recognized trust dialog', as
 });
 
 test('trust service recognizes an already trusted workspace without typing', async () => {
-  const fake = fakePty(['OpenAI Codex · type /help']);
+  const fake = fakePty(['› Ask Codex to do anything']);
   const result = await trustService.establishTrust({ cwd: process.cwd(), spawnPty: () => fake.terminal, timeoutMs: 100 });
   assert.equal(result.alreadyTrusted, true);
   assert.deepEqual(fake.writes, []);
