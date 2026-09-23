@@ -63,8 +63,13 @@
             <div class="col-12"><div class="form-text" role="status" aria-live="polite" data-codex-scan-status>Authentication is managed by your Codex CLI login.</div></div>
             <div class="col-md-6">
               <label class="form-label fw-bold" for="codexModel">Default Codex model</label>
-              <input class="form-control" id="codexModel" name="codexModel" value="<%= valueFor('codexModel', '') %>" placeholder="Use CLI default">
-              <div class="form-text">Leave blank to use the Codex CLI default. If your account does not support that model, enter one available to your Codex login; recipe runs pass it to <code>codex exec --model</code>.</div>
+              <input class="form-control" id="codexModel" name="codexModel" value="<%= valueFor('codexModel', '') %>" list="codexModelOptions" placeholder="Use CLI default">
+              <datalist id="codexModelOptions">
+                <% codexModelOptions.forEach((model) => { %>
+                  <option value="<%= model.value %>"><%= model.label %></option>
+                <% }) %>
+              </datalist>
+              <div class="form-text">Choose a current model from the line-up, leave blank to use the Codex CLI default, or enter another model available to your Codex login. Recipe runs pass it to <code>codex exec --model</code>.</div>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-bold" for="codexReasoningEffort">Reasoning level</label>

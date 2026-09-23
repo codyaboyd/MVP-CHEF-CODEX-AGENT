@@ -1187,6 +1187,23 @@ test('settings persist the max Codex reasoning level', async () => {
   settingsService.updateSettings({ codexReasoningEffort: 'medium' });
 });
 
+test('settings offer the current GPT model line-up', async () => {
+  const response = await request(app).get('/settings');
+
+  assert.equal(response.status, 200);
+  assert.match(response.text, /list="codexModelOptions"/);
+  [
+    ['gpt-6-astra', 'GPT-6-Astra'],
+    ['gpt-6-sol', 'GPT-6-Sol'],
+    ['gpt-6-luna', 'GPT-6-Luna'],
+    ['gpt-5.6-sol', 'GPT-5.6-Sol'],
+    ['gpt-5.6-terra', 'GPT-5.6-Terra'],
+    ['gpt-5.6-luna', 'GPT-5.6-Luna']
+  ].forEach(([value, label]) => {
+    assert.ok(response.text.includes(`<option value="${value}">${label}</option>`));
+  });
+});
+
 test('PromptLintService detects risky prompts and improves them locally', () => {
   const promptLint = require('../src/services/promptLintService');
   const warnings = promptLint.lintPrompt('fix it and print the API key, then rm -rf everything');

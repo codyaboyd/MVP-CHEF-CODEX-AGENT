@@ -1,5 +1,14 @@
 const db = require('../db');
 
+const CODEX_MODEL_OPTIONS = Object.freeze([
+  { value: 'gpt-6-astra', label: 'GPT-6-Astra' },
+  { value: 'gpt-6-sol', label: 'GPT-6-Sol' },
+  { value: 'gpt-6-luna', label: 'GPT-6-Luna' },
+  { value: 'gpt-5.6-sol', label: 'GPT-5.6-Sol' },
+  { value: 'gpt-5.6-terra', label: 'GPT-5.6-Terra' },
+  { value: 'gpt-5.6-luna', label: 'GPT-5.6-Luna' }
+]);
+
 const DEFAULT_SETTINGS = Object.freeze({
   codexCommandPath: 'codex',
   codexConfigDir: '',
@@ -79,6 +88,7 @@ function getQuotaSettings(overrides = {}) {
 }
 
 module.exports = {
+  CODEX_MODEL_OPTIONS,
   DEFAULT_SETTINGS,
   ensureDefaultSettings,
   getQuotaSettings,
