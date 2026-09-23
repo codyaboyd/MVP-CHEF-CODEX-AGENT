@@ -427,6 +427,7 @@ async function settings(req, res, next) {
     res.render('settings', {
       title: 'Settings',
       settings: dashboardService.getSettings(),
+      codexModelOptions: appSettingsService.CODEX_MODEL_OPTIONS,
       setupValidation: await setupValidationService.validateSetup()
     });
   } catch (error) {
