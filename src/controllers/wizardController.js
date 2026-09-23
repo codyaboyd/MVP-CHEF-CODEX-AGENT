@@ -33,14 +33,17 @@ function generate(req, res) {
   if (!session) return res.status(404).json({ ok: false, message: 'Wizard session not found.' });
   const brief = Object.prototype.hasOwnProperty.call(req.body, 'brief') ? String(req.body.brief) : session.original_brief;
   if (!brief.trim()) return render(res, session, ['A detailed software build brief is required.'], 400);
-  wizardService.startBackground(session.id, brief);
+  if (session.stage !== 'describe' || session.status !== 'ready_for_description') return render(res, session, ['This wizard is not ready to start generation. Refresh to see its current state.'], 409);
+  if (!wizardService.startBackground(session.id, brief)) return render(res, wizardService.get(session.id), ['Generation is already running for this wizard.'], 409);
   res.redirect(`/wizard/${session.id}`);
 }
 function retry(req, res) {
   const session = wizardService.get(req.params.id);
   if (!session) return res.status(404).json({ ok: false, message: 'Wizard session not found.' });
+  if (!['failed', 'cancelled'].includes(session.status)) return render(res, session, ['Only a failed or cancelled wizard can be retried.'], 409);
+  if (!session.original_brief.trim()) return render(res, session, ['A detailed software build brief is required before retrying.'], 400);
   if (session.generated_chain) wizardService.launch(session.id).catch((error) => wizardService.update(session.id, { status: 'failed', error: error.message }));
-  else wizardService.startBackground(session.id, session.original_brief);
+  else if (!wizardService.startBackground(session.id, session.original_brief)) return render(res, wizardService.get(session.id), ['Generation is already running for this wizard.'], 409);
   res.redirect(`/wizard/${session.id}`);
 }
 function status(req, res) {
@@ -49,6 +52,11 @@ function status(req, res) {
   const value = wizardService.serialize(session);
   res.json({ ok: true, id: value.id, stage: value.stage, status: value.status, error: value.error, stepCount: value.generatedChain?.steps?.length || 0, runId: value.run_id });
 }
-function cancel(req, res) { wizardService.cancel(req.params.id); res.redirect(`/wizard/${req.params.id}`); }
+function cancel(req, res) {
+  const session = wizardService.get(req.params.id);
+  if (!session) return res.status(404).json({ ok: false, message: 'Wizard session not found.' });
+  wizardService.cancel(req.params.id);
+  res.redirect(`/wizard/${req.params.id}`);
+}
 
 module.exports = { cancel, generate, index, retry, retryTrust, selectWorkspace, show, status };

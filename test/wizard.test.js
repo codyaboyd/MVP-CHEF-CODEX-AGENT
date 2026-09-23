@@ -22,7 +22,14 @@ function fakePty(transcript, exitCode = null) {
   let exitHandler;
   const terminal = {
     write(value) { writes.push(value); }, kill() { terminal.killed = true; },
-    onData(handler) { dataHandler = handler; queueMicrotask(() => transcript.forEach((line) => dataHandler(line))); },
+    onData(handler) {
+      dataHandler = handler;
+      transcript.forEach((entry, index) => {
+        const value = typeof entry === 'string' ? entry : entry.value;
+        const delay = typeof entry === 'string' ? 0 : entry.delay;
+        setTimeout(() => dataHandler(value), delay ?? index);
+      });
+    },
     onExit(handler) { exitHandler = handler; if (exitCode !== null) setTimeout(() => exitHandler({ exitCode }), 5); }
   };
   return { terminal, writes };
@@ -30,11 +37,32 @@ function fakePty(transcript, exitCode = null) {
 
 test('trust service strips ANSI and approves only a recognized trust dialog', async () => {
   assert.equal(trustService.stripAnsi('\u001b[31mTrust\u001b[0m'), 'Trust');
-  const fake = fakePty(['\u001b[33mTrust this folder?\u001b[0m', '› Ask Codex to do anything']);
+  const fake = fakePty([
+    '\u001b[33mDo you trust this folder?\u001b[0m\n› 1. No, exit\n  2. Yes, I trust this folder',
+    { value: '› Ask Codex to do anything', delay: 130 }
+  ]);
+  const result = await trustService.establishTrust({ cwd: process.cwd(), spawnPty: () => fake.terminal, timeoutMs: 250 });
+  assert.equal(result.trusted, true);
+  assert.deepEqual(fake.writes, ['\x1b[B', '\r']);
+  assert.equal(fake.terminal.killed, true);
+});
+
+test('trust service skips an update prompt, then navigates to the affirmative trust choice', async () => {
+  const fake = fakePty([
+    'A new version of Codex is available\n› 1. Update now\n  2. Skip for now',
+    { value: 'Do you trust this workspace?\n  1. Yes, continue\n› 2. No, exit', delay: 130 },
+    { value: '› Ask Codex to do anything', delay: 260 }
+  ]);
+  const result = await trustService.establishTrust({ cwd: process.cwd(), spawnPty: () => fake.terminal, timeoutMs: 400 });
+  assert.equal(result.trusted, true);
+  assert.deepEqual(fake.writes, ['\x1b[B', '\r', '\x1b[A', '\r']);
+});
+
+test('trust service supports legacy yes/no trust prompts', async () => {
+  const fake = fakePty(['Trust this directory? [y/n]', { value: 'Codex>', delay: 10 }]);
   const result = await trustService.establishTrust({ cwd: process.cwd(), spawnPty: () => fake.terminal, timeoutMs: 100 });
   assert.equal(result.trusted, true);
-  assert.deepEqual(fake.writes, ['\r']);
-  assert.equal(fake.terminal.killed, true);
+  assert.deepEqual(fake.writes, ['y\r']);
 });
 
 test('trust service recognizes an already trusted workspace without typing', async () => {
@@ -91,6 +119,38 @@ test('wizard persists the exact brief, artifacts, failure state, and prevents ba
   assert.equal(resumed.architecture, 'Architecture');
   assert.equal(resumed.error, 'temporary failure');
   assert.throws(() => wizardService.update(session.id, { stage: 'workspace' }), /Invalid wizard transition/);
+  db.prepare('DELETE FROM wizard_sessions WHERE id = ?').run(session.id);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(session.project_id);
+  fs.rmSync(folder, { recursive: true, force: true });
+});
+
+test('wizard rejects out-of-order generation and duplicate submissions', async () => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'wizard-order-'));
+  const session = wizardService.create(folder);
+  await assert.rejects(() => wizardService.generate(session.id, 'Do not bypass trust', {
+    planningService: { async executePlanning() { throw new Error('must not execute'); } }
+  }), /trust must be completed/);
+
+  wizardService.update(session.id, { stage: 'describe', status: 'generating_architecture', original_brief: 'Already submitted' });
+  const duplicate = await request(app).post(`/wizard/${session.id}/generate`).type('form').send({ brief: 'Submit twice' });
+  assert.equal(duplicate.status, 409);
+  assert.match(duplicate.text, /not ready to start generation/);
+
+  db.prepare('DELETE FROM wizard_sessions WHERE id = ?').run(session.id);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(session.project_id);
+  fs.rmSync(folder, { recursive: true, force: true });
+});
+
+test('cancelled generation remains cancelled and can be resumed from the page', async () => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'wizard-cancel-'));
+  const session = wizardService.create(folder);
+  wizardService.update(session.id, { stage: 'architecture', status: 'generating_architecture', original_brief: 'Resume me' });
+  wizardService.cancel(session.id);
+  assert.equal(wizardService.get(session.id).status, 'cancelled');
+  const response = await request(app).get(`/wizard/${session.id}`);
+  assert.equal(response.status, 200);
+  assert.match(response.text, /Resume generation/);
+
   db.prepare('DELETE FROM wizard_sessions WHERE id = ?').run(session.id);
   db.prepare('DELETE FROM projects WHERE id = ?').run(session.project_id);
   fs.rmSync(folder, { recursive: true, force: true });
