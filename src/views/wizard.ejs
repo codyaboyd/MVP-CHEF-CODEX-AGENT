@@ -47,7 +47,7 @@
       <% if (session.architecture) { %><details class="artifact mt-3"><summary class="fw-bold">Generated architecture</summary><pre><%= session.architecture %></pre></details><% } %>
       <% if (session.production_plan) { %><details class="artifact mt-3"><summary class="fw-bold">Production build plan</summary><pre><%= session.production_plan %></pre></details><% } %>
       <% if (session.generatedChain) { %><div class="alert alert-success mt-3"><strong>Prompt chain validated:</strong> <%= session.generatedChain.steps.length %> ordered implementation steps.</div><% } %>
-      <% if (session.status === 'failed' && session.stage !== 'workspace') { %><form method="post" action="/wizard/<%= session.id %>/retry"><button class="btn btn-warning">Retry failed stage</button></form><% } %>
+      <% if (['failed','cancelled'].includes(session.status) && session.stage !== 'workspace') { %><form method="post" action="/wizard/<%= session.id %>/retry"><button class="btn btn-warning"><%= session.status === 'cancelled' ? 'Resume generation' : 'Retry failed stage' %></button></form><% } %>
       <% if (session.run_id) { %><a class="btn btn-success btn-lg mt-3" href="/runs/<%= session.run_id %>">Open the live build →</a><% } %>
     <% } %>
   </div></section>

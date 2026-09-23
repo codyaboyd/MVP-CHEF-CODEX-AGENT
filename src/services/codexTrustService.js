@@ -2,6 +2,7 @@ const path = require('node:path');
 const pty = require('node-pty');
 
 const TRUST_PROMPT = /(?:trust|allow)\s+(?:this\s+)?(?:directory|folder|workspace)|(?:directory|folder|workspace).{0,40}(?:trust|trusted)/i;
+const UPDATE_PROMPT = /(?:new|newer) version of (?:the )?codex|codex (?:update|upgrade) (?:is )?available|update codex/i;
 // Keep this limited to text rendered by Codex's idle composer. The current TUI
 // uses "Ask Codex to do anything"; older releases used the other variants.
 const READY = /(?:ask codex to do anything|what (?:would you like|can i help)|codex>|type \/help)/i;
@@ -18,6 +19,23 @@ function terminate(term) {
   try { term.kill(); } catch { /* already exited */ }
 }
 
+function visibleLines(value) {
+  return stripAnsi(value).split(/[\r\n]+/).map((line) => line.trim()).filter(Boolean);
+}
+
+// Codex's full-screen prompts are radio lists, not yes/no questions. Work out
+// where the highlighted row is and navigate to the requested row rather than
+// assuming that pressing Enter accepts it. This is deliberately restricted to
+// recognized Codex startup dialogs.
+function navigationForChoice(output, desiredPattern) {
+  const optionLines = visibleLines(output).filter((line) => /^(?:(?:›|>|➜|→|●|◉)\s*)?\d+[.)]\s+/u.test(line));
+  const selected = optionLines.findIndex((line) => /^(?:›|>|➜|→|●|◉)\s*/u.test(line));
+  const desired = optionLines.findIndex((line) => desiredPattern.test(line.replace(/^(?:›|>|➜|→|●|◉)\s*/u, '')));
+  if (selected < 0 || desired < 0) return null;
+  const direction = desired < selected ? '\x1b[A' : '\x1b[B';
+  return direction.repeat(Math.abs(desired - selected));
+}
+
 function establishTrust(options) {
   const { cwd, command = 'codex', timeoutMs = 20000, spawnPty = pty.spawn } = options;
   return new Promise((resolve) => {
@@ -26,11 +44,14 @@ function establishTrust(options) {
     let answered = false;
     let settled = false;
     let promptTimer;
+    let actionTimer;
+    let handlingPrompt = false;
     const finish = (result) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
       clearTimeout(promptTimer);
+      clearTimeout(actionTimer);
       terminate(terminal);
       resolve({ trusted: false, alreadyTrusted: false, ...result });
     };
@@ -43,10 +64,38 @@ function establishTrust(options) {
     }
     terminal.onData((chunk) => {
       output = stripAnsi((output + chunk).slice(-16384));
+      if (handlingPrompt) return;
+      if (UPDATE_PROMPT.test(output)) {
+        const navigation = navigationForChoice(output, /(?:skip|not now|later|continue without updating)/i);
+        if (navigation === null) return;
+        handlingPrompt = true;
+        if (navigation) terminal.write(navigation);
+        actionTimer = setTimeout(() => {
+          if (settled) return;
+          terminal.write('\r');
+          output = '';
+          handlingPrompt = false;
+        }, navigation ? 100 : 0);
+        return;
+      }
       if (!answered && TRUST_PROMPT.test(output)) {
+        if (/\[[^\]]*y\s*\/\s*n[^\]]*\]/i.test(output)) {
+          answered = true;
+          terminal.write('y\r');
+          output = '';
+          return;
+        }
+        const navigation = navigationForChoice(output, /(?:yes|trust|allow|continue)/i);
+        if (navigation === null) return;
         answered = true;
-        terminal.write(/\[[^\]]*y\s*\/\s*n[^\]]*\]/i.test(output) ? 'y\r' : '\r');
-        output = '';
+        handlingPrompt = true;
+        if (navigation) terminal.write(navigation);
+        actionTimer = setTimeout(() => {
+          if (settled) return;
+          terminal.write('\r');
+          output = '';
+          handlingPrompt = false;
+        }, navigation ? 100 : 0);
         return;
       }
       if (answered && READY.test(output)) return finish({ trusted: true, code: 'TRUSTED' });
@@ -63,4 +112,4 @@ function establishTrust(options) {
   });
 }
 
-module.exports = { establishTrust, stripAnsi, TRUST_PROMPT };
+module.exports = { establishTrust, navigationForChoice, stripAnsi, TRUST_PROMPT, UPDATE_PROMPT };

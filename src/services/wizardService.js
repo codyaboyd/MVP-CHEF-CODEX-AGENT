@@ -86,9 +86,18 @@ async function runPlanningPass(id, kind, dependencies = {}) {
 async function generate(id, brief, dependencies = {}) {
   const normalized = String(brief || '');
   if (!normalized.trim()) throw new Error('A detailed software build brief is required.');
+  const initial = get(id);
+  if (!initial) throw new Error('Wizard session not found.');
+  if (initial.stage === 'workspace') throw new Error('Workspace trust must be completed before generation.');
+  if (initial.stage === 'building' || initial.run_id) throw new Error('This wizard has already launched its build.');
   update(id, { original_brief: normalized, error: null });
   for (const kind of ['architecture', 'plan', 'chain']) {
     const session = get(id);
+    if (session.status === 'cancelled') {
+      const error = new Error('Wizard generation was cancelled.');
+      error.code = 'WIZARD_CANCELLED';
+      throw error;
+    }
     if ((kind === 'architecture' && session.architecture) || (kind === 'plan' && session.production_plan) || (kind === 'chain' && session.generated_chain)) continue;
     await runPlanningPass(id, kind, dependencies);
   }
@@ -97,6 +106,7 @@ async function generate(id, brief, dependencies = {}) {
 
 async function launch(id, dependencies = {}) {
   const session = get(id);
+  if (session?.run_id) return session;
   if (!session?.generated_chain) throw new Error('A valid generated chain is required before launch.');
   runStateManager.assertProjectAvailable(session.project_id);
   let recipeId = session.recipe_id;
@@ -115,10 +125,19 @@ async function launch(id, dependencies = {}) {
 
 function startBackground(id, brief) {
   if (jobs.has(Number(id))) return false;
-  const job = generate(id, brief).catch((error) => fail(id, error)).finally(() => jobs.delete(Number(id)));
+  const job = generate(id, brief).catch((error) => {
+    if (get(id)?.status !== 'cancelled') fail(id, error);
+  }).finally(() => jobs.delete(Number(id)));
   jobs.set(Number(id), job);
   return true;
 }
-function cancel(id) { const cancelled = planningService.cancel(id); update(id, { status: 'cancelled', error: null }); return cancelled; }
+function cancel(id) {
+  const session = get(id);
+  if (!session) throw new Error('Wizard session not found.');
+  if (session.stage === 'workspace' || session.stage === 'describe' || session.stage === 'building') return false;
+  const cancelled = planningService.cancel(id);
+  update(id, { status: 'cancelled', error: null });
+  return cancelled;
+}
 
 module.exports = { architecturePrompt, cancel, chainPrompt, create, generate, get, launch, list, planPrompt, runPlanningPass, serialize, startBackground, trust, update, _jobs: jobs };
