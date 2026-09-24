@@ -260,6 +260,9 @@ async function executeRun(runId, options = {}) {
         await gitManager.createBranchForStep({ runId, stepId: nextStep.id, stepTitle: recipeStep.title });
       }
 
+      const continueSession = appSettingsService.normalizeBoolean(
+        options.codexContinueSession ?? appSettingsService.getSetting('codexContinueSession')?.value
+      );
       await withProjectLockHeartbeat(run.project_id, runId, () => codexRunner.executeStep({
         runId,
         runStepId: nextStep.id,
@@ -270,7 +273,9 @@ async function executeRun(runId, options = {}) {
         codexArgs: options.codexArgs,
         codexModel: options.codexModel ?? appSettingsService.getSetting('codexModel')?.value,
         codexReasoningEffort: options.codexReasoningEffort ?? appSettingsService.getSetting('codexReasoningEffort')?.value,
-        codexSandboxMode: options.codexSandboxMode ?? appSettingsService.getSetting('codexSandboxMode')?.value
+        codexSandboxMode: options.codexSandboxMode ?? appSettingsService.getSetting('codexSandboxMode')?.value,
+        continueSession,
+        codexSessionId: continueSession ? latestRun.codex_session_id : ''
       }));
 
 

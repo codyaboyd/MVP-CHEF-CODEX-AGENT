@@ -288,6 +288,13 @@ function runMigrations(db) {
         CREATE INDEX idx_wizard_sessions_updated_at ON wizard_sessions(updated_at);
         CREATE INDEX idx_wizard_sessions_run_id ON wizard_sessions(run_id);
       `
+    },
+    {
+      version: 13,
+      name: 'add_run_codex_session_id',
+      sql: `
+        ALTER TABLE runs ADD COLUMN codex_session_id TEXT;
+      `
     }
   ];
 

@@ -89,6 +89,7 @@
               </select>
               <div class="form-text">Limits what Codex can access while running. <strong>Workspace write</strong> lets it edit the project; <strong>Read only</strong> is for inspection; <strong>Full access</strong> removes filesystem limits.</div>
             </div>
+            <% boolSelect('codexContinueSession', 'Continue Codex session', 'Keep every prompt in a run in the same Codex exec session. Disable this to start a fresh session for each prompt.'); %>
           </div>
         </section>
       </div>
