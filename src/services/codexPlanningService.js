@@ -7,7 +7,10 @@ const codexRunner = require('./codexRunnerService');
 const active = new Map();
 
 function planningArgs({ cwd, outputFile, model, reasoningEffort }) {
-  const args = ['--search', 'exec', '--cd', cwd, '--sandbox', 'read-only', '--ask-for-approval', 'never', '--skip-git-repo-check', '--json', '--output-last-message', outputFile];
+  // Approval policy is a top-level Codex option, so it must precede the `exec`
+  // subcommand. Passing it after `exec` makes newer Codex CLIs reject the
+  // planning invocation before the architecture pass can start.
+  const args = ['--search', '--ask-for-approval', 'never', 'exec', '--cd', cwd, '--sandbox', 'read-only', '--skip-git-repo-check', '--json', '--output-last-message', outputFile];
   if (model) args.push('--model', model);
   if (['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) args.push('-c', `model_reasoning_effort=${reasoningEffort}`);
   args.push('-');
