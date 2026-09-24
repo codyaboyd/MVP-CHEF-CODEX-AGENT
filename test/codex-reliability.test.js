@@ -14,6 +14,17 @@ function records() {
   return { runId: Number(run.lastInsertRowid), runStepId: Number(step.lastInsertRowid) };
 }
 
+test('Codex NDJSON captures a session ID and resume args continue that session', () => {
+  const aggregator = runner.createNdjsonAggregator();
+  aggregator.push(`${JSON.stringify({ type: 'thread.started', thread_id: 'thread-abc' })}\n`);
+  aggregator.push(`${JSON.stringify({ type: 'turn.completed', usage: {} })}\n`);
+  aggregator.finish();
+
+  assert.equal(aggregator.result().progress.sessionId, 'thread-abc');
+  const args = runner.buildCodexArgs('continue', [], 'test-model', 'high', '/tmp/project', 'thread-abc');
+  assert.deepEqual(args.slice(-3), ['resume', 'thread-abc', '-']);
+});
+
 test('large NDJSON output is aggregated incrementally and memory/database tails are bounded', async () => {
   const ids = records();
   const old = { ...process.env };

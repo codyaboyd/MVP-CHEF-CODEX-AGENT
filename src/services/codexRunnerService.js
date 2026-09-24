@@ -53,13 +53,14 @@ function parseQuotaRemaining(output = '') {
 }
 
 function createNdjsonAggregator({ invalidEvidenceBytes = 32 * 1024, errorEvidenceBytes = 64 * 1024 } = {}) {
-  const state = { incomplete: '', validEventCount: 0, invalidLines: [], completedItems: 0, turnCompleted: false, usage: null, errorEvidence: '' };
+  const state = { incomplete: '', validEventCount: 0, invalidLines: [], completedItems: 0, turnCompleted: false, usage: null, sessionId: null, errorEvidence: '' };
   function processLine(line) {
     if (!line.trim()) return;
     try {
       const event = JSON.parse(line);
       if (!event || typeof event !== 'object') return;
       state.validEventCount += 1;
+      if (event.type === 'thread.started') state.sessionId = event.thread_id || event.session_id || state.sessionId;
       if (event.type === 'item.completed') state.completedItems += 1;
       if (event.type === 'turn.completed') {
         state.turnCompleted = true;
@@ -92,7 +93,7 @@ function createNdjsonAggregator({ invalidEvidenceBytes = 32 * 1024, errorEvidenc
         validEventCount: state.validEventCount,
         invalidLines: [...state.invalidLines],
         errorEvidence: state.errorEvidence,
-        progress: { completedItems: state.completedItems, turnCompleted: state.turnCompleted, usage: state.usage }
+        progress: { completedItems: state.completedItems, turnCompleted: state.turnCompleted, usage: state.usage, sessionId: state.sessionId }
       };
     }
   };
@@ -186,7 +187,7 @@ function validateRepoPath(repoPath) {
   if (!path.isAbsolute(repoPath) || !fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) throw new Error('A valid project folder path is required.');
   return resolved;
 }
-function buildCodexArgs(prompt, extraArgs = [], model = '', reasoningEffort = '', repoPath) {
+function buildCodexArgs(prompt, extraArgs = [], model = '', reasoningEffort = '', repoPath, sessionId = '') {
   if (extraArgs.length) return extraArgs;
   // `--search` is a top-level Codex option, so it must precede the `exec`
   // subcommand. Putting it after `exec` makes supported Codex CLI versions
@@ -195,7 +196,13 @@ function buildCodexArgs(prompt, extraArgs = [], model = '', reasoningEffort = ''
   const args = ['--search', 'exec', '--cd', repoPath, '--sandbox', DEFAULT_SANDBOX_MODE, '--json', '-c', 'sandbox_workspace_write.network_access=true', '--skip-git-repo-check'];
   if (typeof model === 'string' && model.trim()) args.push('--model', model.trim());
   if (['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) args.push('-c', `model_reasoning_effort=${reasoningEffort}`);
+  if (typeof sessionId === 'string' && sessionId.trim()) args.push('resume', sessionId.trim());
   args.push('-'); return args;
+}
+
+function saveCodexSessionId(runId, sessionId) {
+  if (!runId || !sessionId) return;
+  db.prepare('UPDATE runs SET codex_session_id = ?, updated_at = ? WHERE id = ?').run(sessionId, nowSql(), runId);
 }
 
 function terminateProcessTree(child, signal) {
@@ -313,14 +320,14 @@ function quotaEvidence(result) {
 }
 
 async function executeStep(options) {
-  const { runId, runStepId, repoPath, prompt, codexCommand = DEFAULT_CODEX_COMMAND, codexArgs = [], codexModel = '', codexReasoningEffort = '', retries = 0, retryDelay = DEFAULT_RETRY_DELAY_MS } = options;
+  const { runId, runStepId, repoPath, prompt, codexCommand = DEFAULT_CODEX_COMMAND, codexArgs = [], codexModel = '', codexReasoningEffort = '', codexSessionId = '', continueSession = false, retries = 0, retryDelay = DEFAULT_RETRY_DELAY_MS } = options;
   const safeRepoPath = validateRepoPath(repoPath);
   if (!runStepId) throw new Error('runStepId is required.');
   if (typeof prompt !== 'string' || !prompt.trim()) throw new Error('Prompt text is required.');
   const redactor = createRedactor(repoPath);
   const settings = reliabilitySettings(options);
   const maxAttempts = Math.max(1, Number.parseInt(retries, 10) + 1);
-  const args = buildCodexArgs(prompt, codexArgs, codexModel, codexReasoningEffort, safeRepoPath);
+  let activeSessionId = codexSessionId;
   const delayBetweenAttemptsMs = retryDelayMs(retryDelay);
   updateRunStatus(runId, 'running', { started_at: nowSql() });
   updateRunStep(runStepId, { status: 'running', started_at: nowSql(), completed_at: null, error_message: null });
@@ -328,8 +335,13 @@ async function executeStep(options) {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       appendBoundedRunStepLog(runStepId, 'stdout', redactor(`\n[CodexRunner] Attempt ${attempt} of ${maxAttempts}.\n`), settings.stepLogMaxBytes);
       try {
+        const args = buildCodexArgs(prompt, codexArgs, codexModel, codexReasoningEffort, safeRepoPath, activeSessionId);
         const result = await spawnCodex({ command: codexCommand, args, repoPath: safeRepoPath, prompt, runId, runStepId, attempt, redactor, settings });
         const structuredOutput = result.structuredOutput;
+        if (continueSession && structuredOutput.progress.sessionId) {
+          activeSessionId = structuredOutput.progress.sessionId;
+          saveCodexSessionId(runId, activeSessionId);
+        }
         if (detectQuotaLimit(quotaEvidence(result))) { const error = new Error('Codex quota or rate limit detected.'); error.code = 'QUOTA_LIMIT_DETECTED'; error.result = result; throw error; }
         const requiresCompletedTurn = codexArgs.length === 0 && path.basename(codexCommand) === 'codex';
         if (result.code === 0 && (!requiresCompletedTurn || structuredOutput.progress.turnCompleted)) {
@@ -375,4 +387,4 @@ function shutdown() {
   }
 }
 
-module.exports = { byteTail, cancel, collectSecretValues, createNdjsonAggregator, createRedactor, detectQuotaLimit, parseQuotaRemaining, parseCodexJsonOutput, readProcessTreeRssBytes, reliabilitySettings, retryDelayMs, terminateProcessTree, validateRepoPath, executeStep, spawnCodex, shutdown, _activeProcesses: activeProcesses, TRUNCATION_MARKER };
+module.exports = { buildCodexArgs, byteTail, cancel, collectSecretValues, createNdjsonAggregator, createRedactor, detectQuotaLimit, parseQuotaRemaining, parseCodexJsonOutput, readProcessTreeRssBytes, reliabilitySettings, retryDelayMs, terminateProcessTree, validateRepoPath, executeStep, spawnCodex, shutdown, _activeProcesses: activeProcesses, TRUNCATION_MARKER };

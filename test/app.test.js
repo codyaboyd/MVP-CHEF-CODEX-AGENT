@@ -1187,6 +1187,21 @@ test('settings persist the max Codex reasoning level', async () => {
   settingsService.updateSettings({ codexReasoningEffort: 'medium' });
 });
 
+test('settings expose and persist same-session prompt continuation', async () => {
+  const settingsService = require('../src/services/appSettingsService');
+  const response = await request(app)
+    .post('/settings')
+    .type('form')
+    .send({ codexContinueSession: 'true' });
+
+  assert.equal(response.status, 302);
+  assert.equal(settingsService.getSetting('codexContinueSession').value, 'true');
+  const page = await request(app).get('/settings');
+  assert.match(page.text, /Continue Codex session/);
+  assert.match(page.text, /id="codexContinueSession" name="codexContinueSession"/);
+  settingsService.updateSettings({ codexContinueSession: 'false' });
+});
+
 test('settings offer the current GPT model line-up', async () => {
   const response = await request(app).get('/settings');
 

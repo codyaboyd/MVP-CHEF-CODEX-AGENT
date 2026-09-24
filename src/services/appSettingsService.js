@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   codexModel: '',
   codexReasoningEffort: 'medium',
   codexSandboxMode: 'workspace-write',
+  codexContinueSession: 'false',
   defaultBranch: 'main',
   maxParallelRuns: '1',
   compactUiMode: 'false',

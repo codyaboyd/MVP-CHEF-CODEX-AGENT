@@ -444,6 +444,7 @@ function updateSettings(req, res) {
       ? req.body.codexReasoningEffort
       : 'medium',
     codexSandboxMode: ['workspace-write', 'read-only', 'danger-full-access'].includes(req.body.codexSandboxMode) ? req.body.codexSandboxMode : 'workspace-write',
+    codexContinueSession: req.body.codexContinueSession === 'true' ? 'true' : 'false',
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
     autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
     maxParallelRuns: req.body.maxParallelRuns || '1',
