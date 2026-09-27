@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const dotenv = require('dotenv');
 const db = require('../db');
 
@@ -207,9 +207,12 @@ function saveCodexSessionId(runId, sessionId) {
 
 function terminateProcessTree(child, signal) {
   if (!child?.pid) return;
-  try { if (process.platform !== 'win32') process.kill(-child.pid, signal); else child.kill(signal); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+  try {
+    if (process.platform !== 'win32') process.kill(-child.pid, signal);
+    else spawnSync('taskkill.exe', ['/pid', String(child.pid), '/t', ...(signal === 'SIGKILL' ? ['/f'] : [])], { windowsHide: true, stdio: 'ignore' });
+  } catch (error) { if (error.code !== 'ESRCH') throw error; }
 }
-function groupAlive(pid) { try { process.kill(-pid, 0); return true; } catch (error) { if (error.code === 'ESRCH') return false; return true; } }
+function groupAlive(pid) { try { process.kill(process.platform === 'win32' ? pid : -pid, 0); return true; } catch (error) { if (error.code === 'ESRCH') return false; return true; } }
 function readProcessTreeRssBytes(rootPid) {
   if (process.platform !== 'linux' || !rootPid) return null;
   let entries;
@@ -258,7 +261,7 @@ function spawnCodex({ command, args, repoPath, prompt, runId, runStepId, attempt
     const requestTermination = () => {
       terminateProcessTree(child, 'SIGTERM');
       if (!killTimer && settings.killGraceMs >= 0) {
-        killTimer = setTimeout(() => { if (groupAlive(child.pid)) terminateProcessTree(child, 'SIGKILL'); }, settings.killGraceMs);
+        killTimer = setTimeout(() => { if (process.platform === 'win32' || groupAlive(child.pid)) terminateProcessTree(child, 'SIGKILL'); }, settings.killGraceMs);
         killTimer.unref();
       }
     };

@@ -55,7 +55,7 @@
             <div class="col-md-6">
               <label class="form-label fw-bold" for="codexConfigDir">Codex config directory</label>
               <div class="input-group">
-                <input class="form-control" id="codexConfigDir" name="codexConfigDir" value="<%= valueFor('codexConfigDir', '') %>" placeholder="/home/app/.codex">
+                <input class="form-control" id="codexConfigDir" name="codexConfigDir" value="<%= valueFor('codexConfigDir', '') %>" placeholder="~/.codex or C:\Users\you\.codex">
                 <button class="btn btn-outline-secondary" type="button" data-codex-scan="config">Scan</button>
               </div>
               <div class="form-text">Optional <code>CODEX_HOME</code> location. Scan checks the service user, workspace, environment, and user home directories.</div>

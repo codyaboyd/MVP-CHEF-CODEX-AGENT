@@ -356,6 +356,22 @@ exit 1
   }
 });
 
+test('SetupValidationService includes platform-specific Codex command locations', () => {
+  const setupValidationService = require('../src/services/setupValidationService');
+  const windows = setupValidationService.codexCommandCandidates('win32', {
+    APPDATA: 'C:\\Users\\chef\\AppData\\Roaming',
+    LOCALAPPDATA: 'C:\\Users\\chef\\AppData\\Local'
+  });
+  const mac = setupValidationService.codexCommandCandidates('darwin', {});
+  const linux = setupValidationService.codexCommandCandidates('linux', {});
+
+  assert.ok(windows.some((candidate) => candidate.endsWith(path.join('npm', 'codex.cmd'))));
+  assert.ok(windows.some((candidate) => candidate.endsWith(path.join('codex', 'codex.exe'))));
+  assert.ok(mac.includes('/opt/homebrew/bin/codex'));
+  assert.ok(linux.includes('/snap/bin/codex'));
+  assert.ok(!mac.includes('/snap/bin/codex'));
+});
+
 test('ProjectService detects package manager and command defaults from project files', () => {
   const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'detect-node-commands-'));
   try {
