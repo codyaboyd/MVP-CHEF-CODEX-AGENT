@@ -6,17 +6,36 @@ const appSettingsService = require('./appSettingsService');
 
 function runCommand(command, args = [], options = {}) {
   return new Promise((resolve) => {
-    execFile(command, args, { maxBuffer: 1024 * 1024, env: options.env || process.env }, (error, stdout, stderr) => {
+    let executable = command;
+    let commandArgs = args;
+    if (process.platform === 'win32' && /\.cmd$/i.test(command)) {
+      executable = process.env.ComSpec || 'cmd.exe';
+      const quote = (value) => `"${String(value).replace(/"/g, '""')}"`;
+      commandArgs = ['/d', '/s', '/c', [quote(command), ...args.map(quote)].join(' ')];
+    }
+    execFile(executable, commandArgs, { maxBuffer: 1024 * 1024, windowsHide: true, env: options.env || process.env }, (error, stdout, stderr) => {
       resolve({ ok: !error, error, stdout: stdout.trim(), stderr: stderr.trim() });
     });
   });
 }
 
 
-const CODEX_COMMAND_CANDIDATES = Object.freeze(['codex', '/snap/bin/codex', '/usr/local/bin/codex', '/usr/bin/codex']);
+function codexCommandCandidates(platform = process.platform, environment = process.env) {
+  const candidates = ['codex'];
+  if (platform === 'win32') {
+    const appData = environment.APPDATA;
+    const localAppData = environment.LOCALAPPDATA;
+    if (appData) candidates.push(path.join(appData, 'npm', 'codex.cmd'));
+    if (localAppData) candidates.push(path.join(localAppData, 'Programs', 'codex', 'codex.exe'));
+  } else {
+    candidates.push('/opt/homebrew/bin/codex', '/usr/local/bin/codex', '/usr/bin/codex');
+    if (platform === 'linux') candidates.push('/snap/bin/codex');
+  }
+  return [...new Set(candidates)];
+}
 
 async function findUsableCodexCommand(preferredCommand = 'codex') {
-  const candidates = [preferredCommand, ...CODEX_COMMAND_CANDIDATES].filter(Boolean);
+  const candidates = [preferredCommand, ...codexCommandCandidates()].filter(Boolean);
   const seen = new Set();
   for (const candidate of candidates) {
     if (seen.has(candidate)) continue;
@@ -86,7 +105,7 @@ async function validateCodexSetup(overrides = {}) {
     key: 'codex_cli_available',
     label: 'Codex CLI is available',
     ok: version.ok,
-    detail: version.ok ? `${version.stdout || version.stderr || `${resolvedCommand} responded`} (${resolvedCommand})` : (version.error?.code === 'ENOENT' ? `${command} was not found on PATH or common install locations such as /snap/bin/codex.` : version.stderr || version.error?.message || 'Codex command failed.')
+    detail: version.ok ? `${version.stdout || version.stderr || `${resolvedCommand} responded`} (${resolvedCommand})` : (version.error?.code === 'ENOENT' ? `${command} was not found on PATH or common install locations for ${process.platform}.` : version.stderr || version.error?.message || 'Codex command failed.')
   });
 
   const authEnvironment = { ...process.env };
@@ -107,4 +126,4 @@ async function validateSetup(overrides = {}) {
   return { ok: codex.ok, codex };
 }
 
-module.exports = { findCodexConfigDir, findUsableCodexCommand, validateCodexSetup, validateSetup };
+module.exports = { codexCommandCandidates, findCodexConfigDir, findUsableCodexCommand, validateCodexSetup, validateSetup };

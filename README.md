@@ -83,7 +83,7 @@ Install these before running the app locally:
 - **Node.js 20 or newer** and **npm**. The project uses the Node engine declared in `package.json` and installs dependencies with npm.
 - **Git** for cloning this repository and for optional local checkpoint/commit behavior inside target projects.
 - **Codex CLI** for real recipe runs. You can start the web app without it, but Codex-backed runs require an authenticated CLI.
-- **Linux** only if you want to use the included systemd deployment scripts. Local development also works anywhere Node.js and the native SQLite dependency can install.
+- **Linux, macOS, or Windows** for local use. The repository includes platform-specific setup helpers; Ubuntu also has optional systemd deployment scripts.
 
 ## Quick start: local development
 
@@ -137,23 +137,54 @@ cd MVP-CHEF-CODEX-AGENT
 
 If you already have a checkout, change into it instead.
 
-### 4. Create your environment file
+### 4. Run the platform setup (recommended)
+
+The setup helpers verify Node.js 20+, npm, and Git; create `.env`, `data`, and
+`backups` when needed; install the exact locked dependencies with `npm ci`; and
+report Codex CLI/authentication status. They do not store credentials.
+
+On macOS:
+
+```bash
+./scripts/setup-macos.sh
+```
+
+On Windows, open PowerShell (not Command Prompt):
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\setup-windows.ps1
+```
+
+On Ubuntu, use the local-development commands below, or use the systemd installer
+later in this guide for a persistent service.
+
+### 5. Create your environment file manually (if you skipped the helper)
 
 ```bash
 cp .env.example .env
 ```
 
+In PowerShell, use `Copy-Item .env.example .env` instead.
+
 The default file is enough for local development. Edit `.env` if you want to change the port, host, database location, app name, or browser roots.
 
-### 5. Install project dependencies
+### 6. Install project dependencies
 
-```bash
-npm install
+```text
+npm ci
 ```
 
 This installs Express, EJS, Bootstrap, SQLite support, the test tooling, and the development server dependency.
 
-### 6. Start the development server
+If native dependency installation fails, install the platform build tools and retry:
+
+- macOS: `xcode-select --install`
+- Windows: install **Visual Studio Build Tools** with the **Desktop development
+  with C++** workload, then reopen PowerShell
+- Ubuntu/Debian: `sudo apt-get install build-essential python3`
+
+### 7. Start the development server
 
 ```bash
 npm run dev
@@ -163,7 +194,7 @@ Open <http://localhost:3000>. The SQLite database is created automatically at `D
 
 Use `Ctrl+C` to stop the development server.
 
-### 7. Run the production-style server locally
+### 8. Run the production-style server locally
 
 For a production-style local run, use:
 
@@ -208,7 +239,7 @@ Copy `.env.example` to `.env`. Supported environment values are:
 | `HOST` | Listen address | `0.0.0.0` in the server when unset |
 | `DATABASE_PATH` | SQLite file | `./data/mvp-chef-codex.sqlite` |
 | `APP_NAME` | Display name used by the app/environment | `MVP Chef Codex` |
-| `PROJECT_BROWSER_ROOTS` | Optional colon-separated roots exposed by the server folder browser | unset |
+| `PROJECT_BROWSER_ROOTS` | Optional OS path-list-separated roots exposed by the folder browser (`:` on macOS/Linux, `;` on Windows) | unset |
 | `CODEX_RETRY_DELAY_MS` | Delay before retrying a failed Codex prompt step | `300000` (5 minutes) |
 | `CODEX_STDOUT_MEMORY_TAIL_BYTES` | Maximum stdout retained by one worker in Node memory | `262144` |
 | `CODEX_STDERR_MEMORY_TAIL_BYTES` | Maximum stderr retained by one worker in Node memory | `131072` |
@@ -230,7 +261,9 @@ flushes logs to SQLite in bounded batches. Once a display log reaches its config
 limit, its oldest content is replaced with an explicit truncation notice; run history
 and live output therefore remain useful without historical output growing forever.
 
-On Linux, a `/proc` watchdog totals RSS for Codex and its descendants (never the MVP
+On every supported platform, cancellation terminates the isolated Codex worker; on
+Windows the forced-cleanup phase uses `taskkill /T /F` so descendant processes do
+not remain behind. On Linux, a `/proc` watchdog additionally totals RSS for Codex and its descendants (never the MVP
 Chef Node process). A worker over the threshold is terminated as a group, first with
 `SIGTERM` and then `SIGKILL` after the configured grace period. The step reports the
 typed `CODEX_MEMORY_LIMIT` failure and normal retry policy starts a completely new
@@ -275,6 +308,21 @@ The Settings page can select:
 - Display preferences
 
 If you run MVP Chef Codex as a systemd service, run `codex login` for the service user or configure the Settings page with the correct command and auth details for that user.
+
+### Platform notes
+
+- **macOS:** Apple Silicon global commands commonly live in `/opt/homebrew/bin`.
+  MVP Chef checks that location as well as the normal `PATH`. If the app was opened
+  from a GUI-managed terminal with a different environment, enter the absolute
+  Codex path in Settings (`command -v codex` prints it).
+- **Windows:** use PowerShell and keep project paths absolute (for example,
+  `C:\Users\you\source\project`). MVP Chef checks the npm global command directory
+  under `%APPDATA%` in addition to `PATH`. If PowerShell cannot run scripts, the
+  process-scoped execution-policy command in Quick start changes only the current
+  PowerShell window. Windows cancellation escalates to the whole worker tree.
+- **All platforms:** authenticate Codex in the same user account that starts
+  `npm start`. Override the config directory in Settings when that account uses a
+  non-default `CODEX_HOME`.
 
 ## Recipe format
 
@@ -397,6 +445,13 @@ Browser -> Express routes/controllers -> services -> SQLite
 - **The app will not start:** run `npm install`, confirm Node.js is version 20 or newer, and check that `PORT` is not already in use.
 - **The database cannot be created:** confirm the directory in `DATABASE_PATH` exists or can be created by the app user.
 - **Codex is unavailable:** set the correct command path in Settings and run `codex login status` as the same user that runs MVP Chef Codex.
+- **`npm ci` cannot compile `better-sqlite3` or `node-pty`:** confirm Node.js 20+
+  and install the native build tools listed in Quick start. Prefer an active Node
+  LTS release for which the dependencies provide prebuilt binaries.
+- **Windows cannot find `codex`:** restart PowerShell after installing the CLI,
+  run `Get-Command codex`, and copy its `Source` into the Settings command field.
+- **A cancelled Windows run leaves a child process briefly visible:** wait for the
+  configured `CODEX_KILL_GRACE_MS`; MVP Chef then invokes `taskkill /T /F`.
 - **A run is locked:** open the active run and resume or cancel it; stale lock leases are cleaned automatically.
 - **A run pauses for quota:** wait for the displayed refill time, set a new time, or resume after capacity returns.
 - **A prompt is blocked:** safe mode rejects prompt-lint warnings. Rewrite destructive, vague, or secret-exposing instructions.
