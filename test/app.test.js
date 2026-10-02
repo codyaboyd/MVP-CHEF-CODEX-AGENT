@@ -891,6 +891,8 @@ test('run detail offers paginated agent activity and terminal modes with a curre
   assert.match(response.text, /Agent activity/);
   assert.match(response.text, /data-output-mode="terminal"/);
   assert.match(response.text, /data-pagination="visual"/);
+  assert.match(response.text, /data-activity-filter/);
+  assert.match(response.text, /Filter activity by type/);
   assert.match(response.text, /Working on now/);
   assert.match(response.text, /item_id: change-7/);
 
@@ -1208,6 +1210,7 @@ test('settings offer the current GPT model line-up', async () => {
   assert.equal(response.status, 200);
   assert.match(response.text, /list="codexModelOptions"/);
   [
+    ['gpt-sol-6.1', 'GPT-Sol-6.1'],
     ['gpt-6-astra', 'GPT-6-Astra'],
     ['gpt-6-sol', 'GPT-6-Sol'],
     ['gpt-6-luna', 'GPT-6-Luna'],

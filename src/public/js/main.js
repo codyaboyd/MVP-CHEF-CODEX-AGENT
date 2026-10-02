@@ -208,10 +208,33 @@ function activityFromOutput(output = '') {
   });
 }
 
+function cachedActivityFromOutput(root, output = '') {
+  const text = String(output);
+  const previous = root._activityParseCache;
+  if (previous?.output === text) return previous.entries;
+
+  let completeEntries = [];
+  let unparsed = text;
+  if (previous && text.startsWith(previous.output)) {
+    completeEntries = previous.completeEntries;
+    unparsed = `${previous.tail}${text.slice(previous.output.length)}`;
+  }
+  const endsWithNewline = /\r?\n$/.test(unparsed);
+  const parts = unparsed.split(/\r?\n/);
+  const tail = endsWithNewline ? '' : parts.pop() || '';
+  const newlyComplete = activityFromOutput(parts.join('\n'));
+  completeEntries = completeEntries.concat(newlyComplete);
+  const entries = tail.trim() ? completeEntries.concat(activityFromOutput(tail)) : completeEntries;
+  root._activityParseCache = { output: text, completeEntries, tail, entries };
+  return entries;
+}
+
 function renderActivity(root, output) {
   const activity = root.querySelector('[data-agent-activity]');
   if (!activity) return;
-  const entries = activityFromOutput(output);
+  const allEntries = cachedActivityFromOutput(root, output);
+  const filter = root.querySelector('[data-activity-filter]')?.value || 'all';
+  const entries = filter === 'all' ? allEntries : allEntries.filter((entry) => entry.kind === filter);
   paginateRunOutput(root, 'visual', entries, (pageEntries) => {
     activity.replaceChildren();
     (pageEntries.length ? pageEntries : [{ icon: '⏳', title: 'Waiting for agent activity', body: '', kind: 'update' }]).forEach((entry) => {
@@ -503,6 +526,8 @@ function renderRunSteps(root, snapshot) {
 }
 
 function updateRunDetail(root, snapshot) {
+  root._latestStdout = snapshot.stdout || '';
+  root._latestStderr = snapshot.stderr || '';
   setStatusBadge(root.querySelector('[data-run-status]'), snapshot.status);
   const currentStep = root.querySelector('[data-run-current-step]');
   if (currentStep) currentStep.textContent = snapshot.currentStep ? snapshot.currentStep.title : 'Complete';
@@ -538,24 +563,31 @@ function updateRunDetail(root, snapshot) {
     if (refill) refill.textContent = snapshot.quotaStatus.refillAt || 'Not set';
     if (retry) retry.textContent = snapshot.quotaStatus.retryCount || 0;
   }
+  const terminalVisible = !root.querySelector('[data-output-pane="terminal"]')?.hidden;
   const stdout = root.querySelector('[data-run-stdout]');
-  if (stdout) {
+  if (stdout && terminalVisible) {
     renderLogPage(root, 'stdout', snapshot.stdout, 'Waiting for Codex stream…');
     const terminal = root.querySelector('[data-run-terminal="stdout"]');
     if (terminal) terminal.scrollTop = terminal.scrollHeight;
   }
   const stderr = root.querySelector('[data-run-stderr]');
-  if (stderr) {
+  if (stderr && terminalVisible) {
     renderLogPage(root, 'stderr', snapshot.stderr, 'No stderr output.');
     const terminal = root.querySelector('[data-run-terminal="stderr"]');
     if (terminal) terminal.scrollTop = terminal.scrollHeight;
   }
-  renderActivity(root, snapshot.stdout);
+  if (!terminalVisible) renderActivity(root, snapshot.stdout);
   renderRunSteps(root, snapshot);
   updateRunControls(root, snapshot);
 }
 
 document.querySelectorAll('[data-run-detail]').forEach((root) => {
+  const activityFilter = root.querySelector('[data-activity-filter]');
+  if (activityFilter) activityFilter.addEventListener('change', () => {
+    root._runPages ||= {};
+    root._runPages.visual = { page: 0, followLatest: true };
+    renderActivity(root, root._latestStdout || '');
+  });
   root.querySelectorAll('[data-output-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       const mode = button.dataset.outputMode;
@@ -567,12 +599,19 @@ document.querySelectorAll('[data-run-detail]').forEach((root) => {
         candidate.setAttribute('aria-pressed', String(active));
       });
       root.querySelectorAll('[data-output-pane]').forEach((pane) => { pane.hidden = pane.dataset.outputPane !== mode; });
+      if (mode === 'visual') renderActivity(root, root._latestStdout || '');
+      if (mode === 'terminal') {
+        renderLogPage(root, 'stdout', root._latestStdout || '', 'Waiting for Codex stream…');
+        renderLogPage(root, 'stderr', root._latestStderr || '', 'No stderr output.');
+      }
     });
   });
   const initialStdout = root.querySelector('[data-run-stdout]')?.textContent || '';
+  root._latestStdout = initialStdout;
+  root._latestStderr = root.querySelector('[data-run-stderr]')?.textContent || '';
   renderActivity(root, initialStdout);
   renderLogPage(root, 'stdout', initialStdout, 'Waiting for Codex stream…');
-  renderLogPage(root, 'stderr', root.querySelector('[data-run-stderr]')?.textContent || '', 'No stderr output.');
+  renderLogPage(root, 'stderr', root._latestStderr, 'No stderr output.');
   if (!window.EventSource) return;
   const runId = root.getAttribute('data-run-id');
   const connection = root.querySelector('[data-run-connection]');
@@ -583,7 +622,15 @@ document.querySelectorAll('[data-run-detail]').forEach((root) => {
   });
   source.addEventListener('run-update', (event) => {
     if (connection) connection.textContent = 'Live';
-    updateRunDetail(root, JSON.parse(event.data));
+    root._pendingRunSnapshot = JSON.parse(event.data);
+    if (root._runRenderScheduled) return;
+    root._runRenderScheduled = true;
+    window.requestAnimationFrame(() => {
+      root._runRenderScheduled = false;
+      const snapshot = root._pendingRunSnapshot;
+      root._pendingRunSnapshot = null;
+      updateRunDetail(root, snapshot);
+    });
   });
   source.onerror = () => {
     if (connection) connection.textContent = 'Reconnecting';
