@@ -158,6 +158,17 @@
         <button class="btn btn-outline-light" type="button" data-output-mode="terminal" aria-pressed="false">⌨ Terminal</button>
       </div>
       <div data-output-pane="visual">
+        <div class="activity-filter">
+          <label class="fw-bold" for="agentActivityFilter">Filter activity by type</label>
+          <select class="form-select form-select-sm" id="agentActivityFilter" data-activity-filter>
+            <option value="all">All activity</option>
+            <option value="message">Agent messages</option>
+            <option value="command">Commands</option>
+            <option value="file">File changes</option>
+            <option value="error">Errors</option>
+            <option value="update">Other updates</option>
+          </select>
+        </div>
         <div class="agent-activity" data-agent-activity aria-live="polite"></div>
         <nav class="log-pagination" data-pagination="visual" aria-label="Agent activity pages"></nav>
       </div>

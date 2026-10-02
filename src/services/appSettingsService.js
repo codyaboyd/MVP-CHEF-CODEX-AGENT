@@ -1,6 +1,7 @@
 const db = require('../db');
 
 const CODEX_MODEL_OPTIONS = Object.freeze([
+  { value: 'gpt-sol-6.1', label: 'GPT-Sol-6.1' },
   { value: 'gpt-6-astra', label: 'GPT-6-Astra' },
   { value: 'gpt-6-sol', label: 'GPT-6-Sol' },
   { value: 'gpt-6-luna', label: 'GPT-6-Luna' },
