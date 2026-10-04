@@ -189,7 +189,7 @@ function getProjects() {
   return db.prepare('SELECT id, name FROM projects ORDER BY name ASC').all();
 }
 
-function createRecipe({ title, phase, summary, ingredients = '', projectId = null, steps = [], instructions = '', rawTextBlocks = '', isSaved = true }) {
+function createRecipe({ title, phase, summary, ingredients = '', projectId = null, steps = [], instructions = '', rawTextBlocks = '', isSaved = true, codexModel = '' }) {
   const rawSteps = parseRawTextBlocks(rawTextBlocks).map((prompt, index) => ({ title: `Text block ${index + 1}`, prompt }));
   const normalizedSteps = normalizeSteps(rawSteps.length ? rawSteps : (steps.length ? steps : parseLines(instructions).map((prompt, index) => ({ title: `Step ${index + 1}`, prompt }))));
   const ingredientList = parseLines(ingredients);
@@ -197,9 +197,9 @@ function createRecipe({ title, phase, summary, ingredients = '', projectId = nul
 
   const create = db.transaction(() => {
     const result = db.prepare(`
-      INSERT INTO recipes (project_id, name, version, description, approval_mode, imported_json, exported_json, is_saved)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(normalizeProjectId(projectId), title, phase, summary, 'none', JSON.stringify(recipeJson, null, 2), JSON.stringify(recipeJson, null, 2), isSaved ? 1 : 0);
+      INSERT INTO recipes (project_id, name, version, description, approval_mode, imported_json, exported_json, is_saved, codex_model_override)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(normalizeProjectId(projectId), title, phase, summary, 'none', JSON.stringify(recipeJson, null, 2), JSON.stringify(recipeJson, null, 2), isSaved ? 1 : 0, String(codexModel || '').trim());
 
     saveSteps(result.lastInsertRowid, normalizedSteps);
     return result.lastInsertRowid;

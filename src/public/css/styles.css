@@ -38,6 +38,9 @@ body {
 .prompt-remove { background: none; border: 0; color: #8b827c; font-size: 1.35rem; line-height: 1; }
 .composer-actions { align-items: center; display: flex; justify-content: space-between; padding: 1rem .2rem 0; }
 .composer-actions .btn-link { color: #625a54; font-size: .9rem; text-decoration: none; }
+.quick-run-controls { align-items: center; display: flex; gap: .65rem; }
+.quick-model-picker { align-items: center; color: #746b65; display: flex; font-size: .72rem; font-weight: 700; gap: .4rem; margin: 0; }
+.quick-model-picker .form-select { border-color: #ddd7d1; border-radius: 999px; color: #4f4742; max-width: 11rem; padding-left: .75rem; }
 .quick-notes { color: #847b74; display: flex; font-size: .8rem; gap: 1.5rem; justify-content: center; max-width: 52rem; padding: 1rem; }
 .recent-work { max-width: 52rem; }
 .recent-work h2 { font-size: 1.15rem; margin: 0; }
@@ -430,6 +433,9 @@ body::before {
   .folder-picker-row .btn,
   .composer-actions .btn,
   .run-actions.btn-group { width: 100%; }
+  .quick-run-controls { align-items: stretch; flex-direction: column; width: 100%; }
+  .quick-model-picker { justify-content: space-between; }
+  .quick-model-picker .form-select { max-width: none; width: min(72%, 16rem); }
   .prompt-composer { border-radius: 1.1rem; padding: .85rem; }
   .prompt-chain-item { grid-template-columns: 1.6rem minmax(0, 1fr); }
   .prompt-chain-item textarea { grid-column: 1 / -1; min-height: 7rem; }

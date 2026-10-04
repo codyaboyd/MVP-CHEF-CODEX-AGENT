@@ -19,6 +19,8 @@ test('home page renders the folder-first Codex prompt composer', async () => {
   assert.match(response.text, /JSON array/);
   assert.match(response.text, /Browse folders/);
   assert.match(response.text, /Type to search folders/);
+  assert.match(response.text, /id="quickRunModel" name="codexModel"/);
+  assert.match(response.text, /Model for this quick run/);
   assert.doesNotMatch(response.text, /webkitdirectory/);
 });
 
@@ -112,6 +114,33 @@ test('quick run accepts an ordinary folder and chains prompts in order', async (
     ORDER BY run_steps.step_order
   `).all(runId);
   assert.deepEqual(steps.map((step) => step.prompt), ['Inspect the folder.', 'Summarize what you found.']);
+});
+
+test('quick run stores its selected model as an override for the full prompt chain', async () => {
+  const response = await request(app)
+    .post('/run')
+    .type('form')
+    .send({ folderPath: process.cwd(), prompts: ['Inspect the folder.'], codexModel: 'gpt-5.6-sol' });
+
+  assert.equal(response.status, 302);
+  const runId = Number(response.headers.location.split('/').pop());
+  const recipe = db.prepare(`
+    SELECT recipes.codex_model_override
+    FROM runs
+    JOIN recipes ON recipes.id = runs.recipe_id
+    WHERE runs.id = ?
+  `).get(runId);
+  assert.equal(recipe.codex_model_override, 'gpt-5.6-sol');
+});
+
+test('quick run rejects a model that is not in the picker', async () => {
+  const response = await request(app)
+    .post('/run')
+    .type('form')
+    .send({ folderPath: process.cwd(), prompts: ['Inspect the folder.'], codexModel: 'unknown-model' });
+
+  assert.equal(response.status, 400);
+  assert.match(response.text, /Choose a model from the available quick run options/);
 });
 
 test('quick run accepts a JSON array of strings and chains prompts in order', async () => {
@@ -1246,7 +1275,8 @@ test('settings offer the current GPT model line-up', async () => {
   const response = await request(app).get('/settings');
 
   assert.equal(response.status, 200);
-  assert.match(response.text, /list="codexModelOptions"/);
+  assert.match(response.text, /<select class="form-select" id="codexModel" name="codexModel">/);
+  assert.doesNotMatch(response.text, /<datalist id="codexModelOptions">/);
   [
     ['gpt-sol-6.1', 'GPT-Sol-6.1'],
     ['gpt-6-astra', 'GPT-6-Astra'],
@@ -1256,7 +1286,7 @@ test('settings offer the current GPT model line-up', async () => {
     ['gpt-5.6-terra', 'GPT-5.6-Terra'],
     ['gpt-5.6-luna', 'GPT-5.6-Luna']
   ].forEach(([value, label]) => {
-    assert.ok(response.text.includes(`<option value="${value}">${label}</option>`));
+    assert.match(response.text, new RegExp(`<option value="${value}"(?: selected)?>${label}</option>`));
   });
 });
 

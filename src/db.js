@@ -295,6 +295,13 @@ function runMigrations(db) {
       sql: `
         ALTER TABLE runs ADD COLUMN codex_session_id TEXT;
       `
+    },
+    {
+      version: 14,
+      name: 'add_recipe_codex_model_override',
+      sql: `
+        ALTER TABLE recipes ADD COLUMN codex_model_override TEXT NOT NULL DEFAULT '';
+      `
     }
   ];
 

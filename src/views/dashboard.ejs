@@ -57,7 +57,18 @@
 
     <div class="composer-actions">
       <button class="btn btn-link" type="button" data-add-prompt>＋ Add another prompt</button>
-      <button class="btn btn-dark rounded-pill px-4" type="submit">Run with Codex <span aria-hidden="true">↑</span></button>
+      <div class="quick-run-controls">
+        <label class="quick-model-picker" for="quickRunModel">
+          <span>Model</span>
+          <select class="form-select form-select-sm" id="quickRunModel" name="codexModel" aria-label="Model for this quick run">
+            <option value=""<%= !composer.codexModel ? ' selected' : '' %>>Default<%= defaultCodexModel ? ` · ${defaultCodexModel}` : '' %></option>
+            <% codexModelOptions.forEach((model) => { %>
+              <option value="<%= model.value %>"<%= composer.codexModel === model.value ? ' selected' : '' %>><%= model.label %></option>
+            <% }) %>
+          </select>
+        </label>
+        <button class="btn btn-dark rounded-pill px-4" type="submit">Run with Codex <span aria-hidden="true">↑</span></button>
+      </div>
     </div>
   </form>
 
