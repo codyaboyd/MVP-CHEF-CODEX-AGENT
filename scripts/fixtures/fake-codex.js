@@ -13,9 +13,6 @@ if (mode === 'retry') {
     process.exit(17);
   }
   process.stdout.write(`${JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } })}\n`);
-} else if (mode === 'memory') {
-  const allocations = [];
-  setInterval(() => allocations.push(Buffer.alloc(4 * 1024 * 1024, 1)), 30);
 } else if (mode === 'descendant') {
   const descendant = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
   process.stdout.write(`${JSON.stringify({ type: 'descendant.started', pid: descendant.pid })}\n`);

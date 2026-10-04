@@ -246,8 +246,6 @@ Copy `.env.example` to `.env`. Supported environment values are:
 | `CODEX_STEP_LOG_MAX_BYTES` | Maximum UI-visible stdout and stderr SQLite value per step | `2097152` each |
 | `CODEX_LOG_FLUSH_BYTES` | Buffered log flush threshold | `65536` |
 | `CODEX_LOG_FLUSH_INTERVAL_MS` | Maximum time before buffered logs flush | `250` |
-| `CODEX_MAX_PROCESS_TREE_RSS_MB` | Linux Codex worker-tree RSS limit; `0` disables it | 50% of host RAM, clamped to 512–8192 MB |
-| `CODEX_MEMORY_POLL_INTERVAL_MS` | Linux `/proc` watchdog interval | `1000` |
 | `CODEX_KILL_GRACE_MS` | Grace between process-group `SIGTERM` and `SIGKILL` | `2000` |
 | `CODEX_MEMORY_TELEMETRY` | Log memory at worker launch/cleanup (`1` enables) | `0` |
 
@@ -263,18 +261,11 @@ and live output therefore remain useful without historical output growing foreve
 
 On every supported platform, cancellation terminates the isolated Codex worker; on
 Windows the forced-cleanup phase uses `taskkill /T /F` so descendant processes do
-not remain behind. On Linux, a `/proc` watchdog additionally totals RSS for Codex and its descendants (never the MVP
-Chef Node process). A worker over the threshold is terminated as a group, first with
-`SIGTERM` and then `SIGKILL` after the configured grace period. The step reports the
-typed `CODEX_MEMORY_LIMIT` failure and normal retry policy starts a completely new
-worker. Set `CODEX_MAX_PROCESS_TREE_RSS_MB` to an appropriate explicit limit for the
-host, or to `0` only when another worker-level memory controller provides protection.
-The default is deliberately capped even on very large machines.
+not remain behind. MVP Chef does not impose an RSS limit on Codex workers, so long
+running or memory-intensive Codex tasks are not terminated by the application.
 
 Enable `CODEX_MEMORY_TELEMETRY=1` to log Node RSS/heap/external memory and worker-tree
-RSS at launch and cleanup. Watchdog events are always logged. A watchdog termination
-means the expendable Codex/native worker grew beyond its boundary; inspect the bounded
-step stderr and retry with a fresh worker rather than increasing Node's heap.
+RSS at launch and cleanup.
 
 Run the fake-worker regression soak without Codex credentials or API usage:
 

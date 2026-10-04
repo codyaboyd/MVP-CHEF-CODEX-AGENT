@@ -30,7 +30,7 @@ test('large NDJSON output is aggregated incrementally and memory/database tails 
   const old = { ...process.env };
   process.env.FAKE_CODEX_MODE = 'stream'; process.env.FAKE_CODEX_EVENTS = '12000';
   try {
-    const result = await runner.executeStep({ ...ids, repoPath: os.tmpdir(), prompt: 'stream', codexCommand: process.execPath, codexArgs: [fakeCodex], stdoutTailBytes: 32 * 1024, stderrTailBytes: 4096, stepLogMaxBytes: 48 * 1024, logFlushBytes: 4096, logFlushIntervalMs: 20, maxProcessTreeRssMb: 0 });
+    const result = await runner.executeStep({ ...ids, repoPath: os.tmpdir(), prompt: 'stream', codexCommand: process.execPath, codexArgs: [fakeCodex], stdoutTailBytes: 32 * 1024, stderrTailBytes: 4096, stepLogMaxBytes: 48 * 1024, logFlushBytes: 4096, logFlushIntervalMs: 20 });
     assert.equal(result.structuredOutput.progress.completedItems, 12000);
     assert.equal(result.structuredOutput.progress.turnCompleted, true);
     assert.deepEqual(result.structuredOutput.progress.usage, { input_tokens: 12000, output_tokens: 24000 });
@@ -42,20 +42,10 @@ test('large NDJSON output is aggregated incrementally and memory/database tails 
   } finally { Object.keys(process.env).forEach((key) => { if (!(key in old)) delete process.env[key]; }); Object.assign(process.env, old); db.prepare('DELETE FROM runs WHERE id=?').run(ids.runId); }
 });
 
-test('Linux watchdog kills a growing isolated worker and clears bookkeeping', { skip: process.platform !== 'linux' }, async () => {
-  const ids = records();
-  process.env.FAKE_CODEX_MODE = 'memory';
-  try {
-    await assert.rejects(runner.executeStep({ ...ids, repoPath: os.tmpdir(), prompt: 'grow', codexCommand: process.execPath, codexArgs: [fakeCodex], maxProcessTreeRssMb: 35, memoryPollIntervalMs: 25, killGraceMs: 25, retries: 0 }), (error) => error.code === 'CODEX_MEMORY_LIMIT');
-    assert.equal(runner._activeProcesses.size, 0);
-    assert.match(db.prepare('SELECT stderr_log FROM run_steps WHERE id=?').get(ids.runStepId).stderr_log, /CODEX_MEMORY_LIMIT/);
-  } finally { delete process.env.FAKE_CODEX_MODE; db.prepare('DELETE FROM runs WHERE id=?').run(ids.runId); }
-});
-
 test('cancellation terminates the worker process group including descendants', async () => {
   const ids = records();
   process.env.FAKE_CODEX_MODE = 'descendant';
-  const execution = runner.executeStep({ ...ids, repoPath: os.tmpdir(), prompt: 'wait', codexCommand: process.execPath, codexArgs: [fakeCodex], killGraceMs: 30, maxProcessTreeRssMb: 0 });
+  const execution = runner.executeStep({ ...ids, repoPath: os.tmpdir(), prompt: 'wait', codexCommand: process.execPath, codexArgs: [fakeCodex], killGraceMs: 30 });
   let log = '';
   for (let index = 0; index < 20 && !log.includes('descendant.started'); index += 1) {
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -80,7 +70,7 @@ test('retry starts a fresh worker after complete cleanup', async () => {
   const marker = path.join(os.tmpdir(), `mvp-chef-retry-${process.pid}-${Date.now()}`);
   process.env.FAKE_CODEX_MODE = 'retry'; process.env.FAKE_CODEX_MARKER = marker;
   try {
-    const result = await runner.executeStep({ ...ids, repoPath: os.tmpdir(), prompt: 'retry', codexCommand: process.execPath, codexArgs: [fakeCodex], retries: 1, retryDelay: 0, maxProcessTreeRssMb: 0 });
+    const result = await runner.executeStep({ ...ids, repoPath: os.tmpdir(), prompt: 'retry', codexCommand: process.execPath, codexArgs: [fakeCodex], retries: 1, retryDelay: 0 });
     assert.equal(result.attempt, 2);
     assert.equal(result.structuredOutput.progress.turnCompleted, true);
     assert.notEqual(Number(fs.readFileSync(marker, 'utf8')), result.workerPid);

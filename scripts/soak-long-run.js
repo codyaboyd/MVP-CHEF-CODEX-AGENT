@@ -20,7 +20,7 @@ function mb(bytes) { return Math.round(bytes / 1048576 * 10) / 10; }
   for (let number = 1; number <= total; number += 1) {
     const run = db.prepare('INSERT INTO runs(status) VALUES(\'pending\')').run();
     const step = db.prepare('INSERT INTO run_steps(run_id, step_order, status) VALUES(?, 1, \'pending\')').run(run.lastInsertRowid);
-    await runner.executeStep({ runId: Number(run.lastInsertRowid), runStepId: Number(step.lastInsertRowid), repoPath: work, prompt: 'soak', codexCommand: process.execPath, codexArgs: [fake], stdoutTailBytes: 16 * 1024, stderrTailBytes: 4096, stepLogMaxBytes: 32 * 1024, logFlushBytes: 8192, maxProcessTreeRssMb: 0 });
+    await runner.executeStep({ runId: Number(run.lastInsertRowid), runStepId: Number(step.lastInsertRowid), repoPath: work, prompt: 'soak', codexCommand: process.execPath, codexArgs: [fake], stdoutTailBytes: 16 * 1024, stderrTailBytes: 4096, stepLogMaxBytes: 32 * 1024, logFlushBytes: 8192 });
     const memory = process.memoryUsage(); samples.push(memory.rss);
     if (number % 10 === 0 || number === total) console.log(`step=${number} rssMB=${mb(memory.rss)} heapUsedMB=${mb(memory.heapUsed)} elapsedSec=${Math.round((Date.now() - started) / 1000)} dbMB=${mb(fs.statSync(process.env.DATABASE_PATH).size)}`);
   }
