@@ -1,5 +1,4 @@
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 const dotenv = require('dotenv');
@@ -21,16 +20,12 @@ function integerSetting(name, fallback, minimum = 1) {
 }
 
 function reliabilitySettings(overrides = {}) {
-  const totalMb = os.totalmem() / 1024 / 1024;
-  const derivedMb = Math.max(512, Math.min(8192, Math.floor(totalMb * 0.5)));
   return {
     stdoutTailBytes: overrides.stdoutTailBytes ?? integerSetting('CODEX_STDOUT_MEMORY_TAIL_BYTES', 256 * 1024),
     stderrTailBytes: overrides.stderrTailBytes ?? integerSetting('CODEX_STDERR_MEMORY_TAIL_BYTES', 128 * 1024),
     stepLogMaxBytes: overrides.stepLogMaxBytes ?? integerSetting('CODEX_STEP_LOG_MAX_BYTES', 2 * 1024 * 1024),
     logFlushBytes: overrides.logFlushBytes ?? integerSetting('CODEX_LOG_FLUSH_BYTES', 64 * 1024),
     logFlushIntervalMs: overrides.logFlushIntervalMs ?? integerSetting('CODEX_LOG_FLUSH_INTERVAL_MS', 250),
-    maxProcessTreeRssMb: overrides.maxProcessTreeRssMb ?? integerSetting('CODEX_MAX_PROCESS_TREE_RSS_MB', derivedMb, 0),
-    memoryPollIntervalMs: overrides.memoryPollIntervalMs ?? integerSetting('CODEX_MEMORY_POLL_INTERVAL_MS', 1000),
     killGraceMs: overrides.killGraceMs ?? integerSetting('CODEX_KILL_GRACE_MS', 2000, 0),
     telemetry: overrides.telemetry ?? process.env.CODEX_MEMORY_TELEMETRY === '1'
   };
@@ -238,7 +233,7 @@ function readProcessTreeRssBytes(rootPid) {
   return [...descendants].reduce((sum, pid) => sum + (processes.get(pid)?.rss || 0), 0);
 }
 function telemetry(label, context, workerRssBytes = null) {
-  if (!context.settings.telemetry && label !== 'watchdog') return;
+  if (!context.settings.telemetry) return;
   const memory = process.memoryUsage();
   console.log('[CodexRunner:memory]', JSON.stringify({ label, runId: context.runId, stepId: context.runStepId, attempt: context.attempt, workerPid: context.child?.pid || null, workerTreeRssMb: workerRssBytes == null ? null : Math.round(workerRssBytes / 1048576), nodeRssMb: Math.round(memory.rss / 1048576), heapUsedMb: Math.round(memory.heapUsed / 1048576), heapTotalMb: Math.round(memory.heapTotal / 1048576), externalMb: Math.round(memory.external / 1048576) }));
 }
@@ -250,8 +245,6 @@ function spawnCodex({ command, args, repoPath, prompt, runId, runStepId, attempt
     let stdoutTail = '';
     let stderrTail = '';
     let settled = false;
-    let memoryError = null;
-    let watchdog = null;
     let killTimer = null;
     const child = spawn(command, args, { cwd: repoPath, shell: false, detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'], env: process.env });
     const context = { child, runId, runStepId, attempt, settings };
@@ -266,7 +259,6 @@ function spawnCodex({ command, args, repoPath, prompt, runId, runStepId, attempt
       }
     };
     const cleanup = async (abnormal) => {
-      if (watchdog) clearInterval(watchdog);
       if (killTimer) clearTimeout(killTimer);
       if (abnormal || (child.pid && groupAlive(child.pid))) requestTermination();
       logWriter.close();
@@ -281,8 +273,7 @@ function spawnCodex({ command, args, repoPath, prompt, runId, runStepId, attempt
       await cleanup(Boolean(error || code !== 0 || signal));
       const structuredOutput = parser.result();
       const result = { code, signal, workerPid: child.pid, stdout: stdoutTail, stderr: stderrTail, structuredOutput };
-      if (memoryError) { memoryError.result = result; reject(memoryError); }
-      else if (error) reject(error);
+      if (error) reject(error);
       else resolve(result);
     };
     child.stdout.on('data', (chunk) => {
@@ -298,19 +289,6 @@ function spawnCodex({ command, args, repoPath, prompt, runId, runStepId, attempt
     });
     child.once('error', (error) => finish(error, null, null));
     child.once('close', (code, signal) => finish(null, code, signal));
-    if (process.platform === 'linux' && settings.maxProcessTreeRssMb > 0) {
-      watchdog = setInterval(() => {
-        const rss = readProcessTreeRssBytes(child.pid);
-        if (rss != null && rss > settings.maxProcessTreeRssMb * 1048576 && !memoryError) {
-          const nodeRss = process.memoryUsage().rss;
-          const diagnostic = `[CodexRunner] CODEX_MEMORY_LIMIT: Codex worker/process-tree RSS ${Math.round(rss / 1048576)} MB exceeded ${settings.maxProcessTreeRssMb} MB; MVP Chef Node RSS is ${Math.round(nodeRss / 1048576)} MB. Terminating isolated worker.\n`;
-          memoryError = new Error(diagnostic.trim()); memoryError.code = 'CODEX_MEMORY_LIMIT';
-          stderrTail = byteTail(stderrTail + diagnostic, settings.stderrTailBytes, TRUNCATION_MARKER);
-          logWriter.write('stderr', diagnostic); telemetry('watchdog', context, rss); requestTermination();
-        }
-      }, settings.memoryPollIntervalMs);
-      watchdog.unref();
-    }
     child.stdin.end(prompt);
   });
 }
@@ -366,7 +344,6 @@ async function executeStep(options) {
           else { updateRunStep(runStepId, { status: 'failed', completed_at: nowSql(), error_message: message }); updateRunStatus(runId, 'failed', { completed_at: nowSql(), error_message: message }); }
           throw error;
         }
-        if (error.code === 'CODEX_MEMORY_LIMIT') appendBoundedRunStepLog(runStepId, 'stdout', '[CodexRunner] Starting retry with a fresh isolated Codex worker after memory-limit cleanup.\n', settings.stepLogMaxBytes);
         appendBoundedRunStepLog(runStepId, 'stdout', `[CodexRunner] Waiting ${Math.round(delayBetweenAttemptsMs / 1000)} seconds before retrying the prompt.\n`, settings.stepLogMaxBytes);
         await wait(delayBetweenAttemptsMs);
       }
