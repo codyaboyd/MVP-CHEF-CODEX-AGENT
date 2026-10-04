@@ -120,6 +120,16 @@
         <summary><span>Prompt list</span><span class="prompt-list-count" data-prompt-count><%= (run.steps || []).length %> prompts</span></summary>
       <div class="timeline mt-3" data-run-steps>
         <% (run.steps || []).forEach((step) => { %><div class="timeline-item" data-step-id="<%= step.id || step.step_order %>"><span><%= step.step_order %></span><div><strong><%= step.recipe_step_title || step.title || 'Recipe step' %></strong> <span class="status-badge"><%= step.status %></span><p><%= step.prompt || step.status %></p>
+          <% if (step.status === 'pending') { %>
+            <details class="mt-2" data-prompt-editor>
+              <summary class="btn btn-sm btn-outline-primary">Modify prompt</summary>
+              <form method="post" action="/runs/<%= run.id %>/steps/<%= step.id %>/prompt" class="mt-2" data-prompt-edit-form>
+                <label class="form-label small fw-bold" for="prompt-<%= step.id %>">Prompt</label>
+                <textarea class="form-control form-control-sm" id="prompt-<%= step.id %>" name="prompt" rows="3" required><%= step.prompt || '' %></textarea>
+                <button class="btn btn-sm btn-primary mt-2" type="submit">Save prompt</button>
+              </form>
+            </details>
+          <% } %>
           <% if (['failed', 'paused', 'waiting_for_quota'].includes(step.status)) { %>
             <div class="failure-recovery-panel alert alert-danger mt-2">
               <strong>Failure recovery:</strong> <%= step.error_message || 'This step needs attention.' %>
@@ -141,6 +151,14 @@
         <% if (!run.steps || !run.steps.length) { %><div class="timeline-item"><span>1</span><div><strong>Preheat Codex</strong><p>This demo run is pending and ready for recipe steps.</p></div></div><% } %>
       </div>
       </details>
+    </div>
+
+    <div class="modal fade" id="promptTooLateModal" tabindex="-1" aria-labelledby="promptTooLateModalLabel" aria-hidden="true" data-prompt-too-late-modal>
+      <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-header"><h2 class="modal-title fs-5" id="promptTooLateModalLabel">Prompt can no longer be modified</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">It is too late to modify this prompt because it is already in progress or complete.</div>
+        <div class="modal-footer"><button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it</button></div>
+      </div></div>
     </div>
 
     <div class="paper-panel p-4" data-run-output>

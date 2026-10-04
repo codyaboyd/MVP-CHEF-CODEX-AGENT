@@ -511,6 +511,9 @@ function updateRunControls(root, snapshot) {
 function renderRunSteps(root, snapshot) {
   const list = root.querySelector('[data-run-steps]');
   if (!list) return;
+  const activeEditor = document.activeElement?.closest('[data-prompt-edit-form]');
+  const activeStepId = Number(activeEditor?.closest('[data-step-id]')?.dataset.stepId);
+  if (activeEditor && snapshot.steps.some((step) => step.id === activeStepId && step.status === 'pending')) return;
   const promptCount = root.querySelector('[data-prompt-count]');
   if (promptCount) promptCount.textContent = `${snapshot.steps.length} ${snapshot.steps.length === 1 ? 'prompt' : 'prompts'}`;
   list.innerHTML = snapshot.steps.map((step) => `
@@ -520,6 +523,15 @@ function renderRunSteps(root, snapshot) {
         <strong>${escapeHtml(step.title)}</strong> <span class="status-badge status-${step.status}" data-status="${step.status}">${step.status}</span>
         <p>${escapeHtml(step.prompt || '')}</p>
         <small>Retries: ${step.retryAttempts}/${step.maxRetries}</small>
+        ${step.status === 'pending' ? `
+          <details class="mt-2" data-prompt-editor>
+            <summary class="btn btn-sm btn-outline-primary">Modify prompt</summary>
+            <form method="post" action="/runs/${snapshot.id}/steps/${step.id}/prompt" class="mt-2" data-prompt-edit-form>
+              <label class="form-label small fw-bold" for="prompt-${step.id}">Prompt</label>
+              <textarea class="form-control form-control-sm" id="prompt-${step.id}" name="prompt" rows="3" required>${escapeHtml(step.prompt || '')}</textarea>
+              <button class="btn btn-sm btn-primary mt-2" type="submit">Save prompt</button>
+            </form>
+          </details>` : ''}
       </div>
     </div>
   `).join('') || '<div class="timeline-item"><span>1</span><div><strong>Preheat Codex</strong><p>No run steps have been recorded yet.</p></div></div>';
@@ -582,6 +594,32 @@ function updateRunDetail(root, snapshot) {
 }
 
 document.querySelectorAll('[data-run-detail]').forEach((root) => {
+  root.addEventListener('submit', async (event) => {
+    const form = event.target.closest('[data-prompt-edit-form]');
+    if (!form) return;
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(new FormData(form))
+      });
+      const result = await response.json();
+      if (response.status === 409 && result.error?.code === 'PROMPT_ALREADY_STARTED') {
+        const modalElement = root.querySelector('[data-prompt-too-late-modal]');
+        if (modalElement && window.bootstrap?.Modal) window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        return;
+      }
+      if (!response.ok) throw new Error(result.error?.message || 'Unable to modify prompt.');
+      form.closest('[data-prompt-editor]')?.removeAttribute('open');
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
   const activityFilter = root.querySelector('[data-activity-filter]');
   if (activityFilter) activityFilter.addEventListener('change', () => {
     root._runPages ||= {};

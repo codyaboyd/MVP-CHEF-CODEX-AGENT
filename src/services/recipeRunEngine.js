@@ -201,6 +201,30 @@ function addPromptToRun(runId, prompt) {
   return insert();
 }
 
+function updatePendingPrompt(runId, runStepId, prompt) {
+  const normalizedPrompt = String(prompt || '').trim();
+  if (!normalizedPrompt) throw new Error('Prompt is required.');
+
+  const update = db.transaction(() => {
+    const step = db.prepare('SELECT id, status FROM run_steps WHERE id = ? AND run_id = ?').get(runStepId, runId);
+    if (!step) throw new Error(`Prompt ${runStepId} was not found in run ${runId}.`);
+
+    const result = db.prepare(`
+      UPDATE run_steps
+      SET prompt_override = ?, updated_at = ?
+      WHERE id = ? AND run_id = ? AND status = ?
+    `).run(normalizedPrompt, nowSql(), runStepId, runId, STATUSES.PENDING);
+    if (!result.changes) {
+      const error = new Error('It is too late to modify this prompt because it is already in progress or complete.');
+      error.code = 'PROMPT_ALREADY_STARTED';
+      throw error;
+    }
+    return db.prepare('SELECT * FROM run_steps WHERE id = ?').get(runStepId);
+  });
+
+  return update();
+}
+
 async function executeRun(runId, options = {}) {
   const run = runStateManager.getRun(runId);
   if (!run) throw new Error(`Run ${runId} was not found.`);
@@ -360,12 +384,13 @@ async function resumeRun(runId, options = {}) {
 }
 
 module.exports = {
-  RecipeRunEngine: { addPromptToRun, editPromptAndRetry, executeRun, resumeRun, skipRunStep, startRunFromRecipe },
+  RecipeRunEngine: { addPromptToRun, editPromptAndRetry, executeRun, resumeRun, skipRunStep, startRunFromRecipe, updatePendingPrompt },
   clearQuotaResumeTimer,
   addPromptToRun,
   editPromptAndRetry,
   executeRun,
   resumeRun,
   skipRunStep,
-  startRunFromRecipe
+  startRunFromRecipe,
+  updatePendingPrompt
 };
