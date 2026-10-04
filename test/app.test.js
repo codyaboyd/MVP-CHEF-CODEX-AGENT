@@ -268,6 +268,35 @@ test('REST API reports job status and appends a prompt after the active chain', 
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
 
+test('a finished run accepts a follow-up prompt and keeps its Codex chat ID', async () => {
+  const recipeRunEngine = require('../src/services/recipeRunEngine');
+  const runStateManager = require('../src/services/runStateManager');
+  const project = db.prepare('INSERT INTO projects (name, repo_path) VALUES (?, ?)').run('Follow-up Project', process.cwd());
+  const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
+    .run(project.lastInsertRowid, 'Follow-up Recipe', '1.0.0', 'Exercises completed-run follow-ups.');
+  const run = db.prepare('INSERT INTO runs (project_id, recipe_id, status, codex_session_id, completed_at) VALUES (?, ?, ?, ?, ?)')
+    .run(project.lastInsertRowid, recipe.lastInsertRowid, 'succeeded', 'chat-that-must-survive', new Date().toISOString());
+
+  const finishedDetail = await request(app).get(`/runs/${run.lastInsertRowid}`);
+  assert.match(finishedDetail.text, /Ask a follow-up in this chat/);
+
+  const step = recipeRunEngine.addPromptToRun(run.lastInsertRowid, 'Now make one more improvement.');
+  const reopened = runStateManager.getRun(run.lastInsertRowid);
+
+  assert.equal(step.status, 'pending');
+  assert.equal(reopened.status, 'pending');
+  assert.equal(reopened.completed_at, null);
+  assert.equal(reopened.codex_session_id, 'chat-that-must-survive');
+  assert.equal(runStateManager.getProjectLock(project.lastInsertRowid).run_id, run.lastInsertRowid);
+
+  const detail = await request(app).get(`/runs/${run.lastInsertRowid}`);
+  assert.match(detail.text, /Add a prompt to this run/);
+
+  runStateManager.releaseProjectLock(project.lastInsertRowid, run.lastInsertRowid);
+  db.prepare('DELETE FROM recipes WHERE id = ?').run(recipe.lastInsertRowid);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
+});
+
 test('pending prompts can be modified, but in-progress and completed prompts cannot', async () => {
   const project = db.prepare('INSERT INTO projects (name, repo_path) VALUES (?, ?)')
     .run('Prompt Editing Project', process.cwd());
@@ -1256,19 +1285,12 @@ test('settings persist the max Codex reasoning level', async () => {
   settingsService.updateSettings({ codexReasoningEffort: 'medium' });
 });
 
-test('settings expose and persist same-session prompt continuation', async () => {
+test('settings do not expose the retired same-session continuation toggle', async () => {
   const settingsService = require('../src/services/appSettingsService');
-  const response = await request(app)
-    .post('/settings')
-    .type('form')
-    .send({ codexContinueSession: 'true' });
-
-  assert.equal(response.status, 302);
-  assert.equal(settingsService.getSetting('codexContinueSession').value, 'true');
+  settingsService.ensureDefaultSettings();
   const page = await request(app).get('/settings');
-  assert.match(page.text, /Continue Codex session/);
-  assert.match(page.text, /id="codexContinueSession" name="codexContinueSession"/);
-  settingsService.updateSettings({ codexContinueSession: 'false' });
+  assert.doesNotMatch(page.text, /Continue Codex session/);
+  assert.equal(settingsService.getSetting('codexContinueSession'), null);
 });
 
 test('settings offer the current GPT model line-up', async () => {

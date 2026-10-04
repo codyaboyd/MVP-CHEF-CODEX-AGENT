@@ -301,7 +301,7 @@ function quotaEvidence(result) {
 }
 
 async function executeStep(options) {
-  const { runId, runStepId, repoPath, prompt, codexCommand = DEFAULT_CODEX_COMMAND, codexArgs = [], codexModel = '', codexReasoningEffort = '', codexSessionId = '', continueSession = false, retries = 0, retryDelay = DEFAULT_RETRY_DELAY_MS } = options;
+  const { runId, runStepId, repoPath, prompt, codexCommand = DEFAULT_CODEX_COMMAND, codexArgs = [], codexModel = '', codexReasoningEffort = '', codexSessionId = '', retries = 0, retryDelay = DEFAULT_RETRY_DELAY_MS } = options;
   const safeRepoPath = validateRepoPath(repoPath);
   if (!runStepId) throw new Error('runStepId is required.');
   if (typeof prompt !== 'string' || !prompt.trim()) throw new Error('Prompt text is required.');
@@ -319,7 +319,7 @@ async function executeStep(options) {
         const args = buildCodexArgs(prompt, codexArgs, codexModel, codexReasoningEffort, safeRepoPath, activeSessionId);
         const result = await spawnCodex({ command: codexCommand, args, repoPath: safeRepoPath, prompt, runId, runStepId, attempt, redactor, settings });
         const structuredOutput = result.structuredOutput;
-        if (continueSession && structuredOutput.progress.sessionId) {
+        if (structuredOutput.progress.sessionId) {
           activeSessionId = structuredOutput.progress.sessionId;
           saveCodexSessionId(runId, activeSessionId);
         }
