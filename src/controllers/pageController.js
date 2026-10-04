@@ -12,12 +12,15 @@ const os = require('node:os');
 const path = require('node:path');
 
 function dashboard(req, res) {
+  const defaultModel = appSettingsService.getSetting('codexModel')?.value || '';
   const dashboardData = dashboardService.getDashboard();
   res.render('dashboard', {
     title: 'Dashboard',
     ...dashboardData,
-    composer: { folderPath: '', prompts: [''], promptInputMode: 'builder', promptJson: '' },
-    composerErrors: []
+    composer: { folderPath: '', prompts: [''], promptInputMode: 'builder', promptJson: '', codexModel: '' },
+    composerErrors: [],
+    codexModelOptions: appSettingsService.CODEX_MODEL_OPTIONS,
+    defaultCodexModel: defaultModel
   });
 }
 
@@ -33,7 +36,9 @@ function renderComposerError(res, composer, message, status = 400) {
     title: 'Dashboard',
     ...dashboardService.getDashboard(),
     composer,
-    composerErrors: [message]
+    composerErrors: [message],
+    codexModelOptions: appSettingsService.CODEX_MODEL_OPTIONS,
+    defaultCodexModel: appSettingsService.getSetting('codexModel')?.value || ''
   });
 }
 
@@ -74,17 +79,25 @@ async function quickRun(req, res, next) {
     folderPath: String(req.body.folderPath || '').trim(),
     prompts: prompts.length ? prompts : [''],
     promptInputMode: req.body.promptInputMode === 'json' ? 'json' : 'builder',
-    promptJson: String(req.body.promptJson || '')
+    promptJson: String(req.body.promptJson || ''),
+    codexModel: String(req.body.codexModel || '').trim()
   };
   const validation = projectService.validateProjectPath(composer.folderPath);
-  const errors = [!validation.ok ? validation.message : null, promptError || (!prompts.length ? 'Type at least one prompt.' : null)].filter(Boolean);
+  const availableModels = appSettingsService.CODEX_MODEL_OPTIONS.map((model) => model.value);
+  const errors = [
+    !validation.ok ? validation.message : null,
+    promptError || (!prompts.length ? 'Type at least one prompt.' : null),
+    composer.codexModel && !availableModels.includes(composer.codexModel) ? 'Choose a model from the available quick run options.' : null
+  ].filter(Boolean);
 
   if (errors.length) {
     res.status(400).render('dashboard', {
       title: 'Dashboard',
       ...dashboardService.getDashboard(),
       composer,
-      composerErrors: errors
+      composerErrors: errors,
+      codexModelOptions: appSettingsService.CODEX_MODEL_OPTIONS,
+      defaultCodexModel: appSettingsService.getSetting('codexModel')?.value || ''
     });
     return;
   }
@@ -101,7 +114,8 @@ async function quickRun(req, res, next) {
       projectId: project.id,
       approvalMode: 'none',
       steps: prompts.map((prompt, index) => ({ title: `Prompt ${index + 1}`, prompt })),
-      isSaved: false
+      isSaved: false,
+      codexModel: composer.codexModel
     });
     const run = await recipeRunEngine.startRunFromRecipe(recipe.id, { autoExecute: false });
     recipeRunEngine.resumeRun(run.id, { gitEnabled: false }).catch((error) => console.error(error));

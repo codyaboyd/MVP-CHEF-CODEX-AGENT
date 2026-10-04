@@ -295,7 +295,7 @@ async function executeRun(runId, options = {}) {
         retries: recipeStep.retryCount,
         codexCommand: options.codexCommand ?? appSettingsService.getSetting('codexCommandPath')?.value,
         codexArgs: options.codexArgs,
-        codexModel: options.codexModel ?? appSettingsService.getSetting('codexModel')?.value,
+        codexModel: options.codexModel ?? (recipe.codex_model_override || appSettingsService.getSetting('codexModel')?.value),
         codexReasoningEffort: options.codexReasoningEffort ?? appSettingsService.getSetting('codexReasoningEffort')?.value,
         codexSandboxMode: options.codexSandboxMode ?? appSettingsService.getSetting('codexSandboxMode')?.value,
         continueSession,
