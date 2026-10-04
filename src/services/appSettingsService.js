@@ -16,7 +16,6 @@ const DEFAULT_SETTINGS = Object.freeze({
   codexModel: '',
   codexReasoningEffort: 'medium',
   codexSandboxMode: 'workspace-write',
-  codexContinueSession: 'false',
   defaultBranch: 'main',
   maxParallelRuns: '1',
   compactUiMode: 'false',
@@ -49,6 +48,8 @@ function ensureDefaultSettings() {
   // These legacy settings stored credentials and selected API-key authentication.
   // Codex authentication is now owned entirely by the CLI.
   db.prepare('DELETE FROM app_settings WHERE key IN (?, ?)').run('codexApiKey', 'codexAuthMode');
+  // Session continuation is now an invariant of a run rather than a preference.
+  db.prepare('DELETE FROM app_settings WHERE key = ?').run('codexContinueSession');
 }
 
 function getSetting(key) {

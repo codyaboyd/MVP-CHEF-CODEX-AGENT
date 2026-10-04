@@ -176,7 +176,8 @@ function addPromptToRun(runId, prompt) {
   const insert = db.transaction(() => {
     const run = runStateManager.getRun(runId);
     if (!run) throw new Error(`Run ${runId} was not found.`);
-    if (![STATUSES.PENDING, STATUSES.RUNNING, STATUSES.PAUSED, STATUSES.WAITING_FOR_QUOTA].includes(run.status)) {
+    const appendableStatuses = [STATUSES.PENDING, STATUSES.RUNNING, STATUSES.PAUSED, STATUSES.WAITING_FOR_QUOTA, STATUSES.SUCCEEDED];
+    if (!appendableStatuses.includes(run.status)) {
       const error = new Error(`Prompts cannot be added to a ${run.status} run.`);
       error.code = 'RUN_NOT_ACTIVE';
       throw error;
@@ -195,6 +196,11 @@ function addPromptToRun(runId, prompt) {
       INSERT INTO run_steps (run_id, recipe_step_id, step_order, status, prompt_override, created_at, updated_at)
       VALUES (?, NULL, ?, ?, ?, ?, ?)
     `).run(runId, nextOrder, STATUSES.PENDING, normalizedPrompt, nowSql(), nowSql());
+    if (run.status === STATUSES.SUCCEEDED) {
+      runStateManager.assertProjectAvailable(run.project_id, runId);
+      runStateManager.acquireProjectLock(run.project_id, runId);
+      runStateManager.updateRun(runId, STATUSES.PENDING, { completed_at: null, error_message: null });
+    }
     return db.prepare('SELECT * FROM run_steps WHERE id = ?').get(result.lastInsertRowid);
   });
 
@@ -284,9 +290,6 @@ async function executeRun(runId, options = {}) {
         await gitManager.createBranchForStep({ runId, stepId: nextStep.id, stepTitle: recipeStep.title });
       }
 
-      const continueSession = appSettingsService.normalizeBoolean(
-        options.codexContinueSession ?? appSettingsService.getSetting('codexContinueSession')?.value
-      );
       await withProjectLockHeartbeat(run.project_id, runId, () => codexRunner.executeStep({
         runId,
         runStepId: nextStep.id,
@@ -298,8 +301,7 @@ async function executeRun(runId, options = {}) {
         codexModel: options.codexModel ?? (recipe.codex_model_override || appSettingsService.getSetting('codexModel')?.value),
         codexReasoningEffort: options.codexReasoningEffort ?? appSettingsService.getSetting('codexReasoningEffort')?.value,
         codexSandboxMode: options.codexSandboxMode ?? appSettingsService.getSetting('codexSandboxMode')?.value,
-        continueSession,
-        codexSessionId: continueSession ? latestRun.codex_session_id : ''
+        codexSessionId: latestRun.codex_session_id || ''
       }));
 
 

@@ -289,7 +289,10 @@ function pauseRun(req, res) {
 
 function addRunPrompt(req, res, next) {
   try {
-    recipeRunEngine.addPromptToRun(Number(req.params.id), req.body.prompt);
+    const runId = Number(req.params.id);
+    const wasFinished = runStateManager.getRun(runId)?.status === runStateManager.STATUSES.SUCCEEDED;
+    recipeRunEngine.addPromptToRun(runId, req.body.prompt);
+    if (wasFinished) recipeRunEngine.resumeRun(runId, {}).catch((error) => console.error(error));
     redirectToRun(req, res);
   } catch (error) {
     next(error);
@@ -474,7 +477,6 @@ function updateSettings(req, res) {
       ? req.body.codexReasoningEffort
       : 'medium',
     codexSandboxMode: ['workspace-write', 'read-only', 'danger-full-access'].includes(req.body.codexSandboxMode) ? req.body.codexSandboxMode : 'workspace-write',
-    codexContinueSession: req.body.codexContinueSession === 'true' ? 'true' : 'false',
     defaultCooldownMinutes: req.body.defaultCooldownMinutes || '60',
     autoResumeAfterCooldown: req.body.autoResumeAfterCooldown === 'true' ? 'true' : 'false',
     maxParallelRuns: req.body.maxParallelRuns || '1',

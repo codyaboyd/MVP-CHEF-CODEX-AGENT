@@ -1,5 +1,6 @@
 const dashboardService = require('../services/dashboardService');
 const recipeRunEngine = require('../services/recipeRunEngine');
+const runStateManager = require('../services/runStateManager');
 
 function apiError(res, status, message) {
   return res.status(status).json({ error: { message } });
@@ -31,8 +32,11 @@ function getJob(req, res) {
 
 function addJobPrompt(req, res) {
   try {
-    const step = recipeRunEngine.addPromptToRun(Number(req.params.id), req.body.prompt);
-    return res.status(201).json({ jobId: Number(req.params.id), step: { id: step.id, order: step.step_order, status: step.status, prompt: step.prompt_override } });
+    const runId = Number(req.params.id);
+    const wasFinished = runStateManager.getRun(runId)?.status === runStateManager.STATUSES.SUCCEEDED;
+    const step = recipeRunEngine.addPromptToRun(runId, req.body.prompt);
+    if (wasFinished) recipeRunEngine.resumeRun(runId, {}).catch((error) => console.error(`API job ${runId} follow-up failed:`, error));
+    return res.status(201).json({ jobId: runId, step: { id: step.id, order: step.step_order, status: step.status, prompt: step.prompt_override } });
   } catch (error) {
     if (/was not found/.test(error.message)) return apiError(res, 404, error.message);
     if (error.code === 'RUN_NOT_ACTIVE') return apiError(res, 409, error.message);
