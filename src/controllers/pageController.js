@@ -282,6 +282,22 @@ function addRunPrompt(req, res, next) {
   }
 }
 
+function updatePendingPrompt(req, res, next) {
+  try {
+    const runId = Number(req.params.id);
+    const step = recipeRunEngine.updatePendingPrompt(runId, Number(req.params.stepId), req.body.prompt);
+    if (req.accepts(['html', 'json']) === 'json') {
+      return res.json({ ok: true, step: { id: step.id, status: step.status, prompt: step.prompt_override } });
+    }
+    return res.redirect(`/runs/${runId}`);
+  } catch (error) {
+    if (req.accepts(['html', 'json']) === 'json' && error.code === 'PROMPT_ALREADY_STARTED') {
+      return res.status(409).json({ error: { code: error.code, message: error.message } });
+    }
+    return next(error);
+  }
+}
+
 
 function saveRunRecipe(req, res, next) {
   try {
@@ -486,6 +502,7 @@ module.exports = {
   runDetail,
   runEvents,
   addRunPrompt,
+  updatePendingPrompt,
   saveRunRecipe,
   setQuotaRefill,
   pauseRun,

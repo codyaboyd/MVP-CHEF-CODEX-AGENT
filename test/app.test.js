@@ -239,6 +239,44 @@ test('REST API reports job status and appends a prompt after the active chain', 
   db.prepare('DELETE FROM projects WHERE id = ?').run(project.lastInsertRowid);
 });
 
+test('pending prompts can be modified, but in-progress and completed prompts cannot', async () => {
+  const project = db.prepare('INSERT INTO projects (name, repo_path) VALUES (?, ?)')
+    .run('Prompt Editing Project', process.cwd());
+  const recipe = db.prepare('INSERT INTO recipes (project_id, name, version, description) VALUES (?, ?, ?, ?)')
+    .run(project.lastInsertRowid, 'Editable prompts', '1.0.0', 'Test prompt editing states.');
+  const recipeStep = db.prepare('INSERT INTO recipe_steps (recipe_id, step_order, title, prompt) VALUES (?, ?, ?, ?)')
+    .run(recipe.lastInsertRowid, 1, 'Editable step', 'Original prompt.');
+  const run = db.prepare('INSERT INTO runs (project_id, recipe_id, status) VALUES (?, ?, \'pending\')')
+    .run(project.lastInsertRowid, recipe.lastInsertRowid);
+  const step = db.prepare('INSERT INTO run_steps (run_id, recipe_step_id, step_order, status) VALUES (?, ?, 1, \'pending\')')
+    .run(run.lastInsertRowid, recipeStep.lastInsertRowid);
+
+  const detail = await request(app).get(`/runs/${run.lastInsertRowid}`);
+  assert.equal(detail.status, 200);
+  assert.match(detail.text, /Modify prompt/);
+
+  const modified = await request(app)
+    .post(`/runs/${run.lastInsertRowid}/steps/${step.lastInsertRowid}/prompt`)
+    .set('Accept', 'application/json')
+    .send({ prompt: 'Updated while waiting.' });
+  assert.equal(modified.status, 200);
+  assert.equal(modified.body.step.prompt, 'Updated while waiting.');
+  assert.equal(db.prepare('SELECT prompt_override FROM run_steps WHERE id = ?').get(step.lastInsertRowid).prompt_override, 'Updated while waiting.');
+
+  db.prepare('UPDATE run_steps SET status = \'running\' WHERE id = ?').run(step.lastInsertRowid);
+  const tooLate = await request(app)
+    .post(`/runs/${run.lastInsertRowid}/steps/${step.lastInsertRowid}/prompt`)
+    .set('Accept', 'application/json')
+    .send({ prompt: 'This must not be saved.' });
+  assert.equal(tooLate.status, 409);
+  assert.equal(tooLate.body.error.code, 'PROMPT_ALREADY_STARTED');
+  assert.match(tooLate.body.error.message, /too late/i);
+  assert.equal(db.prepare('SELECT prompt_override FROM run_steps WHERE id = ?').get(step.lastInsertRowid).prompt_override, 'Updated while waiting.');
+
+  const runningDetail = await request(app).get(`/runs/${run.lastInsertRowid}`);
+  assert.doesNotMatch(runningDetail.text, /Modify prompt/);
+});
+
 test('REST API validates start requests and returns JSON for missing jobs', async () => {
   const invalidStart = await request(app).post('/api/jobs').send({ recipeId: 'not-an-id' });
   assert.equal(invalidStart.status, 400);

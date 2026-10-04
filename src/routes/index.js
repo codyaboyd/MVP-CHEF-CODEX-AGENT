@@ -46,6 +46,7 @@ router.get('/runs/:id/events', pageController.runEvents);
 router.get('/runs/:id/diff', pageController.runDiff);
 router.get('/runs/:id/logs', pageController.runLogs);
 router.post('/runs/:id/prompts', pageController.addRunPrompt);
+router.post('/runs/:id/steps/:stepId/prompt', pageController.updatePendingPrompt);
 router.post('/runs/:id/logs/clear', pageController.clearRunLogs);
 router.get('/runs/:id/failure-report', pageController.exportFailureReport);
 router.post('/runs/:id/pause', pageController.pauseRun);
