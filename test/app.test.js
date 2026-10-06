@@ -1300,7 +1300,7 @@ test('settings offer the current GPT model line-up', async () => {
   assert.match(response.text, /<select class="form-select" id="codexModel" name="codexModel">/);
   assert.doesNotMatch(response.text, /<datalist id="codexModelOptions">/);
   [
-    ['gpt-sol-6.1', 'GPT-Sol-6.1'],
+    ['gpt-6.1-sol', 'GPT-6.1-Sol'],
     ['gpt-6-astra', 'GPT-6-Astra'],
     ['gpt-6-sol', 'GPT-6-Sol'],
     ['gpt-6-luna', 'GPT-6-Luna'],
